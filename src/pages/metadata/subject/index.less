@@ -1,0 +1,235 @@
+.theme-management-page {
+  padding: 24px;
+  background: #f7f8fa;
+  min-height: 100vh;
+
+  // 页面头部
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+
+    .page-title {
+      margin: 0;
+      color: #1f2937;
+      font-weight: 600;
+    }
+
+    .add-primary-btn {
+      background: #165dff;
+      border-color: #165dff;
+      &:hover {
+        background: #0f52d9;
+        border-color: #0f52d9;
+      }
+    }
+  }
+
+  // 树形卡片
+  .theme-tree-card {
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+
+    .card-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .tree-container {
+      padding: 20px;
+      background: #fafafa;
+      border-radius: 6px;
+      margin-top: 16px;
+    }
+  }
+
+  // 自定义树形样式
+  .custom-tree {
+    --ant-tree-node-selected-bg: #e6f7ff;
+    --ant-tree-node-hover-bg: #f0f8ff;
+
+    .ant-tree-treenode {
+      height: auto;
+      padding: 6px 0;
+    }
+
+    .tree-switcher-icon {
+      color: #94a3b8;
+      font-size: 12px;
+    }
+
+    .tree-node-icon {
+      color: #475569;
+      margin-right: 8px;
+      font-size: 14px;
+    }
+  }
+
+  // 自定义树节点
+  .custom-tree-node {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: #f8fafc;
+    }
+
+    .node-info {
+      display: flex;
+      align-items: center;
+      flex: 1;
+      gap: 8px;
+
+      .node-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: #1e293b;
+        min-width: 120px;
+      }
+
+      .status-tag {
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+
+        &.enable {
+          background: #ecfdf5;
+          color: #059669;
+
+          .anticon {
+            font-size: 10px;
+          }
+        }
+
+        &.disable {
+          background: #fef2f2;
+          color: #dc2626;
+
+          .anticon {
+            font-size: 10px;
+          }
+        }
+      }
+
+      .node-desc {
+        font-size: 12px;
+        color: #64748b;
+        margin-left: 8px;
+        flex: 1;
+      }
+    }
+
+    .node-actions {
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+
+      .action-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+
+        &.add-btn {
+          color: #0284c7;
+          &:hover {
+            background: #eff6ff;
+            color: #0369a1;
+          }
+        }
+
+        &.edit-btn {
+          color: #8b5cf6;
+          &:hover {
+            background: #f5f3ff;
+            color: #7c3aed;
+          }
+        }
+
+        &.delete-btn {
+          color: #ef4444;
+          &:hover {
+            background: #fef2f2;
+            color: #dc2626;
+          }
+
+          &.ant-btn-disabled {
+            color: #9ca3af;
+            background: transparent;
+            cursor: not-allowed;
+          }
+        }
+      }
+    }
+
+    &:hover .node-actions {
+      opacity: 1;
+    }
+  }
+
+  // 弹窗样式
+  .theme-modal {
+    .ant-modal-header {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 16px 24px;
+    }
+
+    .ant-modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .ant-modal-body {
+      padding: 24px;
+    }
+  }
+
+  // 表单样式
+  .theme-form {
+    .ant-form-item {
+      margin-bottom: 16px;
+
+      .ant-form-item-label {
+        font-weight: 500;
+        color: #374151;
+      }
+    }
+
+    .form-input, .form-textarea, .form-select {
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+      transition: all 0.2s ease;
+
+      &:focus {
+        border-color: #165dff;
+        box-shadow: 0 0 0 2px rgba(22, 93, 255, 0.1);
+      }
+    }
+
+    .option-enable {
+      color: #059669;
+    }
+
+    .option-disable {
+      color: #dc2626;
+    }
+  }
+}
