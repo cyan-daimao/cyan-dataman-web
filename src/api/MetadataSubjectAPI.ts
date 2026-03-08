@@ -1,4 +1,5 @@
 import {datamanRequest} from "./Request.ts";
+import {AxiosRequestConfig} from "axios";
 
 export interface SubjectDTO {
     id: string;
@@ -16,10 +17,16 @@ export interface SubjectDTO {
     children: SubjectDTO[];
 }
 
+export interface SubjectListQuery{
+    parentId: string;
+}
 // 获取所有主题
-export const listSubjects = async (): Promise<SubjectDTO[]> => {
+export const listSubjects = async (query:SubjectListQuery): Promise<SubjectDTO[]> => {
     try {
-        const data = await datamanRequest.get('/api/v1/metadata/subjects')
+        const config: AxiosRequestConfig = {
+            params: query // GET 请求的参数要放在 params 里
+        };
+        const data = await datamanRequest.get('/api/v1/metadata/subjects',config)
         return data.data
     } catch (error) {
         // 错误处理：打印日志 + 抛出错误（让调用方处理），避免静默失败
@@ -33,7 +40,7 @@ export interface SubjectCmd {
     subjectName: string;
     subjectDesc: string;
     parentId: string;
-    openStatus: string;
+    openStatus?: string;
 }
 
 // 保存主题
@@ -49,7 +56,7 @@ export const saveSubject = async (cmd: SubjectCmd): Promise<SubjectDTO> => {
     }
 }
 
-// 删除主题
+// 编辑主题
 export const editSubject = async (id: string, cmd: SubjectCmd): Promise<void> => {
     try {
         cmd.openStatus = cmd.openStatus || 'OPEN';

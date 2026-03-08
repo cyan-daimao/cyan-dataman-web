@@ -1,0 +1,95 @@
+import axios from 'axios';
+import { message } from "antd";
+
+// 扩展环境URL配置：区分不同业务线的基础地址
+const envURL: { [key: string]: { [key: string]: string } } = {
+    "dev": {
+        dataman: "http://cyan-dataman.cyan.com/",
+        employee: "http://cyan-employee.cyan.com/" // 员工系统地址
+    },
+    "pre": {
+        dataman: "http://127.0.0.1:8000",
+        employee: "http://127.0.0.1:8001" // 预发环境员工系统地址
+    },
+    "pro": {
+        dataman: "http://127.0.0.1:8000",
+        employee: "http://127.0.0.1:8001" // 生产环境员工系统地址
+    },
+};
+
+// 获取当前环境的基础URL（默认使用dataman）
+const getBaseURL = (service = 'dataman') => {
+    const currentMode = import.meta.env.MODE;
+    // 容错：如果当前环境配置不存在，使用默认地址
+    return envURL[currentMode]?.[service] || `http://localhost:8080/${service}`;
+};
+
+// 创建通用请求方法（支持指定业务线）
+const createRequest = (service = 'dataman') => {
+    // 创建 Axios 实例
+    const request = axios.create({
+        baseURL: getBaseURL(service),
+        timeout: 10000,
+        headers: {
+            'Content-Type': 'application/json;charset=utf-8'
+        }
+    });
+
+    // --------------- 请求拦截器 ---------------
+    request.interceptors.request.use(
+        (config) => {
+            const token = localStorage.getItem('token');
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
+            return config;
+        },
+        (error) => {
+            return Promise.reject(error);
+        }
+    );
+
+    // --------------- 响应拦截器 ---------------
+    request.interceptors.response.use((response) => {
+            if (response.data.code !== 200) {
+                message.error(response.data.message || '操作失败').then()
+            }
+            return response.data;
+        },
+        (error) => {
+            const status = error.response?.status;
+            let msg: string;
+
+            switch (status) {
+                case 401:
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                    msg = '登录已过期，请重新登录';
+                    break;
+                case 403:
+                    msg = '无权限访问';
+                    break;
+                case 500:
+                    msg = '服务器内部错误';
+                    break;
+                default:
+                    msg = error.response?.data?.message || error.message || '未知错误';
+            }
+
+            message.error(msg).then();
+            return Promise.reject(error);
+        }
+    );
+
+    return request;
+};
+
+// 默认导出 dataman 业务线的请求实例（保持原有使用方式不变）
+export default createRequest('dataman');
+
+// 单独导出 employee 业务线的请求实例
+export const employeeRequest = createRequest('employee');
+export const datamanRequest = createRequest('dataman');
+
+// 也可以导出创建函数，支持后续扩展更多业务线
+export const createCustomRequest = createRequest;
