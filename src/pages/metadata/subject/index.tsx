@@ -23,18 +23,13 @@ import {
     FolderOutlined,
     PlusOutlined
 } from '@ant-design/icons';
-import {listSubjects, SubjectDTO} from "../../../api/DatamanAPI.ts";
+import {deleteSubject, editSubject, listSubjects, saveSubject, SubjectDTO} from "../../../api/MetadataSubjectAPI.ts";
+import EmployeeSelect from "../../../component/employee/EmployeeSelect.tsx";
 
 const {Title, Text} = Typography;
 
 // 定义类型接口
-interface Theme {
-    id: string;
-    name: string;
-    description: string;
-    createTime: string;
-    updateTime: string;
-}
+
 
 interface SubTheme {
     key: string;
@@ -84,21 +79,21 @@ const initialSubThemes: SubTheme[] = [
     }
 ];
 
-const ThemeDomainManagement: React.FC = () => {
+const SubjectManagement: React.FC = () => {
     // 状态管理
     const [subjects, setSubjects] = useState<SubjectDTO[]>();
     const [subThemes, setSubThemes] = useState<SubTheme[]>(initialSubThemes);
-    const [selectedTheme, setSelectedTheme] = useState<Theme | null>(null);
+    const [selectedTheme, setSelectedTheme] = useState<SubjectDTO | null>(null);
     const [currentSubTheme, setCurrentSubTheme] = useState<SubTheme | null>(null);
 
     // 弹窗状态
-    const [themeModalVisible, setThemeModalVisible] = useState(false);
+    const [subjectModalVisible, setSubjectModalVisible] = useState(false);
     const [subThemeModalVisible, setSubThemeModalVisible] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
 
     // 表单实例
-    const [themeForm] = Form.useForm();
-    const [subThemeForm] = Form.useForm();
+    const [subjectForm] = Form.useForm();
+    const [subsubjectForm] = Form.useForm();
 
     useEffect(() => {
         fetchSubjects().then()
@@ -147,54 +142,54 @@ const ThemeDomainManagement: React.FC = () => {
     }));
 
     // 处理一级主题操作
-    const handleAddTheme = () => {
+    const handleAddSubject = () => {
         setIsEditing(false);
-        themeForm.resetFields();
-        setThemeModalVisible(true);
+        subjectForm.resetFields();
+        setSubjectModalVisible(true);
     };
 
-    const handleEditTheme = (record: Theme) => {
-        setIsEditing(true);
-        setSelectedTheme(record);
-        themeForm.setFieldsValue({
-            name: record.name,
-            description: record.description
+    // 打开一级主题编辑
+    const openEditSubject = async (record: SubjectDTO) => {
+        subjectForm.setFieldsValue({
+            id: record.id,
+            subjectName: record.subjectName,
+            subjectCode: record.subjectCode,
+            owner: record.owner,
+            subjectDesc: record.subjectDesc
         });
-        setThemeModalVisible(true);
+        setIsEditing(true);
+        setSubjectModalVisible(true);
     };
 
-    const handleDeleteTheme = (id: string) => {
-        // 检查是否有关联的二级主题
-        const hasSubThemes = subThemes.some(item => item.parentId === id);
-        if (hasSubThemes) {
-            message.error('该主题下存在二级主题，无法删除！');
-            return;
-        }
-
-        message.success('主题删除成功！');
+    // 处理一级主题编辑
+    const handleEditSubject = async () => {
+        const values = await subjectForm.validateFields();
+        editSubject(values.id, values).then(() => {
+            fetchSubjects()
+            setSubjectModalVisible(false)
+        })
     };
-
-    const handleSaveTheme = async () => {
+    // 处理一级主题删除
+    const handleDeleteSubject = (id: string) => {
         try {
-            const values = await themeForm.validateFields();
-            const now = new Date().toISOString().split('T')[0];
+            deleteSubject(id).then(() => {
+                fetchSubjects().then()
+            })
+        } catch (e) {
+            console.error('主题删除失败:', e)
+            message.error('主题删除失败！').then();
+        }
+    };
 
-            if (isEditing && selectedTheme) {
-                
-                message.success('主题编辑成功！');
-            } else {
-                // 新增模式
-                const newTheme: Theme = {
-                    id: `theme-${Date.now()}`,
-                    name: values.name,
-                    description: values.description,
-                    createTime: now,
-                    updateTime: now
-                };
-                message.success('主题创建成功！');
-            }
+    // 处理一级主题保存
+    const handleSaveSubject = async () => {
+        try {
+            const values = await subjectForm.validateFields();
+            saveSubject(values).then(() => {
+                setSubjectModalVisible(false);
+                fetchSubjects()
+            })
 
-            setThemeModalVisible(false);
         } catch (error) {
             console.error('表单验证失败:', error);
         }
@@ -208,14 +203,14 @@ const ThemeDomainManagement: React.FC = () => {
         }
 
         setIsEditing(false);
-        subThemeForm.resetFields();
+        subsubjectForm.resetFields();
         setSubThemeModalVisible(true);
     };
 
     const handleEditSubTheme = (subTheme: SubTheme) => {
         setIsEditing(true);
         setCurrentSubTheme(subTheme);
-        subThemeForm.setFieldsValue({
+        subsubjectForm.setFieldsValue({
             title: subTheme.title,
             description: subTheme.description
         });
@@ -231,8 +226,7 @@ const ThemeDomainManagement: React.FC = () => {
         try {
             if (!selectedTheme) return;
 
-            const values = await subThemeForm.validateFields();
-            const now = new Date().toISOString().split('T')[0];
+            const values = await subsubjectForm.validateFields();
 
             if (isEditing && currentSubTheme) {
                 // 编辑模式
@@ -261,7 +255,7 @@ const ThemeDomainManagement: React.FC = () => {
     };
 
     // 选择一级主题
-    const handleThemeSelect = (record: Theme) => {
+    const handleThemeSelect = (record: SubjectDTO) => {
         setSelectedTheme(record);
     };
 
@@ -310,7 +304,7 @@ const ThemeDomainManagement: React.FC = () => {
         {
             title: '操作',
             key: 'action',
-            render: (_: any, record: Theme) => (
+            render: (_: never, record: SubjectDTO) => (
                 <Space size="small">
                     <Button
                         type="primary"
@@ -323,11 +317,11 @@ const ThemeDomainManagement: React.FC = () => {
                     <Button
                         size="small"
                         icon={<EditOutlined/>}
-                        onClick={() => handleEditTheme(record)}
+                        onClick={() => openEditSubject(record)}
                     />
                     <Popconfirm
                         title="确定删除该主题吗？"
-                        onConfirm={() => handleDeleteTheme(record.id)}
+                        onConfirm={() => handleDeleteSubject(record.id)}
                         okText="确定"
                         cancelText="取消"
                     >
@@ -358,7 +352,7 @@ const ThemeDomainManagement: React.FC = () => {
                                 <Button
                                     type="primary"
                                     icon={<PlusOutlined/>}
-                                    onClick={handleAddTheme}
+                                    onClick={handleAddSubject}
                                 >
                                     新增主题
                                 </Button>
@@ -421,33 +415,58 @@ const ThemeDomainManagement: React.FC = () => {
             {/* 一级主题弹窗 */}
             <Modal
                 title={isEditing ? '编辑一级主题' : '新增一级主题'}
-                open={themeModalVisible}
-                onCancel={() => setThemeModalVisible(false)}
-                onOk={handleSaveTheme}
+                open={subjectModalVisible}
+                onCancel={() => setSubjectModalVisible(false)}
+                onOk={isEditing ? handleEditSubject : handleSaveSubject}
                 destroyOnHidden
             >
                 <Form
-                    form={themeForm}
+                    form={subjectForm}
                     layout="vertical"
                     labelCol={{span: 6}}
                     wrapperCol={{span: 18}}
                 >
                     <Form.Item
-                        name="name"
+                        name="id"
+                        label="主题id"
+                        rules={[{required: true, message: '请输入主题名称'}]}
+                        hidden={true}
+                    >
+                        <Input disabled placeholder="请输入主题名称"/>
+                    </Form.Item>
+
+                    <Form.Item
+                        name="subjectName"
                         label="主题名称"
                         rules={[{required: true, message: '请输入主题名称'}]}
                     >
                         <Input placeholder="请输入主题名称"/>
                     </Form.Item>
-
                     <Form.Item
-                        name="description"
+                        name="subjectCode"
+                        label="主题编码"
+                        rules={[{required: true, message: '请输入主题编码'}]}
+                    >
+                        <Input placeholder="请输入主题编码"/>
+                    </Form.Item>
+                    <Form.Item
+                        name="owner"
+                        label="主题负责人"
+                        rules={[{required: true, message: '请输入主题负责人'}]}
+                    >
+                        <EmployeeSelect placeholder="请选择主题负责人"/>
+                    </Form.Item>
+                    <Form.Item
+                        name="subjectDesc"
                         label="主题描述"
-                        rules={[{required: true, message: '请输入主题描述'}]}
+                        rules={[{required: true, message: '请输入主题描述'}, {
+                            max: 255,
+                            message: '长度不能超过255个字符'
+                        }]}
                     >
                         <Input.TextArea
                             placeholder="请输入主题描述"
-                            rows={4}
+                            rows={3}
                         />
                     </Form.Item>
                 </Form>
@@ -462,7 +481,7 @@ const ThemeDomainManagement: React.FC = () => {
                 destroyOnHidden
             >
                 <Form
-                    form={subThemeForm}
+                    form={subsubjectForm}
                     layout="vertical"
                     labelCol={{span: 6}}
                     wrapperCol={{span: 18}}
@@ -491,4 +510,4 @@ const ThemeDomainManagement: React.FC = () => {
     );
 };
 
-export default ThemeDomainManagement;
+export default SubjectManagement;
