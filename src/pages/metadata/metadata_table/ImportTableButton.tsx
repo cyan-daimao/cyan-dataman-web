@@ -1,10 +1,12 @@
 import React, {useEffect, useState} from 'react';
-import {Button, Card, Empty, Form, Input, Layout, Modal, Select, Space, Spin, Table, Tree, Typography} from 'antd';
-import {DatabaseOutlined, FilterOutlined, SearchOutlined, UploadOutlined} from "@ant-design/icons";
-import {listCatalog} from "../../../api/DataSourceApi.ts";
+import {Button, Card, Empty, Input, Layout, Modal, Space, Spin, Table, Tree, Typography} from 'antd';
+import {DatabaseOutlined, SearchOutlined, UploadOutlined} from "@ant-design/icons";
+import {listCatalog, listSchema, listTable, TableDTO} from "../../../api/DataSourceApi.ts";
 import Sider from 'antd/es/layout/Sider';
 import {Content} from "antd/es/layout/layout";
-const { Title, Text } = Typography;
+import {ColumnType} from "antd/es/table";
+
+const {Title} = Typography;
 
 interface DataNode {
     title: string;
@@ -14,22 +16,106 @@ interface DataNode {
     children?: DataNode[];
 }
 
+
+interface SchemaData {
+    id: number,
+    schema: string;
+}
+
 const App: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [loading,setLoading] = useState(true)
-    const [treeData,setTreeData] = useState<DataNode[]>([])
-    const [tableData,setTableData] = useState<[]>([])
-    const [selectedCatalog,setSelectedCatalog] = useState<string>()
-    useEffect(()=>{
-        listCatalog().then( catalogs=>{
-            const tree = catalogs.map(catalog=>({
+    const [loading, setLoading] = useState(false)
+    const [treeData, setTreeData] = useState<DataNode[]>([])
+    const [schemaData, setSchemaData] = useState<SchemaData[]>([])
+    const [tableData, setTableData] = useState<TableDTO[]>([])
+    const [selectedCatalog, setSelectedCatalog] = useState<string>()
+    const [selectedSchema, setSelectedSchema] = useState<string>()
+
+    useEffect(() => {
+        fetchCatalog().then()
+    }, [])
+
+    useEffect(() => {
+        if (selectedCatalog) {
+            fetchDatabase(selectedCatalog).then()
+        }
+        if (selectedSchema) {
+            fetchTables(selectedCatalog, selectedSchema).then()
+        }
+    }, [selectedCatalog, selectedSchema])
+
+    const schemaColumns: ColumnType<SchemaData>[] = [{
+        title: `${selectedCatalog || '默认'} - 数据源`,
+        dataIndex: 'schema',
+        key: 'schema',
+        render: (text: string) => (
+            <Button color="primary" variant="text" onClick={() => setSelectedSchema(text)}>
+                {text}
+            </Button>
+        )
+    }]
+
+    const tableColumns: ColumnType<TableDTO>[] = [{
+        title: ` ${selectedCatalog}.${selectedSchema || '默认'}  - 库`,
+        dataIndex: 'name',
+        key: 'name',
+        render: (text: string) => (
+            <Button color="primary" variant="text" onClick={() => console.log(text)}>
+                {text}
+            </Button>
+        )
+    }, {
+        title: '注释',
+        dataIndex: 'comment',
+        key: 'comment'
+    }, {
+        title: '操作',
+        dataIndex: 'action',
+        key: 'action',
+        render: (_, record: TableDTO) => (
+            <Button type="primary" variant="text" onClick={() => console.log(record)}>
+                同步到iceberg
+            </Button>
+        )
+    }]
+
+    // 获取目录
+    const fetchCatalog = async () => {
+        listCatalog().then(catalogs => {
+            const tree = catalogs.filter(catalog => catalog.datasourceType !== 'ICEBERG').map((catalog) => ({
                 key: catalog.name,
                 title: catalog.name,
-                icon: <DatabaseOutlined />
+                icon: <DatabaseOutlined/>
             }))
             setTreeData(tree)
         })
-    },[])
+    }
+
+    // 获取库
+    const fetchDatabase = async (catalogName: string) => {
+        setLoading(true)
+        listSchema(catalogName).then(schemas => {
+            const data = schemas.map((item, i) => ({
+                id: i,
+                schema: item.name,
+            }))
+            setSchemaData(data)
+        }).finally(() => {
+            setLoading(false)
+        })
+    }
+
+    // 获取表
+    const fetchTables = async (selectedCatalog: string | undefined, selectedSchema: string) => {
+        setLoading(true)
+        if (selectedCatalog && selectedSchema) {
+            listTable(selectedCatalog, selectedSchema).then(tables => {
+                setTableData(tables)
+            }).finally(() => {
+                setLoading(false)
+            })
+        }
+    }
 
     const showModal = () => {
         setIsModalOpen(true);
@@ -45,7 +131,7 @@ const App: React.FC = () => {
 
     return (
         <>
-            <Button onClick={showModal} icon={<UploadOutlined />}>
+            <Button onClick={showModal} icon={<UploadOutlined/>}>
                 导入表
             </Button>
             <Modal
@@ -60,71 +146,84 @@ const App: React.FC = () => {
                 <Layout>
                     {/* 左侧主题树 */}
                     <Sider
-                        style={{ background: '#fff', borderRight: '1px solid #f0f0f0' }}
+                        style={{background: '#fff', borderRight: '1px solid #f0f0f0'}}
                     >
-                        <div style={{ padding: '16px', borderBottom: '1px solid #f0f0f0' }}>
-                            <Title level={4} style={{ margin: 0 }}>
+                        <div style={{padding: '16px', borderBottom: '1px solid #f0f0f0'}}>
+                            <Title level={4} style={{margin: 0}}>
                                 数据源目录
                             </Title>
                         </div>
                         <Tree
                             treeData={treeData}
-                            onSelect={key=> setSelectedCatalog(key.values.name)}
+                            onSelect={(key) => {
+                                setSelectedCatalog(String(key[0]))
+                                setSchemaData([])
+                                setTableData([])
+                                setSelectedSchema('')
+                            }
+                            }
                             showIcon
-                            style={{ padding: '16px' }}
+                            style={{padding: '16px'}}
                         />
                     </Sider>
 
                     {/* 右侧表管理内容 */}
-                    <Content style={{ margin: '0px', background: '#fff', borderRadius: '1px' }}>
-                        <Card style={{ marginBottom: 8 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div>
-                                    <Title level={5} style={{ margin: 0, display: 'inline-block' }}>
-                                        {/*{selectedThemeKey === 'all' ? '全部表' : getThemeName(selectedThemeKey)}*/}
-                                        表
-                                    </Title>
-                                    <Text type="secondary" style={{ marginLeft: 8 }}>
-                                        共 {tableData.length} 张表
-                                    </Text>
-                                </div>
+                    <Content style={{margin: '0px', background: '#fff', borderRadius: '1px'}}>
+                        <Card style={{marginBottom: 8}}>
+                            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                                 <Space>
                                     <Input
                                         placeholder="搜索表名称/备注"
                                         // value={searchValue}
                                         // onChange={(e) => setSearchValue(e.target.value)}
                                         // onPressEnter={handleSearch}
-                                        style={{ width: 300 }}
-                                        prefix={<SearchOutlined />}
+                                        style={{width: 300}}
+                                        prefix={<SearchOutlined/>}
                                     />
-                                    <Button icon={<SearchOutlined />}>搜索</Button>
-                                    <Button >重置</Button>
+                                    <Button icon={<SearchOutlined/>}>搜索</Button>
+                                    <Button>重置</Button>
                                 </Space>
                             </div>
                         </Card>
 
-                         表列表
                         <Spin spinning={loading}>
-                            {tableData.length > 0 ? (
-                                <Table
-                                    // columns={columns}
-                                    // dataSource={tableData}
-                                    rowKey="id"
-                                    pagination={{
-                                        pageSize: 10,
-                                        showSizeChanger: true,
-                                        showTotal: (total) => `共 ${total} 条记录`
-                                    }}
-                                    scroll={{ x: 'max-content' }}
-                                    bordered
-                                />
-                            ) : (
-                                <Empty
-                                    description="暂无表数据"
-                                    style={{ padding: '40px 0' }}
-                                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                />
-                            )}
+                            {
+                                schemaData.length > 0 && tableData?.length <= 0 ? (
+                                    <Table
+                                        columns={schemaColumns}
+                                        dataSource={schemaData}
+                                        rowKey="id"
+                                        pagination={{
+                                            pageSize: 10,
+                                            showSizeChanger: true,
+                                            showTotal: (total) => `共 ${total} 条记录`
+                                        }}
+                                        scroll={{x: 'max-content'}}
+                                        bordered
+                                    />
+                                ) : (
+                                    tableData.length > 0 ? (
+                                        <Table
+                                            columns={tableColumns}
+                                            dataSource={tableData}
+                                            rowKey="name"
+                                            pagination={{
+                                                pageSize: 10,
+                                                showSizeChanger: true,
+                                                showTotal: (total) => `共 ${total} 条记录`
+                                            }}
+                                            scroll={{x: 'max-content'}}
+                                            bordered
+                                        />
+                                    ) : (
+                                        <Empty
+                                            description="暂无表数据"
+                                            style={{padding: '40px 0'}}
+                                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                        />
+                                    )
+                                )
+                            }
                         </Spin>
                     </Content>
                 </Layout>
