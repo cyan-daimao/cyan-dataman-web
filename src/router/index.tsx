@@ -5,6 +5,7 @@ const Login = React.lazy(() => import((`@/pages/login/index.tsx`)))
 
 const Index = React.lazy(() => import((`@/pages/index.tsx`)))
 const Metadata = React.lazy(() => import((`@/pages/metadata/index.tsx`)))
+const Datasource = React.lazy(() => import((`@/pages/metadata/datasource/index.tsx`)))
 const Subject = React.lazy(() => import((`@/pages/metadata/subject/index.tsx`)))
 const MetadataTable = React.lazy(() => import((`@/pages/metadata/metadata_table/index.tsx`)))
 const Metrics = React.lazy(() => import((`@/pages/metrics/index.tsx`)))
@@ -29,6 +30,10 @@ const routes = createBrowserRouter([
                 path: "metadata",
                 element: <Metadata/>,
                 children: [
+                    {
+                        path: "datasource",
+                        element: <Datasource/>
+                    },
                     {
                         path: "subject",
                         element: <Subject/>

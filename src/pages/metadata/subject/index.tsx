@@ -279,7 +279,6 @@ const SubjectManagement: React.FC = () => {
                 open={subjectModalVisible}
                 onCancel={() => setSubjectModalVisible(false)}
                 onOk={isEditing ? handleEditSubject : handleSaveSubject}
-                destroyOnHidden
             >
                 <Form
                     form={subjectForm}

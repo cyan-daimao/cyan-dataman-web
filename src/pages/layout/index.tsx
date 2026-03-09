@@ -7,7 +7,7 @@ const {Header, Content, Footer} = Layout;
 
 const items: MenuProps['items'] = [
     {
-        label: <a href={'/metadata'}>元数据</a>,
+        label: <a href={'/metadata'}>数据资产</a>,
         key: '1',
     },
     {

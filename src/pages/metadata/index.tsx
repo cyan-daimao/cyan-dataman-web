@@ -13,23 +13,27 @@ const items: MenuProps['items'] = [
         icon: <LaptopOutlined />,
         children: [
             {
-                key:'1-1',
+                key:'datasource',
+                label: <Link to='/metadata/datasource'>数据源</Link>,
+            },
+            {
+                key:'subjectManage',
                 label: <Link to='/metadata/subject'>主题管理</Link>,
             },
             {
-                label: <Link to={'/metadata/metadata_table'}>元数据表</Link>,
                 key: 'metadataTable',
+                label: <Link to={'/metadata/metadata_table'}>元数据表</Link>,
             },
         ]
     },
     {
-        label: '数据监控',
         key: 'data',
+        label: '数据监控',
         icon: <UserOutlined />,
         children: [
             {
-                label: '数据同步',
                 key: 'async',
+                label: '数据同步',
             }
         ]
     }

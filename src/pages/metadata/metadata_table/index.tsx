@@ -1,433 +1,613 @@
-import React, {useEffect, useState} from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-    Button,
-    Card,
-    Dropdown,
-    Empty,
-    Input,
-    Layout,
-    Menu,
-    message,
-    Select,
-    Space,
-    Spin,
-    Table,
-    Tag,
-    Typography
+    Layout, Tree, Table, Input, Button, Space, Tag, Dropdown,
+    Menu, Modal, Form, Select, message, Typography, Divider,
+    Card, Spin, Empty
 } from 'antd';
 import {
-    DatabaseOutlined,
-    DeleteOutlined,
-    DownloadOutlined,
-    EditOutlined,
-    EyeOutlined,
-    FilterOutlined,
-    LineChartOutlined,
-    MoreOutlined,
-    SearchOutlined,
-    TableOutlined,
-    TagOutlined,
-    UserOutlined
+    DatabaseOutlined, SearchOutlined, PlusOutlined, EditOutlined,
+    DeleteOutlined, FilterOutlined, DownloadOutlined, SettingOutlined,
+    FolderOutlined, TableOutlined, ReloadOutlined
 } from '@ant-design/icons';
+import type { TreeProps, TableProps, ColumnsType } from 'antd';
+import type { MenuProps } from 'antd/es/menu';
+import {treeSubjects} from "../../../api/MetadataSubjectAPI.ts";
+import ImportTable from "./ImportTableButton.tsx";
 
-// 类型定义
-interface MetadataItem {
+const { Header, Sider, Content } = Layout;
+const { Title, Text } = Typography;
+const { Option } = Select;
+const { confirm } = Modal;
+
+// 定义类型接口
+interface SubjectNode {
+    key: string;
+    title: string;
+    icon?: React.ReactNode;
+    children?: SubjectNode[];
+}
+
+interface TableMeta {
     id: string;
-    name: string;
-    code: string;
-    type: 'table' | 'view' | 'field' | 'api' | 'metric';
-    database: string;
-    owner: string;
+    tableName: string;
+    tableComment: string;
+    theme: string;
+    dbType: string;
     createTime: string;
     updateTime: string;
+    owner: string;
     status: 'online' | 'offline' | 'draft';
-    tags: string[];
-    description: string;
 }
 
-interface MetadataTypeOption {
-    value: string;
-    label: string;
-    icon: React.ReactNode;
+interface TableFormData {
+    tableName: string;
+    tableComment: string;
+    theme: string;
+    dbType: string;
+    owner: string;
 }
 
-const {Text} = Typography;
-const {Option} = Select;
-const {Search} = Input;
-
-const MetadataPlatform: React.FC = () => {
+const MetaDataManagement: React.FC = () => {
     // 状态管理
-    const [metadataList, setMetadataList] = useState<MetadataItem[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [searchValue, setSearchValue] = useState<string>('');
-    const [typeFilter, setTypeFilter] = useState<string>('');
-    const [statusFilter, setStatusFilter] = useState<string>('');
+    const [subjectTreeData,setSubjectTreeData] = useState<SubjectNode[]>([]);
+    const [collapsed, setCollapsed] = useState(false); // 侧边栏折叠状态
+    const [selectedThemeKey, setSelectedThemeKey] = useState<string>('all'); // 选中的主题key
+    const [tableData, setTableData] = useState<TableMeta[]>([]); // 表数据
+    const [loading, setLoading] = useState(true); // 加载状态
+    const [searchValue, setSearchValue] = useState(''); // 搜索值
+    const [modalVisible, setModalVisible] = useState(false); // 表单弹窗状态
+    const [modalType, setModalType] = useState<'add' | 'edit'>('add'); // 弹窗类型
+    const [currentRecord, setCurrentRecord] = useState<TableMeta | null>(null); // 当前操作的记录
+    const [form] = Form.useForm(); // 表单实例
 
-    // 元数据类型选项
-    const metadataTypes: MetadataTypeOption[] = [
-        {value: 'table', label: '数据表', icon: <TableOutlined/>},
-        {value: 'view', label: '视图', icon: <TableOutlined/>},
-        {value: 'field', label: '字段', icon: <TagOutlined/>},
-        {value: 'api', label: '接口', icon: <LineChartOutlined/>},
-        {value: 'metric', label: '指标', icon: <DatabaseOutlined/>},
+    useEffect(()=>{
+      fetchTreeSubjects().then()
+    },[])
+
+    const fetchTreeSubjects = async () => {
+        const data = await treeSubjects();
+        const treeData: SubjectNode[] = data.map(item=>({
+            key: item.id,
+            title: item.subjectName,
+            icon: <DatabaseOutlined />,
+            children: item.children?.map(child=>({
+                key: child.subjectCode,
+                title: child.subjectName,
+                icon: <DatabaseOutlined />,
+            }))
+        }))
+        treeData.unshift({
+            key: 'all',
+            title: '全部主题',
+            icon: <TableOutlined />,
+        })
+        setSubjectTreeData(treeData)
+    }
+    // 主题树数据
+    const themeTreeData: SubjectNode[] = [
+        {
+            key: 'all',
+            title: '全部主题',
+            icon: <DatabaseOutlined />,
+        },
+        {
+            key: 'ods',
+            title: 'ODS层',
+            icon: <FolderOutlined />,
+            children: [
+                { key: 'ods_user', title: '用户数据', icon: <TableOutlined /> },
+                { key: 'ods_order', title: '订单数据', icon: <TableOutlined /> },
+                { key: 'ods_product', title: '商品数据', icon: <TableOutlined /> },
+            ],
+        },
+        {
+            key: 'dwd',
+            title: 'DWD层',
+            icon: <FolderOutlined />,
+            children: [
+                { key: 'dwd_user_profile', title: '用户画像', icon: <TableOutlined /> },
+                { key: 'dwd_order_detail', title: '订单明细', icon: <TableOutlined /> },
+            ],
+        },
+        {
+            key: 'dws',
+            title: 'DWS层',
+            icon: <FolderOutlined />,
+            children: [
+                { key: 'dws_user_behavior', title: '用户行为', icon: <TableOutlined /> },
+                { key: 'dws_sales_summary', title: '销售汇总', icon: <TableOutlined /> },
+            ],
+        },
+        {
+            key: 'ads',
+            title: 'ADS层',
+            icon: <FolderOutlined />,
+            children: [
+                { key: 'ads_sales_analysis', title: '销售分析', icon: <TableOutlined /> },
+                { key: 'ads_user_analysis', title: '用户分析', icon: <TableOutlined /> },
+            ],
+        },
     ];
 
-    // 模拟获取元数据列表
-    useEffect(() => {
-        // 模拟接口请求
-        const fetchMetadata = async () => {
-            setLoading(true);
-            try {
-                // 模拟延迟
-                await new Promise(resolve => setTimeout(resolve, 800));
-
-                // 模拟数据
-                const mockData: MetadataItem[] = [
-                    {
-                        id: '1',
-                        name: '用户基础信息表',
-                        code: 'dim_user_base',
-                        type: 'table',
-                        database: 'user_center',
-                        owner: 'zhangsan',
-                        createTime: '2026-01-10 14:30:00',
-                        updateTime: '2026-02-15 09:20:00',
-                        status: 'online',
-                        tags: ['用户数据', '基础信息', '核心表'],
-                        description: '存储用户的基础信息，包括用户名、手机号、邮箱等核心字段'
-                    },
-                    {
-                        id: '2',
-                        name: '订单支付金额指标',
-                        code: 'metric_order_pay_amt',
-                        type: 'metric',
-                        database: 'data_mart',
-                        owner: 'lisi',
-                        createTime: '2026-01-15 10:00:00',
-                        updateTime: '2026-02-20 16:40:00',
-                        status: 'online',
-                        tags: ['订单数据', '支付指标', '实时计算'],
-                        description: '统计各时段订单支付金额，按天/小时聚合'
-                    },
-                    {
-                        id: '3',
-                        name: '商品详情接口',
-                        code: 'api_product_detail',
-                        type: 'api',
-                        database: 'product_center',
-                        owner: 'wangwu',
-                        createTime: '2026-01-20 09:15:00',
-                        updateTime: '2026-02-22 11:30:00',
-                        status: 'draft',
-                        tags: ['商品数据', '接口', '详情'],
-                        description: '提供商品详情信息查询的API接口'
-                    },
-                    {
-                        id: '4',
-                        name: '用户订单视图',
-                        code: 'view_user_order',
-                        type: 'view',
-                        database: 'order_center',
-                        owner: 'zhaoliu',
-                        createTime: '2026-01-25 15:40:00',
-                        updateTime: '2026-03-01 14:10:00',
-                        status: 'offline',
-                        tags: ['用户订单', '视图', '关联查询'],
-                        description: '关联用户表和订单表的视图，简化查询逻辑'
-                    },
-                    {
-                        id: '5',
-                        name: '订单金额字段',
-                        code: 'field_order_amount',
-                        type: 'field',
-                        database: 'order_center',
-                        owner: 'qianqi',
-                        createTime: '2026-02-01 11:20:00',
-                        updateTime: '2026-03-05 10:00:00',
-                        status: 'online',
-                        tags: ['订单字段', '金额', '数值型'],
-                        description: '订单表中的金额字段，记录订单总金额'
-                    },
-                ];
-
-                setMetadataList(mockData);
-            } catch (error) {
-                message.error('获取元数据列表失败，请重试');
-                console.error('Fetch metadata error:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchMetadata();
-    }, []);
-
-    // 处理搜索和筛选
-    const getFilteredList = () => {
-        return metadataList.filter(item => {
-            // 搜索筛选
-            const matchSearch = searchValue
-                ? item.name.includes(searchValue) || item.code.includes(searchValue) || item.description.includes(searchValue)
-                : true;
-
-            // 类型筛选
-            const matchType = typeFilter ? item.type === typeFilter : true;
-
-            // 状态筛选
-            const matchStatus = statusFilter ? item.status === statusFilter : true;
-
-            return matchSearch && matchType && matchStatus;
-        });
-    };
-
-    // 状态标签渲染
-    const renderStatusTag = (status: string) => {
-        const statusMap = {
-            online: {color: 'success', text: '已上线'},
-            offline: {color: 'error', text: '已下线'},
-            draft: {color: 'warning', text: '草稿'},
-        };
-        const {color, text} = statusMap[status as keyof typeof statusMap];
-        return <Tag color={color}>{text}</Tag>;
-    };
-
-    // 类型标签渲染
-    const renderTypeTag = (type: string) => {
-        const typeMap = {
-            table: {color: 'blue', text: '数据表'},
-            view: {color: 'purple', text: '视图'},
-            field: {color: 'cyan', text: '字段'},
-            api: {color: 'orange', text: '接口'},
-            metric: {color: 'green', text: '指标'},
-        };
-        const {color, text} = typeMap[type as keyof typeof typeMap];
-        return <Tag color={color}>{text}</Tag>;
-    };
-
-    // 操作菜单
-    const renderOperationMenu = (record: MetadataItem) => {
-        const menu = (
-            <Menu>
-                <Menu.Item
-                    key="view"
-                    icon={<EyeOutlined/>}
-                    onClick={() => handleView(record)}
-                >
-                    查看详情
-                </Menu.Item>
-                <Menu.Item
-                    key="edit"
-                    icon={<EditOutlined/>}
-                    onClick={() => handleEdit(record)}
-                >
-                    编辑
-                </Menu.Item>
-                <Menu.Item
-                    key="download"
-                    icon={<DownloadOutlined/>}
-                    onClick={() => handleDownload(record)}
-                >
-                    导出文档
-                </Menu.Item>
-                <Menu.Item
-                    key="delete"
-                    icon={<DeleteOutlined/>}
-                    danger
-                    onClick={() => handleDelete(record)}
-                >
-                    删除
-                </Menu.Item>
-            </Menu>
-        );
-
-        return (
-            <Dropdown menu={menu} trigger={['click']}>
-                <Button size="small" icon={<MoreOutlined/>}/>
-            </Dropdown>
-        );
-    };
-
-    // 操作处理函数
-    const handleView = (record: MetadataItem) => {
-        message.info(`查看元数据：${record.name}`);
-        // 可在这里打开详情弹窗或跳转到详情页
-    };
-
-    const handleEdit = (record: MetadataItem) => {
-        message.info(`编辑元数据：${record.name}`);
-        // 可在这里打开编辑弹窗或跳转到编辑页
-    };
-
-    const handleDownload = (record: MetadataItem) => {
-        message.success(`导出元数据文档：${record.name}`);
-        // 可在这里实现导出逻辑
-    };
-
-    const handleDelete = (record: MetadataItem) => {
-        // 实际项目中需增加确认弹窗
-        setMetadataList(metadataList.filter(item => item.id !== record.id));
-        message.success(`删除元数据：${record.name} 成功`);
-    };
-
-    const handleAddMetadata = () => {
-        message.info('打开新增元数据表单');
-        // 可在这里打开新增弹窗
-    };
-
-    // 表格列定义
-    const columns = [
+    // 表列定义
+    const columns: ColumnsType<TableMeta> = [
         {
-            title: '元数据名称',
-            dataIndex: 'name',
-            key: 'name',
-            width: 180,
-            render: (name: string, record: MetadataItem) => (
-                <Space>
-                    {metadataTypes.find(item => item.value === record.type)?.icon}
-                    <Text strong>{name}</Text>
-                </Space>
-            ),
-        },
-        {
-            title: '编码',
-            dataIndex: 'code',
-            key: 'code',
+            title: '表名称',
+            dataIndex: 'tableName',
+            key: 'tableName',
             width: 200,
+            ellipsis: true,
+            render: (text) => <Text strong>{text}</Text>,
         },
         {
-            title: '类型',
-            dataIndex: 'type',
-            key: 'type',
-            width: 100,
-            render: (type: string) => renderTypeTag(type),
+            title: '表备注',
+            dataIndex: 'tableComment',
+            key: 'tableComment',
+            width: 250,
+            ellipsis: true,
         },
         {
-            title: '所属数据库',
-            dataIndex: 'database',
-            key: 'database',
+            title: '所属主题',
+            dataIndex: 'theme',
+            key: 'theme',
             width: 150,
+            render: (text) => <Tag color="blue">{text}</Tag>,
+        },
+        {
+            title: '数据库类型',
+            dataIndex: 'dbType',
+            key: 'dbType',
+            width: 120,
+            render: (text) => <Tag color="green">{text}</Tag>,
         },
         {
             title: '负责人',
             dataIndex: 'owner',
             key: 'owner',
             width: 100,
-            render: (owner: string) => (
-                <Space>
-                    <UserOutlined/>
-                    <Text>{owner}</Text>
-                </Space>
-            ),
         },
         {
             title: '状态',
             dataIndex: 'status',
             key: 'status',
             width: 100,
-            render: (status: string) => renderStatusTag(status),
+            render: (status) => {
+                let color = '';
+                let text = '';
+                switch (status) {
+                    case 'online':
+                        color = 'success';
+                        text = '已上线';
+                        break;
+                    case 'offline':
+                        color = 'error';
+                        text = '已下线';
+                        break;
+                    case 'draft':
+                        color = 'warning';
+                        text = '草稿';
+                        break;
+                    default:
+                        color = 'default';
+                        text = '未知';
+                }
+                return <Tag color={color}>{text}</Tag>;
+            },
         },
         {
-            title: '标签',
-            dataIndex: 'tags',
-            key: 'tags',
-            render: (tags: string[]) => (
-                <>
-                    {tags.map(tag => (
-                        <Tag key={tag} size="small">{tag}</Tag>
-                    ))}
-                </>
-            ),
-        },
-        {
-            title: '更新时间',
-            dataIndex: 'updateTime',
-            key: 'updateTime',
+            title: '创建时间',
+            dataIndex: 'createTime',
+            key: 'createTime',
             width: 180,
         },
         {
             title: '操作',
             key: 'action',
-            width: 100,
-            render: (_: any, record: MetadataItem) => (
+            width: 180,
+            render: (_: any, record: TableMeta) => (
                 <Space size="small">
                     <Button
+                        type="text"
+                        icon={<EditOutlined />}
+                        onClick={() => handleEdit(record)}
                         size="small"
-                        icon={<EyeOutlined/>}
-                        onClick={() => handleView(record)}
-                    />
-                    {renderOperationMenu(record)}
+                    >
+                        编辑
+                    </Button>
+                    <Button
+                        type="text"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={() => handleDelete(record)}
+                        size="small"
+                    >
+                        删除
+                    </Button>
+                    <Dropdown
+                        overlay={
+                            <Menu>
+                                <Menu.Item key="1">查看详情</Menu.Item>
+                                <Menu.Item key="2">同步数据</Menu.Item>
+                                <Menu.Item key="3">导出DDL</Menu.Item>
+                            </Menu>
+                        }
+                    >
+                        <Button type="text" size="small">更多</Button>
+                    </Dropdown>
                 </Space>
             ),
         },
     ];
 
+    // 模拟获取表数据
+    const fetchTableData = async (themeKey: string = 'all') => {
+        setLoading(true);
+        // 模拟接口请求
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        // 模拟数据
+        const mockData: TableMeta[] = [
+            {
+                id: '1',
+                tableName: 'ods_user_info',
+                tableComment: '用户基础信息表',
+                theme: themeKey === 'all' ? 'ODS层/用户数据' : getThemeName(themeKey),
+                dbType: 'Hive',
+                createTime: '2026-01-10 10:20:30',
+                updateTime: '2026-02-15 14:30:20',
+                owner: '张三',
+                status: 'online',
+            },
+            {
+                id: '2',
+                tableName: 'ods_order_info',
+                tableComment: '订单基础信息表',
+                theme: themeKey === 'all' ? 'ODS层/订单数据' : getThemeName(themeKey),
+                dbType: 'Hive',
+                createTime: '2026-01-12 09:15:20',
+                updateTime: '2026-02-20 11:45:10',
+                owner: '李四',
+                status: 'online',
+            },
+            {
+                id: '3',
+                tableName: 'dwd_user_profile',
+                tableComment: '用户画像宽表',
+                theme: themeKey === 'all' ? 'DWD层/用户画像' : getThemeName(themeKey),
+                dbType: 'Hive',
+                createTime: '2026-01-15 14:20:10',
+                updateTime: '2026-02-25 09:10:30',
+                owner: '王五',
+                status: 'online',
+            },
+            {
+                id: '4',
+                tableName: 'dws_sales_summary',
+                tableComment: '销售汇总表',
+                theme: themeKey === 'all' ? 'DWS层/销售汇总' : getThemeName(themeKey),
+                dbType: 'ClickHouse',
+                createTime: '2026-01-20 16:30:40',
+                updateTime: '2026-03-01 15:20:10',
+                owner: '赵六',
+                status: 'draft',
+            },
+            {
+                id: '5',
+                tableName: 'ads_sales_analysis',
+                tableComment: '销售分析表',
+                theme: themeKey === 'all' ? 'ADS层/销售分析' : getThemeName(themeKey),
+                dbType: 'MySQL',
+                createTime: '2026-01-25 11:10:20',
+                updateTime: '2026-03-05 10:15:40',
+                owner: '钱七',
+                status: 'offline',
+            },
+        ];
+
+        // 根据主题筛选数据
+        const filteredData = themeKey === 'all'
+            ? mockData
+            : mockData.filter(item => item.theme.includes(getThemeName(themeKey)));
+
+        // 根据搜索值筛选
+        const finalData = searchValue
+            ? filteredData.filter(item =>
+                item.tableName.includes(searchValue) ||
+                item.tableComment.includes(searchValue)
+            )
+            : filteredData;
+
+        setTableData(finalData);
+        setLoading(false);
+    };
+
+    // 根据主题key获取主题名称
+    const getThemeName = (key: string): string => {
+        const findNode = (nodes: SubjectNode[], targetKey: string): SubjectNode | undefined => {
+            for (const node of nodes) {
+                if (node.key === targetKey) return node;
+                if (node.children) {
+                    const found = findNode(node.children, targetKey);
+                    if (found) return found;
+                }
+            }
+            return undefined;
+        };
+        const node = findNode(themeTreeData, key);
+        return node?.title || '';
+    };
+
+    // 树节点点击事件
+    const onTreeSelect: TreeProps['onSelect'] = (selectedKeys) => {
+        const key = selectedKeys[0] || 'all';
+        console.log(123,key)
+        setSelectedThemeKey(key);
+        fetchTableData(key);
+    };
+
+    // 搜索表
+    const handleSearch = () => {
+        fetchTableData(selectedThemeKey);
+    };
+
+    // 重置搜索
+    const handleReset = () => {
+        setSearchValue('');
+        fetchTableData(selectedThemeKey);
+    };
+
+    // 新增表
+    const handleAdd = () => {
+        setModalType('add');
+        setCurrentRecord(null);
+        form.resetFields();
+        setModalVisible(true);
+    };
+
+    // 编辑表
+    const handleEdit = (record: TableMeta) => {
+        setModalType('edit');
+        setCurrentRecord(record);
+        form.setFieldsValue({
+            tableName: record.tableName,
+            tableComment: record.tableComment,
+            theme: record.theme,
+            dbType: record.dbType,
+            owner: record.owner,
+        });
+        setModalVisible(true);
+    };
+
+    // 删除表
+    const handleDelete = (record: TableMeta) => {
+        confirm({
+            title: '确认删除',
+            content: `是否确定删除表【${record.tableName}】？`,
+            okText: '确认',
+            cancelText: '取消',
+            onOk: () => {
+                setTableData(tableData.filter(item => item.id !== record.id));
+                message.success('删除成功');
+            },
+        });
+    };
+
+    // 表单提交
+    const handleFormSubmit = async () => {
+        try {
+            const values = await form.validateFields();
+            if (modalType === 'add') {
+                // 模拟新增
+                const newRecord: TableMeta = {
+                    id: `${Date.now()}`,
+                    tableName: values.tableName,
+                    tableComment: values.tableComment,
+                    theme: values.theme,
+                    dbType: values.dbType,
+                    owner: values.owner,
+                    createTime: new Date().toLocaleString(),
+                    updateTime: new Date().toLocaleString(),
+                    status: 'draft',
+                };
+                setTableData([...tableData, newRecord]);
+                message.success('新增表成功');
+            } else {
+                // 模拟编辑
+                if (currentRecord) {
+                    const updatedData = tableData.map(item =>
+                        item.id === currentRecord.id
+                            ? { ...item, ...values, updateTime: new Date().toLocaleString() }
+                            : item
+                    );
+                    setTableData(updatedData);
+                    message.success('编辑表成功');
+                }
+            }
+            setModalVisible(false);
+        } catch (error) {
+            console.error('表单验证失败:', error);
+        }
+    };
+
+    // 初始化加载数据
+    useEffect(() => {
+        fetchTableData();
+    }, []);
+
+    // 工具栏菜单
+    const toolMenuItems: MenuProps['items'] = [
+        { key: 'export', label: '导出数据', icon: <DownloadOutlined /> },
+        { key: 'refresh', label: '刷新数据', icon: <ReloadOutlined /> },
+        { key: 'setting', label: '列表设置', icon: <SettingOutlined /> },
+    ];
+
     return (
-        <Layout>
+        <Layout style={{ minHeight: '100vh' }}>
+            {/* 顶部Header */}
+            <Header style={{ background: '#fff', padding: '0 20px', boxShadow: '0 1px 4px rgba(0,21,41,.08)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%' }}>
+                    <Title level={4} style={{ margin: 0 }}>
+                        <DatabaseOutlined style={{ marginRight: 8 }} />
+                        元数据表管理平台
+                    </Title>
+                    <Space>
+                        <ImportTable/>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                            新增表
+                        </Button>
+                        <Dropdown menu={{ items: toolMenuItems }}>
+                            <Button icon={<SettingOutlined />}>更多操作</Button>
+                        </Dropdown>
+                    </Space>
+                </div>
+            </Header>
 
-            {/* 搜索筛选卡片 */}
-            <Card style={{marginBottom: 20}}>
-                <Space size="middle" wrap>
-                    <Search
-                        placeholder="请输入元数据名称/编码/描述"
-                        allowClear
-                        enterButton={<SearchOutlined/>}
-                        style={{width: 300}}
-                        value={searchValue}
-                        onChange={(e) => setSearchValue(e.target.value)}
-                    />
-                    <Select
-                        placeholder="元数据类型"
-                        allowClear
-                        style={{width: 120}}
-                        value={typeFilter}
-                        onChange={setTypeFilter}
-                        prefix={<FilterOutlined/>}
-                    >
-                        {metadataTypes.map(type => (
-                            <Option key={type.value} value={type.value}>{type.label}</Option>
-                        ))}
-                    </Select>
-                    <Select
-                        placeholder="状态"
-                        allowClear
-                        style={{width: 120}}
-                        value={statusFilter}
-                        onChange={setStatusFilter}
-                        prefix={<FilterOutlined/>}
-                    >
-                        <Option value="online">已上线</Option>
-                        <Option value="offline">已下线</Option>
-                        <Option value="draft">草稿</Option>
-                    </Select>
-                    <Button icon={<FilterOutlined/>} onClick={() => {
-                        setSearchValue('');
-                        setTypeFilter('');
-                        setStatusFilter('');
-                    }}>
-                        重置筛选
-                    </Button>
-                </Space>
-            </Card>
-
-            {/* 元数据列表 */}
-            <Card>
-                <Spin spinning={loading}>
-                    {getFilteredList().length > 0 ? (
-                        <Table
-                            columns={columns}
-                            dataSource={getFilteredList()}
-                            rowKey="id"
-                            pagination={{pageSize: 10, showSizeChanger: true}}
-                            scroll={{x: 'max-content'}}
-                            bordered
+            <Layout>
+                {/* 左侧主题树 */}
+                <Sider
+                    collapsible
+                    collapsed={collapsed}
+                    onCollapse={setCollapsed}
+                    style={{ background: '#fff', borderRight: '1px solid #f0f0f0' }}
+                >
+                    <div style={{ padding: '16px', borderBottom: '1px solid #f0f0f0' }}>
+                        <Input
+                            placeholder="搜索主题/表"
+                            size="small"
+                            prefix={<SearchOutlined />}
+                            style={{ marginBottom: 0 }}
                         />
-                    ) : (
-                        <Empty description="暂无元数据信息" style={{padding: '40px 0'}}/>
-                    )}
-                </Spin>
-            </Card>
+                    </div>
+                    <Tree
+                        treeData={subjectTreeData}
+                        defaultSelectedKeys={['all']}
+                        onSelect={onTreeSelect}
+                        showIcon
+                        style={{ padding: '16px' }}
+                        switcherIcon={<FilterOutlined />}
+                    />
+                </Sider>
+
+                {/* 右侧表管理内容 */}
+                <Content style={{ margin: '0px', background: '#fff', borderRadius: '1px' }}>
+                    <Card style={{ marginBottom: 8 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <Title level={5} style={{ margin: 0, display: 'inline-block' }}>
+                                    {selectedThemeKey === 'all' ? '全部表' : getThemeName(selectedThemeKey)}
+                                </Title>
+                                <Text type="secondary" style={{ marginLeft: 8 }}>
+                                    共 {tableData.length} 张表
+                                </Text>
+                            </div>
+                            <Space>
+                                <Input
+                                    placeholder="搜索表名称/备注"
+                                    value={searchValue}
+                                    onChange={(e) => setSearchValue(e.target.value)}
+                                    onPressEnter={handleSearch}
+                                    style={{ width: 300 }}
+                                    prefix={<SearchOutlined />}
+                                />
+                                <Button onClick={handleSearch} icon={<SearchOutlined />}>搜索</Button>
+                                <Button onClick={handleReset}>重置</Button>
+                            </Space>
+                        </div>
+                    </Card>
+
+                    {/* 表列表 */}
+                    <Spin spinning={loading}>
+                        {tableData.length > 0 ? (
+                            <Table
+                                columns={columns}
+                                dataSource={tableData}
+                                rowKey="id"
+                                pagination={{
+                                    pageSize: 10,
+                                    showSizeChanger: true,
+                                    showTotal: (total) => `共 ${total} 条记录`
+                                }}
+                                scroll={{ x: 'max-content' }}
+                                bordered
+                            />
+                        ) : (
+                            <Empty
+                                description="暂无表数据"
+                                style={{ padding: '40px 0' }}
+                                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                            />
+                        )}
+                    </Spin>
+                </Content>
+            </Layout>
+
+            {/* 新增/编辑表弹窗 */}
+            <Modal
+                title={modalType === 'add' ? '新增元数据表' : '编辑元数据表'}
+                open={modalVisible}
+                onOk={handleFormSubmit}
+                onCancel={() => setModalVisible(false)}
+                destroyOnClose
+                maskClosable={false}
+                width={600}
+            >
+                <Form
+                    form={form}
+                    layout="vertical"
+                    validateMessages={{
+                        required: '${label}为必填项',
+                    }}
+                >
+                    <Form.Item
+                        name="tableName"
+                        label="表名称"
+                        rules={[{ required: true }]}
+                    >
+                        <Input placeholder="请输入表名称（如：ods_user_info）" />
+                    </Form.Item>
+                    <Form.Item
+                        name="tableComment"
+                        label="表备注"
+                        rules={[{ required: true }]}
+                    >
+                        <Input.TextArea placeholder="请输入表备注信息" rows={3} />
+                    </Form.Item>
+                    <Form.Item
+                        name="theme"
+                        label="所属主题"
+                        rules={[{ required: true }]}
+                    >
+                        <Select placeholder="请选择所属主题">
+                            <Option value="ODS层/用户数据">ODS层/用户数据</Option>
+                            <Option value="ODS层/订单数据">ODS层/订单数据</Option>
+                            <Option value="DWD层/用户画像">DWD层/用户画像</Option>
+                            <Option value="DWS层/销售汇总">DWS层/销售汇总</Option>
+                            <Option value="ADS层/销售分析">ADS层/销售分析</Option>
+                        </Select>
+                    </Form.Item>
+                    <Form.Item
+                        name="dbType"
+                        label="数据库类型"
+                        rules={[{ required: true }]}
+                    >
+                        <Select placeholder="请选择数据库类型">
+                            <Option value="Hive">Hive</Option>
+                            <Option value="ClickHouse">ClickHouse</Option>
+                            <Option value="MySQL">MySQL</Option>
+                            <Option value="PostgreSQL">PostgreSQL</Option>
+                        </Select>
+                    </Form.Item>
+                    <Form.Item
+                        name="owner"
+                        label="负责人"
+                        rules={[{ required: true }]}
+                    >
+                        <Input placeholder="请输入负责人姓名" />
+                    </Form.Item>
+                </Form>
+            </Modal>
         </Layout>
     );
 };
 
-export default MetadataPlatform;
+export default MetaDataManagement;
