@@ -12,7 +12,7 @@ import {
 import type { TreeProps, TableProps, ColumnsType } from 'antd';
 import type { MenuProps } from 'antd/es/menu';
 import {treeSubjects} from "../../../api/MetadataSubjectAPI.ts";
-import ImportTable from "./ImportTableButton.tsx";
+import ImportTable from "./ImportTableForm.tsx";
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;

@@ -48,3 +48,14 @@ export const listTable = async (catalogName: string, schemaName: string): Promis
         throw new Error('获取schema下的表失败，请稍后重试');
     }
 }
+
+
+export const getTableInfo = async (catalogName: string, schemaName: string, tableName: string): Promise<TableDTO> => {
+    try {
+        const data = await datamanRequest.get(`/api/v1/gravitino/catalogs/${catalogName}/schemas/${schemaName}/tables/${tableName}`)
+        return data.data
+    }catch ( error){
+        console.error('获取表信息失败:', error);
+        throw new Error('获取表信息失败，请稍后重试');
+    }
+}

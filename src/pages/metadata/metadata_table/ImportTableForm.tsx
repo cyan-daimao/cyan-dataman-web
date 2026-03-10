@@ -1,10 +1,11 @@
 import React, {useEffect, useState} from 'react';
 import {Button, Card, Empty, Input, Layout, Modal, Space, Spin, Table, Tree, Typography} from 'antd';
-import {DatabaseOutlined, SearchOutlined, UploadOutlined} from "@ant-design/icons";
-import {listCatalog, listSchema, listTable, TableDTO} from "../../../api/DataSourceApi.ts";
+import {DatabaseOutlined, ReloadOutlined, SearchOutlined, UploadOutlined} from "@ant-design/icons";
+import {getTableInfo, listCatalog, listSchema, listTable, TableDTO} from "../../../api/DataSourceApi.ts";
 import Sider from 'antd/es/layout/Sider';
 import {Content} from "antd/es/layout/layout";
 import {ColumnType} from "antd/es/table";
+import IcebergTableForm from "./TableEditModal.tsx";
 
 const {Title} = Typography;
 
@@ -24,28 +25,46 @@ interface SchemaData {
 
 const App: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isIcebergTableEditOpen, setIsIcebergTableEditOpen] = useState(false);
     const [loading, setLoading] = useState(false)
+    const [searchValue, setSearchValue] = useState('')
     const [treeData, setTreeData] = useState<DataNode[]>([])
     const [schemaData, setSchemaData] = useState<SchemaData[]>([])
     const [tableData, setTableData] = useState<TableDTO[]>([])
     const [selectedCatalog, setSelectedCatalog] = useState<string>()
     const [selectedSchema, setSelectedSchema] = useState<string>()
+    const [selectedTable, setSelectedTable] = useState<string>()
+    // 获得表信息传入TableEditModal
+    const [tableInfo, setTableInfo] = useState<TableDTO>()
 
     useEffect(() => {
         fetchCatalog().then()
     }, [])
 
     useEffect(() => {
-        if (selectedCatalog) {
-            fetchDatabase(selectedCatalog).then()
+        if (!searchValue) {
+            if (selectedCatalog) {
+                fetchDatabase(selectedCatalog).then()
+            }
+            if (selectedSchema) {
+                fetchTables(selectedCatalog, selectedSchema).then()
+            }
         }
-        if (selectedSchema) {
-            fetchTables(selectedCatalog, selectedSchema).then()
+        if (searchValue) {
+            handleSearchValue(searchValue).then()
         }
-    }, [selectedCatalog, selectedSchema])
+    }, [selectedCatalog, selectedSchema, searchValue])
+
+    useEffect(() => {
+        if (selectedCatalog && selectedSchema && selectedTable) {
+            getTableInfo(selectedCatalog, selectedSchema, selectedTable).then(data => {
+                setTableInfo(data)
+            })
+        }
+    }, [selectedCatalog, selectedSchema, selectedTable])
 
     const schemaColumns: ColumnType<SchemaData>[] = [{
-        title: `${selectedCatalog || '默认'} - 数据源`,
+        title: `${selectedCatalog || '默认'} - 库`,
         dataIndex: 'schema',
         key: 'schema',
         render: (text: string) => (
@@ -56,7 +75,7 @@ const App: React.FC = () => {
     }]
 
     const tableColumns: ColumnType<TableDTO>[] = [{
-        title: ` ${selectedCatalog}.${selectedSchema || '默认'}  - 库`,
+        title: ` ${selectedCatalog}.${selectedSchema || '默认'}  - 表`,
         dataIndex: 'name',
         key: 'name',
         render: (text: string) => (
@@ -73,11 +92,26 @@ const App: React.FC = () => {
         dataIndex: 'action',
         key: 'action',
         render: (_, record: TableDTO) => (
-            <Button type="primary" variant="text" onClick={() => console.log(record)}>
-                同步到iceberg
+            <Button type="primary" onClick={() => {
+                setIsIcebergTableEditOpen(true)
+                setSelectedTable(record.name)
+            }}>
+                同步到Iceberg
             </Button>
         )
     }]
+
+    // 修改搜索内容，库/表
+    const handleSearchValue = async (searchValue: string) => {
+        // 查询表
+        if (selectedCatalog && selectedSchema) {
+            const data = tableData.filter(table => table.name.includes(searchValue));
+            setTableData(data)
+        } else {
+            const data = schemaData.filter(schema => schema.schema.includes(searchValue));
+            setSchemaData(data)
+        }
+    }
 
     // 获取目录
     const fetchCatalog = async () => {
@@ -94,12 +128,16 @@ const App: React.FC = () => {
     // 获取库
     const fetchDatabase = async (catalogName: string) => {
         setLoading(true)
+        if (!catalogName || catalogName === 'undefined') {
+            return
+        }
         listSchema(catalogName).then(schemas => {
             const data = schemas.map((item, i) => ({
                 id: i,
                 schema: item.name,
             }))
             setSchemaData(data)
+            setTableData([])
         }).finally(() => {
             setLoading(false)
         })
@@ -111,6 +149,7 @@ const App: React.FC = () => {
         if (selectedCatalog && selectedSchema) {
             listTable(selectedCatalog, selectedSchema).then(tables => {
                 setTableData(tables)
+                setSchemaData([])
             }).finally(() => {
                 setLoading(false)
             })
@@ -155,10 +194,8 @@ const App: React.FC = () => {
                         </div>
                         <Tree
                             treeData={treeData}
-                            onSelect={(key) => {
-                                setSelectedCatalog(String(key[0]))
-                                setSchemaData([])
-                                setTableData([])
+                            onSelect={(_, info) => {
+                                setSelectedCatalog(info.node.key)
                                 setSelectedSchema('')
                             }
                             }
@@ -174,21 +211,20 @@ const App: React.FC = () => {
                                 <Space>
                                     <Input
                                         placeholder="搜索表名称/备注"
-                                        // value={searchValue}
-                                        // onChange={(e) => setSearchValue(e.target.value)}
-                                        // onPressEnter={handleSearch}
+                                        value={searchValue}
+                                        onChange={(e) => setSearchValue(e.target.value)}
                                         style={{width: 300}}
                                         prefix={<SearchOutlined/>}
                                     />
                                     <Button icon={<SearchOutlined/>}>搜索</Button>
-                                    <Button>重置</Button>
+                                    <Button onClick={() => setSearchValue('')} icon={<ReloadOutlined/>}>重置</Button>
                                 </Space>
                             </div>
                         </Card>
 
                         <Spin spinning={loading}>
                             {
-                                schemaData.length > 0 && tableData?.length <= 0 ? (
+                                schemaData.length > 0 ? (
                                     <Table
                                         columns={schemaColumns}
                                         dataSource={schemaData}
@@ -227,8 +263,12 @@ const App: React.FC = () => {
                         </Spin>
                     </Content>
                 </Layout>
-
             </Modal>
+            <IcebergTableForm
+                visible={isIcebergTableEditOpen}
+                onClose={() => setIsIcebergTableEditOpen(false)}
+                initialData={tableInfo}
+            />
         </>
     );
 };
