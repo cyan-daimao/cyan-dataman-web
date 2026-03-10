@@ -3,7 +3,8 @@ import { Form, Input, Button, Card, Layout, Typography, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom'; // 引入路由钩子
 import 'antd/dist/reset.css';
-import {login} from "../../api/LoginApi.ts"; // AntD v5 样式引入
+import {login} from "../../api/LoginApi.ts";
+import {currentEmployee} from "../../api/EmployeeApi.ts"; // AntD v5 样式引入
 
 // 类型定义
 interface LoginFormValues {
@@ -44,6 +45,8 @@ const LoginPage: React.FC = () => {
             }else{
                 message.error(resp.message);
             }
+            const employeeDTO = await currentEmployee();
+            localStorage.setItem('current', JSON.stringify(employeeDTO.data))
         } catch (error) {
             // 登录失败处理
             message.error('登录失败，请检查账号密码！');

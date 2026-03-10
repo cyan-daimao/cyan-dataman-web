@@ -1,8 +1,11 @@
 // IcebergTableForm.tsx
 import React, {useEffect, useState} from 'react';
-import type {TableProps} from 'antd';
+import {Cascader, TableProps} from 'antd';
 import {Button, Col, Form, Input, message, Modal, Popconfirm, Row, Select, Space, Table, Typography} from 'antd';
 import {TableDTO} from "../../../api/DataSourceApi.ts";
+import {EmployeeDTO} from "../../../api/EmployeeApi.ts";
+const { SHOW_CHILD } = Cascader;
+
 
 // 定义Iceberg字段结构类型
 export interface IcebergField {
@@ -28,7 +31,46 @@ const FIELD_TYPE_OPTIONS = [
     'STRING', 'INT', 'BIGINT', 'FLOAT', 'DOUBLE',
     'BOOLEAN', 'DATE', 'TIMESTAMP', 'DECIMAL', 'ARRAY', 'MAP'
 ];
+interface Option {
+    value: string;
+    label: string;
+    children?: Option[];
+}
 
+const options: Option[] = [
+    {
+        value: 'zhejiang',
+        label: 'Zhejiang',
+        children: [
+            {
+                value: 'hangzhou',
+                label: 'Hangzhou',
+                children: [
+                    {
+                        value: 'xihu',
+                        label: 'West Lake',
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        value: 'jiangsu',
+        label: 'Jiangsu',
+        children: [
+            {
+                value: 'nanjing',
+                label: 'Nanjing',
+                children: [
+                    {
+                        value: 'zhonghuamen',
+                        label: 'Zhong Hua Men',
+                    },
+                ],
+            },
+        ],
+    },
+];
 const IcebergTableForm: React.FC<IcebergTableFormProps> = ({
                                                                visible,
                                                                onClose,
@@ -50,6 +92,7 @@ const IcebergTableForm: React.FC<IcebergTableFormProps> = ({
     // 加载状态
     const [loading, setLoading] = useState(false);
 
+    const current: EmployeeDTO = JSON.parse(String(localStorage.getItem('current')))
 
     // 初始化：编辑场景下加载父组件传入的表结构和表单值
     useEffect(() => {
@@ -269,15 +312,14 @@ const IcebergTableForm: React.FC<IcebergTableFormProps> = ({
                             label="主题编码"
                             rules={[
                                 {required: true, message: '请选择主题'},
-                            ]}
-                        >
-                            <Select>
-                                <Select.Option value="user">用户域</Select.Option>
-                                <Select.Option value="goods">商品域</Select.Option>
-                            </Select>
+                            ]}>
+                            <Cascader showSearch
+                                      options={options}
+                                      changeOnSelect={true}
+                                      onChange={(val)=>{console.log(val)}} />
                         </Form.Item>
                     </Col>
-                    <Col span={8}> {/* 表类型占8/24 */}
+                    <Col span={8}>
                         <Form.Item
                             name="layerCode"
                             label="表层级"
@@ -300,8 +342,9 @@ const IcebergTableForm: React.FC<IcebergTableFormProps> = ({
                                 {required: true, message: '请选择负责人'},
                             ]}
                         >
-                            <Select>
+                            <Select defaultValue={current.passport}>
                                 <Select.Option value="cyan1">闫晨阳</Select.Option>
+                                <Select.Option value="xiaozhupeiqi">小猪佩奇</Select.Option>
                             </Select>
                         </Form.Item>
                     </Col>

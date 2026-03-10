@@ -38,3 +38,11 @@ export interface EmployeeCmd {
 export const saveEmployee = (cmd:EmployeeCmd):Promise<Response<void>> => {
     return employeeRequest.post('/api/v1/employee/save', cmd)
 }
+
+
+/**
+ * 获取当前员工
+ */
+export const currentEmployee = () :Promise<Response<EmployeeDTO>> =>{
+    return employeeRequest.get('/api/v1/employee/current')
+}

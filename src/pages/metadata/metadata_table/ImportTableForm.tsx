@@ -83,11 +83,11 @@ const App: React.FC = () => {
                 {text}
             </Button>
         )
-    }, {
+    },{
         title: '注释',
         dataIndex: 'comment',
         key: 'comment'
-    }, {
+    },{
         title: '操作',
         dataIndex: 'action',
         key: 'action',
@@ -174,7 +174,6 @@ const App: React.FC = () => {
                 导入表
             </Button>
             <Modal
-                // closable={{ 'aria-label': 'Custom Close Button' }}
                 maskClosable={false}
                 width={1200}
                 height={600}
@@ -197,8 +196,7 @@ const App: React.FC = () => {
                             onSelect={(_, info) => {
                                 setSelectedCatalog(info.node.key)
                                 setSelectedSchema('')
-                            }
-                            }
+                            }}
                             showIcon
                             style={{padding: '16px'}}
                         />
