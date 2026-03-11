@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { message } from "antd";
+import { getStorage, removeStorage } from '../utils/storage';
+import { KEY } from '../utils/storage';
 
 // 扩展环境URL配置：区分不同业务线的基础地址
 const envURL: { [key: string]: { [key: string]: string } } = {
@@ -38,9 +40,12 @@ const createRequest = (service = 'dataman') => {
     // --------------- 请求拦截器 ---------------
     request.interceptors.request.use(
         (config) => {
-            const token = localStorage.getItem('token');
+            const token = getStorage(KEY.TOKEN, '');
             if (token) {
                 config.headers.Authorization = `Bearer ${token}`;
+            } else {
+                window.location.href = '/login';
+                return Promise.reject(new Error('未登录，请重新登录'));
             }
             return config;
         },
@@ -62,7 +67,7 @@ const createRequest = (service = 'dataman') => {
 
             switch (status) {
                 case 401:
-                    localStorage.removeItem('token');
+                    removeStorage('token');
                     window.location.href = '/login';
                     msg = '登录已过期，请重新登录';
                     break;

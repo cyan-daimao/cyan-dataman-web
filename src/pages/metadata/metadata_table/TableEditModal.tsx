@@ -4,6 +4,7 @@ import {Cascader, TableProps} from 'antd';
 import {Button, Col, Form, Input, message, Modal, Popconfirm, Row, Select, Space, Table, Typography} from 'antd';
 import {TableDTO} from "../../../api/DataSourceApi.ts";
 import {EmployeeDTO} from "../../../api/EmployeeApi.ts";
+import { getStorage, KEY } from '../../../utils/storage.ts';
 const { SHOW_CHILD } = Cascader;
 
 
@@ -92,7 +93,7 @@ const IcebergTableForm: React.FC<IcebergTableFormProps> = ({
     // 加载状态
     const [loading, setLoading] = useState(false);
 
-    const current: EmployeeDTO = JSON.parse(String(localStorage.getItem('current')))
+    const current: EmployeeDTO = getStorage(KEY.CURRENT, {} as EmployeeDTO);
 
     // 初始化：编辑场景下加载父组件传入的表结构和表单值
     useEffect(() => {
