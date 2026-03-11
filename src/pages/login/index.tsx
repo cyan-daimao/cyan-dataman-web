@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom'; // 引入路由钩�
 import 'antd/dist/reset.css';
 import {login} from "../../api/LoginApi.ts";
 import {currentEmployee} from "../../api/EmployeeApi.ts"; // AntD v5 样式引入
-
+import {KEY, setStorage} from "../../utils/storage.ts";
 // 类型定义
 interface LoginFormValues {
     username: string;
@@ -31,11 +31,10 @@ const LoginPage: React.FC = () => {
     const handleLogin = async (values: LoginFormValues) => {
         try {
             setLoading(true);
-            // 模拟登录请求（实际项目中替换为真实接口调用）
-            console.log('登录参数:', values);
           const resp =  await login({passport:values.username, password:values.password})
             if (resp.code==200){
-                localStorage.setItem('token', resp.data);
+                // 登录成功后，将 token 存储到 localStorage
+                setStorage(KEY.TOKEN, resp.data);
                 message.success('登录成功！');
                 // 读取跳转前的页面地址，优先跳回原页面，否则跳首页
                 // 1. 从路由参数中获取原页面地址（redirect 参数）
@@ -46,7 +45,7 @@ const LoginPage: React.FC = () => {
                 message.error(resp.message);
             }
             const employeeDTO = await currentEmployee();
-            localStorage.setItem('current', JSON.stringify(employeeDTO.data))
+            setStorage(KEY.CURRENT, employeeDTO.data);
         } catch (error) {
             // 登录失败处理
             message.error('登录失败，请检查账号密码！');
