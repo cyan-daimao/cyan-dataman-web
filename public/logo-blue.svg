@@ -1,0 +1,94 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- 渐变定义 -->
+  <defs>
+    <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A90E2;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#63A4FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4A90E2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="lightBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#87CEEB;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#5BA3D0;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- 外圈装饰 -->
+  <circle cx="100" cy="100" r="92" fill="#E3F2FD"/>
+  <circle cx="100" cy="100" r="88" fill="none" stroke="#90CAF9" stroke-width="3" stroke-dasharray="10 5"/>
+  
+  <!-- 主圆形背景 -->
+  <circle cx="100" cy="100" r="80" fill="url(#blueGradient)"/>
+  
+  <!-- 中心数据库图标 - 可爱版 -->
+  <g transform="translate(100, 95)">
+    <!-- 顶部 -->
+    <ellipse cx="0" cy="-18" rx="28" ry="8" fill="#ffffff" opacity="0.95"/>
+    <!-- 柱体 -->
+    <rect x="-28" y="-18" width="56" height="42" rx="4" fill="#ffffff" opacity="0.95"/>
+    <!-- 底部 -->
+    <ellipse cx="0" cy="24" rx="28" ry="8" fill="#ffffff" opacity="0.95"/>
+    
+    <!-- 装饰线条 -->
+    <line x1="-22" y1="-8" x2="22" y2="-8" stroke="#4A90E2" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
+    <line x1="-22" y1="8" x2="22" y2="8" stroke="#4A90E2" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
+    
+    <!-- 小圆点装饰 -->
+    <circle cx="-15" cy="-8" r="3" fill="#87CEEB"/>
+    <circle cx="0" cy="-8" r="3" fill="#87CEEB"/>
+    <circle cx="15" cy="-8" r="3" fill="#87CEEB"/>
+    <circle cx="-15" cy="8" r="3" fill="#87CEEB"/>
+    <circle cx="0" cy="8" r="3" fill="#87CEEB"/>
+    <circle cx="15" cy="8" r="3" fill="#87CEEB"/>
+  </g>
+  
+  <!-- 周围的数据流 - 四个方向 -->
+  <g transform="translate(100, 100)">
+    <!-- 上方数据块 -->
+    <g transform="translate(0, -55)">
+      <rect x="-14" y="-10" width="28" height="20" rx="5" fill="#ffffff" opacity="0.9"/>
+      <circle cx="-6" cy="0" r="2.5" fill="#4A90E2"/>
+      <circle cx="0" cy="0" r="2.5" fill="#4A90E2"/>
+      <circle cx="6" cy="0" r="2.5" fill="#4A90E2"/>
+    </g>
+    
+    <!-- 右方数据块 -->
+    <g transform="translate(55, 0)">
+      <rect x="-14" y="-10" width="28" height="20" rx="5" fill="#ffffff" opacity="0.9"/>
+      <circle cx="-6" cy="0" r="2.5" fill="#87CEEB"/>
+      <circle cx="0" cy="0" r="2.5" fill="#87CEEB"/>
+      <circle cx="6" cy="0" r="2.5" fill="#87CEEB"/>
+    </g>
+    
+    <!-- 下方数据块 -->
+    <g transform="translate(0, 55)">
+      <rect x="-14" y="-10" width="28" height="20" rx="5" fill="#ffffff" opacity="0.9"/>
+      <circle cx="-6" cy="0" r="2.5" fill="#4A90E2"/>
+      <circle cx="0" cy="0" r="2.5" fill="#4A90E2"/>
+      <circle cx="6" cy="0" r="2.5" fill="#4A90E2"/>
+    </g>
+    
+    <!-- 左方数据块 -->
+    <g transform="translate(-55, 0)">
+      <rect x="-14" y="-10" width="28" height="20" rx="5" fill="#ffffff" opacity="0.9"/>
+      <circle cx="-6" cy="0" r="2.5" fill="#87CEEB"/>
+      <circle cx="0" cy="0" r="2.5" fill="#87CEEB"/>
+      <circle cx="6" cy="0" r="2.5" fill="#87CEEB"/>
+    </g>
+  </g>
+  
+  <!-- 连接线 -->
+  <g stroke="#ffffff" stroke-width="2" opacity="0.6" stroke-linecap="round">
+    <line x1="100" y1="55" x2="100" y2="75"/>
+    <line x1="145" y1="100" x2="125" y2="100"/>
+    <line x1="100" y1="145" x2="100" y2="125"/>
+    <line x1="55" y1="100" x2="75" y2="100"/>
+  </g>
+  
+  <!-- 小星星点缀 -->
+  <g fill="#ffffff" opacity="0.9">
+    <circle cx="65" cy="65" r="3"/>
+    <circle cx="135" cy="65" r="3"/>
+    <circle cx="65" cy="135" r="3"/>
+    <circle cx="135" cy="135" r="3"/>
+  </g>
+</svg>

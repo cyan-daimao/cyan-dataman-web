@@ -1,0 +1,55 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景渐变 -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="dataGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00f2fe;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4facfe;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- 圆形背景 -->
+  <circle cx="100" cy="100" r="95" fill="url(#bgGradient)"/>
+  
+  <!-- 数据库圆柱体 -->
+  <g transform="translate(100, 85)">
+    <!-- 圆柱体顶部 -->
+    <ellipse cx="0" cy="-15" rx="35" ry="10" fill="#ffffff" opacity="0.9"/>
+    <!-- 圆柱体侧面 -->
+    <rect x="-35" y="-15" width="70" height="45" fill="#ffffff" opacity="0.9"/>
+    <!-- 圆柱体底部弧线 -->
+    <ellipse cx="0" cy="30" rx="35" ry="10" fill="#ffffff" opacity="0.9"/>
+    
+    <!-- 数据横线 -->
+    <line x1="-30" y1="-5" x2="30" y2="-5" stroke="#667eea" stroke-width="2" opacity="0.5"/>
+    <line x1="-30" y1="10" x2="30" y2="10" stroke="#667eea" stroke-width="2" opacity="0.5"/>
+  </g>
+  
+  <!-- 数据流线条 -->
+  <g stroke="url(#dataGradient)" stroke-width="2" fill="none" opacity="0.8">
+    <path d="M 50 140 Q 70 150, 100 140 T 150 140"/>
+    <path d="M 45 155 Q 70 165, 100 155 T 155 155"/>
+  </g>
+  
+  <!-- 数据点 -->
+  <circle cx="60" cy="140" r="3" fill="#00f2fe"/>
+  <circle cx="100" cy="138" r="3" fill="#00f2fe"/>
+  <circle cx="140" cy="142" r="3" fill="#00f2fe"/>
+  
+  <!-- 分析图表元素 - 折线图 -->
+  <polyline 
+    points="55,165 75,155 95,160 115,145 135,150 145,140" 
+    fill="none" 
+    stroke="#ffffff" 
+    stroke-width="2.5"
+    opacity="0.9"
+  />
+  
+  <!-- 装饰性数据点 -->
+  <circle cx="75" cy="155" r="2.5" fill="#ffffff"/>
+  <circle cx="115" cy="145" r="2.5" fill="#ffffff"/>
+  <circle cx="145" cy="140" r="2.5" fill="#ffffff"/>
+</svg>
