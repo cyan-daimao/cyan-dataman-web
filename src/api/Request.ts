@@ -23,7 +23,7 @@ const envURL: { [key: string]: { [key: string]: string } } = {
 const getBaseURL = (service = 'dataman') => {
     const currentMode = import.meta.env.MODE;
     // 容错：如果当前环境配置不存在，使用默认地址
-    return envURL[currentMode]?.[service] || `http://localhost:8080/${service}`;
+    return envURL[currentMode]?.[service] || `http://localhost:8080`;
 };
 
 // 创建通用请求方法（支持指定业务线）

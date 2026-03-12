@@ -35,6 +35,8 @@ import {
 import type {MenuProps} from 'antd/es/menu';
 import {treeSubjects} from "../../../api/MetadataSubjectAPI.ts";
 import ImportTable from "./ImportTableForm.tsx";
+import TableEditModal from "./TableEditModal.tsx";
+import {MetadataTableDTO, pageMetadataTables} from "../../../api/MetadataTableAPI.ts";
 
 const {Header, Sider, Content} = Layout;
 const {Title, Text} = Typography;
@@ -49,17 +51,8 @@ interface SubjectNode {
     children?: SubjectNode[];
 }
 
-interface TableMeta {
-    id: string;
-    tableName: string;
-    tableComment: string;
-    theme: string;
-    dbType: string;
-    createTime: string;
-    updateTime: string;
-    owner: string;
-    status: 'online' | 'offline' | 'draft';
-}
+// 使用 MetadataTableDTO 替代 TableMeta
+type TableMeta = MetadataTableDTO;
 
 interface TableFormData {
     tableName: string;
@@ -175,30 +168,30 @@ const MetaDataManagement: React.FC = () => {
 const columns: ColumnsType<TableMeta> = [
     {
         title: '表名称',
-        dataIndex: 'tableName',
-        key: 'tableName',
+        dataIndex: 'name',
+        key: 'name',
         width: 200,
         ellipsis: true,
-        render: (text) => <Text strong>{text}</Text>,
+        render: (text, record) => <Text strong>{record.name}</Text>,
     },
     {
-        title: '表备注',
-        dataIndex: 'tableComment',
-        key: 'tableComment',
+        title: '表描述',
+        dataIndex: 'comment',
+        key: 'comment',
         width: 250,
         ellipsis: true,
     },
     {
         title: '所属主题',
-        dataIndex: 'theme',
-        key: 'theme',
+        dataIndex: 'subjectCode',
+        key: 'subjectCode',
         width: 150,
         render: (text) => <Tag color="blue">{text}</Tag>,
     },
     {
-        title: '数据库类型',
-        dataIndex: 'dbType',
-        key: 'dbType',
+        title: '数据分层',
+        dataIndex: 'layerCode',
+        key: 'layerCode',
         width: 120,
         render: (text) => <Tag color="green">{text}</Tag>,
     },
@@ -209,32 +202,11 @@ const columns: ColumnsType<TableMeta> = [
         width: 100,
     },
     {
-        title: '状态',
-        dataIndex: 'status',
-        key: 'status',
-        width: 100,
-        render: (status) => {
-            let color = '';
-            let text = '';
-            switch (status) {
-                case 'online':
-                    color = 'success';
-                    text = '已上线';
-                    break;
-                case 'offline':
-                    color = 'error';
-                    text = '已下线';
-                    break;
-                case 'draft':
-                    color = 'warning';
-                    text = '草稿';
-                    break;
-                default:
-                    color = 'default';
-                    text = '未知';
-            }
-            return <Tag color={color}>{text}</Tag>;
-        },
+        title: '热度',
+        dataIndex: 'heatLevel',
+        key: 'heatLevel',
+        width: 80,
+        render: (text) => <Tag color="orange">{text}</Tag>,
     },
     {
         title: '创建时间',
@@ -273,86 +245,26 @@ const columns: ColumnsType<TableMeta> = [
     },
 ];
 
-// 模拟获取表数据
-const fetchTableData = async (themeKey: string = 'all') => {
+// 获取表数据（调用真实 API）
+const fetchTableData = async (subjectCode: string = 'all') => {
     setLoading(true);
-    // 模拟接口请求
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    // 模拟数据
-    const mockData: TableMeta[] = [
-        {
-            id: '1',
-            tableName: 'ods_user_info',
-            tableComment: '用户基础信息表',
-            theme: themeKey === 'all' ? 'ODS层/用户数据' : getThemeName(themeKey),
-            dbType: 'Hive',
-            createTime: '2026-01-10 10:20:30',
-            updateTime: '2026-02-15 14:30:20',
-            owner: '张三',
-            status: 'online',
-        },
-        {
-            id: '2',
-            tableName: 'ods_order_info',
-            tableComment: '订单基础信息表',
-            theme: themeKey === 'all' ? 'ODS层/订单数据' : getThemeName(themeKey),
-            dbType: 'Hive',
-            createTime: '2026-01-12 09:15:20',
-            updateTime: '2026-02-20 11:45:10',
-            owner: '李四',
-            status: 'online',
-        },
-        {
-            id: '3',
-            tableName: 'dwd_user_profile',
-            tableComment: '用户画像宽表',
-            theme: themeKey === 'all' ? 'DWD层/用户画像' : getThemeName(themeKey),
-            dbType: 'Hive',
-            createTime: '2026-01-15 14:20:10',
-            updateTime: '2026-02-25 09:10:30',
-            owner: '王五',
-            status: 'online',
-        },
-        {
-            id: '4',
-            tableName: 'dws_sales_summary',
-            tableComment: '销售汇总表',
-            theme: themeKey === 'all' ? 'DWS层/销售汇总' : getThemeName(themeKey),
-            dbType: 'ClickHouse',
-            createTime: '2026-01-20 16:30:40',
-            updateTime: '2026-03-01 15:20:10',
-            owner: '赵六',
-            status: 'draft',
-        },
-        {
-            id: '5',
-            tableName: 'ads_sales_analysis',
-            tableComment: '销售分析表',
-            theme: themeKey === 'all' ? 'ADS层/销售分析' : getThemeName(themeKey),
-            dbType: 'MySQL',
-            createTime: '2026-01-25 11:10:20',
-            updateTime: '2026-03-05 10:15:40',
-            owner: '钱七',
-            status: 'offline',
-        },
-    ];
-
-    // 根据主题筛选数据
-    const filteredData = themeKey === 'all'
-        ? mockData
-        : mockData.filter(item => item.theme.includes(getThemeName(themeKey)));
-
-    // 根据搜索值筛选
-    const finalData = searchValue
-        ? filteredData.filter(item =>
-            item.tableName.includes(searchValue) ||
-            item.tableComment.includes(searchValue)
-        )
-        : filteredData;
-
-    setTableData(finalData);
-    setLoading(false);
+    try {
+        const query = {
+            subjectCode: subjectCode === 'all' ? undefined : subjectCode,
+            content: searchValue || undefined,
+            current: 1,
+            size: 100
+        };
+        
+        const page = await pageMetadataTables(query);
+        setTableData(page.data || []);
+    } catch (error) {
+        console.error('获取表数据失败:', error);
+        message.error('获取表数据失败');
+        setTableData([]);
+    } finally {
+        setLoading(false);
+    }
 };
 
 // 根据主题key获取主题名称
@@ -390,25 +302,9 @@ const handleReset = () => {
     fetchTableData(selectedThemeKey);
 };
 
-// 新增表
-const handleAdd = () => {
-    setModalType('add');
-    setCurrentRecord(null);
-    form.resetFields();
-    setModalVisible(true);
-};
-
-// 编辑表
+// 编辑表 - 打开 TableEditModal
 const handleEdit = (record: TableMeta) => {
-    setModalType('edit');
     setCurrentRecord(record);
-    form.setFieldsValue({
-        tableName: record.tableName,
-        tableComment: record.tableComment,
-        theme: record.theme,
-        dbType: record.dbType,
-        owner: record.owner,
-    });
     setModalVisible(true);
 };
 
@@ -416,51 +312,26 @@ const handleEdit = (record: TableMeta) => {
 const handleDelete = (record: TableMeta) => {
     confirm({
         title: '确认删除',
-        content: `是否确定删除表【${record.tableName}】？`,
+        content: `是否确定删除表【${record.name}】？`,
         okText: '确认',
         cancelText: '取消',
         onOk: () => {
+            // TODO: 调用删除 API
             setTableData(tableData.filter(item => item.id !== record.id));
             message.success('删除成功');
         },
     });
 };
 
-// 表单提交
+// 表单提交 - 由 TableEditModal 自己处理
 const handleFormSubmit = async () => {
-    try {
-        const values = await form.validateFields();
-        if (modalType === 'add') {
-            // 模拟新增
-            const newRecord: TableMeta = {
-                id: `${Date.now()}`,
-                tableName: values.tableName,
-                tableComment: values.tableComment,
-                theme: values.theme,
-                dbType: values.dbType,
-                owner: values.owner,
-                createTime: new Date().toLocaleString(),
-                updateTime: new Date().toLocaleString(),
-                status: 'draft',
-            };
-            setTableData([...tableData, newRecord]);
-            message.success('新增表成功');
-        } else {
-            // 模拟编辑
-            if (currentRecord) {
-                const updatedData = tableData.map(item =>
-                    item.id === currentRecord.id
-                        ? {...item, ...values, updateTime: new Date().toLocaleString()}
-                        : item
-                );
-                setTableData(updatedData);
-                message.success('编辑表成功');
-            }
-        }
-        setModalVisible(false);
-    } catch (error) {
-        console.error('表单验证失败:', error);
-    }
+    // 此函数不再使用，由 TableEditModal 自行处理提交逻辑
+};
+
+// 新增表 - 打开 TableEditModal
+const handleAdd = () => {
+    setCurrentRecord(null);
+    setModalVisible(true);
 };
 
 // 初始化加载数据
