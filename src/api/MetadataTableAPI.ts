@@ -9,6 +9,7 @@ export interface ColumnVO {
     nullable: boolean;
     autoIncrement: boolean;
     defaultValue?: string;
+    secretLevel: string;
 }
 
 // 索引值对象
@@ -123,13 +124,13 @@ export const updateMetadataTable = async (id: string, cmd: MetadataTableCmd): Pr
     }
 };
 
-// 导入表
-export const importMetadataTable = async (cmd: any): Promise<MetadataTableDTO> => {
+// 删除表
+export const deleteMetadataTable = async (id: string): Promise<void> => {
     try {
-        const resp = await datamanRequest.post('/api/v1/metadata/tables/importTable', cmd);
-        return resp.data;
+        await datamanRequest.delete(`/api/v1/metadata/tables/${id}`);
     } catch (error) {
-        console.error('导入表失败:', error);
-        throw new Error('导入表失败，请稍后重试');
+        console.error('删除表失败:', error);
+        throw new Error('删除表失败，请稍后重试');
     }
 };
+

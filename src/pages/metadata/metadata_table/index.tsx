@@ -40,7 +40,6 @@ import {MetadataTableDTO, pageMetadataTables} from "../../../api/MetadataTableAP
 
 const {Header, Sider, Content} = Layout;
 const {Title, Text} = Typography;
-const {Option} = Select;
 const {confirm} = Modal;
 
 // 定义类型接口
@@ -54,26 +53,16 @@ interface SubjectNode {
 // 使用 MetadataTableDTO 替代 TableMeta
 type TableMeta = MetadataTableDTO;
 
-interface TableFormData {
-    tableName: string;
-    tableComment: string;
-    theme: string;
-    dbType: string;
-    owner: string;
-}
 
 const MetaDataManagement: React.FC = () => {
     // 状态管理
+    const [tableEditModalVisible, setTableEditModalVisible] = useState<boolean>(false)
     const [subjectTreeData, setSubjectTreeData] = useState<SubjectNode[]>([]);
     const [collapsed, setCollapsed] = useState(false); // 侧边栏折叠状态
     const [selectedThemeKey, setSelectedThemeKey] = useState<string>('all'); // 选中的主题key
     const [tableData, setTableData] = useState<TableMeta[]>([]); // 表数据
     const [loading, setLoading] = useState(true); // 加载状态
     const [searchValue, setSearchValue] = useState(''); // 搜索值
-    const [modalVisible, setModalVisible] = useState(false); // 表单弹窗状态
-    const [modalType, setModalType] = useState<'add' | 'edit'>('add'); // 弹窗类型
-    const [currentRecord, setCurrentRecord] = useState<TableMeta | null>(null); // 当前操作的记录
-    const [form] = Form.useForm(); // 表单实例
 
     useEffect(() => {
         fetchTreeSubjects().then()
@@ -302,11 +291,7 @@ const handleReset = () => {
     fetchTableData(selectedThemeKey);
 };
 
-// 编辑表 - 打开 TableEditModal
-const handleEdit = (record: TableMeta) => {
-    setCurrentRecord(record);
-    setModalVisible(true);
-};
+;
 
 // 删除表
 const handleDelete = (record: TableMeta) => {
@@ -323,16 +308,6 @@ const handleDelete = (record: TableMeta) => {
     });
 };
 
-// 表单提交 - 由 TableEditModal 自己处理
-const handleFormSubmit = async () => {
-    // 此函数不再使用，由 TableEditModal 自行处理提交逻辑
-};
-
-// 新增表 - 打开 TableEditModal
-const handleAdd = () => {
-    setCurrentRecord(null);
-    setModalVisible(true);
-};
 
 // 初始化加载数据
 useEffect(() => {
@@ -357,7 +332,7 @@ return (
                 </Title>
                 <Space>
                     <ImportTable/>
-                    <Button type="primary" icon={<PlusOutlined/>} onClick={handleAdd}>
+                    <Button type="primary" icon={<PlusOutlined/>} onClick={()=>setTableEditModalVisible(true)}>
                         新增表
                     </Button>
                     <Dropdown menu={{items: toolMenuItems}}>
@@ -447,69 +422,7 @@ return (
         </Layout>
 
         {/* 新增/编辑表弹窗 */}
-        <Modal
-            title={modalType === 'add' ? '新增元数据表' : '编辑元数据表'}
-            open={modalVisible}
-            onOk={handleFormSubmit}
-            onCancel={() => setModalVisible(false)}
-            maskClosable={false}
-            width={600}
-        >
-            <Form
-                form={form}
-                layout="vertical"
-                validateMessages={{
-                    required: '${label}为必填项',
-                }}
-            >
-                <Form.Item
-                    name="tableName"
-                    label="表名称"
-                    rules={[{required: true}]}
-                >
-                    <Input placeholder="请输入表名称（如：ods_user_info）"/>
-                </Form.Item>
-                <Form.Item
-                    name="tableComment"
-                    label="表备注"
-                    rules={[{required: true}]}
-                >
-                    <Input.TextArea placeholder="请输入表备注信息" rows={3}/>
-                </Form.Item>
-                <Form.Item
-                    name="theme"
-                    label="所属主题"
-                    rules={[{required: true}]}
-                >
-                    <Select placeholder="请选择所属主题">
-                        <Option value="ODS层/用户数据">ODS层/用户数据</Option>
-                        <Option value="ODS层/订单数据">ODS层/订单数据</Option>
-                        <Option value="DWD层/用户画像">DWD层/用户画像</Option>
-                        <Option value="DWS层/销售汇总">DWS层/销售汇总</Option>
-                        <Option value="ADS层/销售分析">ADS层/销售分析</Option>
-                    </Select>
-                </Form.Item>
-                <Form.Item
-                    name="dbType"
-                    label="数据库类型"
-                    rules={[{required: true}]}
-                >
-                    <Select placeholder="请选择数据库类型">
-                        <Option value="Hive">Hive</Option>
-                        <Option value="ClickHouse">ClickHouse</Option>
-                        <Option value="MySQL">MySQL</Option>
-                        <Option value="PostgreSQL">PostgreSQL</Option>
-                    </Select>
-                </Form.Item>
-                <Form.Item
-                    name="owner"
-                    label="负责人"
-                    rules={[{required: true}]}
-                >
-                    <Input placeholder="请输入负责人姓名"/>
-                </Form.Item>
-            </Form>
-        </Modal>
+        <TableEditModal visible={tableEditModalVisible} onClose={() => setTableEditModalVisible(false)}/>
     </Layout>
 );
 }
