@@ -1,7 +1,8 @@
 import React, {useEffect, useState} from 'react';
 import {Button, Card, Empty, Input, Layout, Modal, Space, Spin, Table, Tree, Typography} from 'antd';
 import {DatabaseOutlined, ReloadOutlined, SearchOutlined, UploadOutlined} from "@ant-design/icons";
-import {getTableInfo, listCatalog, listSchema, listTable, TableDTO} from "../../../api/DataSourceApi.ts";
+import {getTableInfo, listCatalog, listSchema, listTable, TableVO} from "../../../api/DataSourceApi.ts";
+import {MetadataTableDTO} from "../../../api/MetadataTableAPI.ts";
 import Sider from 'antd/es/layout/Sider';
 import {Content} from "antd/es/layout/layout";
 import {ColumnType} from "antd/es/table";
@@ -30,12 +31,11 @@ const App: React.FC = () => {
     const [searchValue, setSearchValue] = useState('')
     const [treeData, setTreeData] = useState<DataNode[]>([])
     const [schemaData, setSchemaData] = useState<SchemaData[]>([])
-    const [tableData, setTableData] = useState<TableDTO[]>([])
+    const [tableData, setTableData] = useState<TableVO[]>([])
     const [selectedCatalog, setSelectedCatalog] = useState<string>()
     const [selectedSchema, setSelectedSchema] = useState<string>()
-    const [selectedTable, setSelectedTable] = useState<string>()
     // 获得表信息传入TableEditModal
-    const [tableInfo, setTableInfo] = useState<TableDTO>()
+    const [tableInfo, setTableInfo] = useState<MetadataTableDTO>()
 
     useEffect(() => {
         fetchCatalog().then()
@@ -55,14 +55,6 @@ const App: React.FC = () => {
         }
     }, [selectedCatalog, selectedSchema, searchValue])
 
-    useEffect(() => {
-        if (selectedCatalog && selectedSchema && selectedTable) {
-            getTableInfo(selectedCatalog, selectedSchema, selectedTable).then(data => {
-                setTableInfo(data)
-            })
-        }
-    }, [selectedCatalog, selectedSchema, selectedTable])
-
     const schemaColumns: ColumnType<SchemaData>[] = [{
         title: `${selectedCatalog || '默认'} - 库`,
         dataIndex: 'schema',
@@ -74,7 +66,7 @@ const App: React.FC = () => {
         )
     }]
 
-    const tableColumns: ColumnType<TableDTO>[] = [{
+    const tableColumns: ColumnType<TableVO>[] = [{
         title: ` ${selectedCatalog}.${selectedSchema || '默认'}  - 表`,
         dataIndex: 'name',
         key: 'name',
@@ -91,10 +83,31 @@ const App: React.FC = () => {
         title: '操作',
         dataIndex: 'action',
         key: 'action',
-        render: (_, record: TableDTO) => (
-            <Button type="primary" onClick={() => {
-                setIsIcebergTableEditOpen(true)
-                setSelectedTable(record.name)
+        render: (_, record: TableVO) => (
+            <Button type="primary" onClick={async () => {
+                if (selectedCatalog && selectedSchema) {
+                    const tableVo = await getTableInfo(selectedCatalog, selectedSchema, record.name);
+                    // 构造 MetadataTableDTO 用于导入
+                    const metadataTable: MetadataTableDTO = {
+                        id: '',
+                        name: tableVo.name,
+                        owner: '',
+                        subjectCode: '',
+                        datasourceType: '',
+                        layerCode: '',
+                        comment: tableVo.comment || '',
+                        accessCount: '',
+                        lastAccessTime: '',
+                        heatLevel: '',
+                        secretLevel: '',
+                        onlineStatus: '',
+                        createTime: '',
+                        updateTime: '',
+                        table: tableVo,
+                    };
+                    setTableInfo(metadataTable);
+                    setIsIcebergTableEditOpen(true);
+                }
             }}>
                 同步到Iceberg
             </Button>

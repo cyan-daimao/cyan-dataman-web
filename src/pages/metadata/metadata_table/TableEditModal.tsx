@@ -200,42 +200,60 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
     // 初始化：编辑场景下加载父组件传入的表结构和表单值
     useEffect(() => {
         if (visible && initialData && subjectTreeData.length > 0) {
-            // 处理 subjectCode：将字符串转换为数组路径
-            let subjectCodePath: string[] = [];
-            if (initialData.subjectCode) {
-                const foundPath = findSubjectPath(initialData.subjectCode, subjectTreeData);
-                subjectCodePath = foundPath || [initialData.subjectCode];
-            }
-            //取一级主题
-            let firstSubjectIndex = -1;
-            subjectTreeData.forEach((subject,i) => {
-                if (subject.subjectCode===initialData.subjectCode){
-                    firstSubjectIndex = i;
-                }else{
-                    if (subject.children && subject.children.length > 0){
-                        subject.children.forEach((childSubject) => {
-                            if (childSubject.subjectCode===initialData.subjectCode){
-                                firstSubjectIndex = i;
-                            }
-                        })
-                    }
-                }
-            })
+            // 判断是编辑模式还是导入模式
+            const isEditMode = !!initialData.id;
 
-            // 处理表名：从完整表名中提取后缀
-            const tableNameSuffix = initialData.name.replace(initialData.layerCode+'_'+subjectTreeData[firstSubjectIndex].subjectCode+'_','')
-            // 填充表单值
-            form.setFieldsValue({
-                name: tableNameSuffix,
-                subjectCode: subjectCodePath,
-                layerCode: initialData.layerCode,
-                owner: initialData.owner,
-                secretLevel: initialData.secretLevel || "L1",
-                onlineStatus: initialData.onlineStatus,
-                comment: initialData.comment,
-                catalog: initialData.table?.catalog ,
-                schema: initialData.table?.schema ,
-            });
+            if (isEditMode) {
+                // 编辑模式：处理 subjectCode 和 layerCode
+                let subjectCodePath: string[] = [];
+                if (initialData.subjectCode) {
+                    const foundPath = findSubjectPath(initialData.subjectCode, subjectTreeData);
+                    subjectCodePath = foundPath || [initialData.subjectCode];
+                }
+                //取一级主题
+                let firstSubjectIndex = -1;
+                subjectTreeData.forEach((subject, i) => {
+                    if (subject.subjectCode === initialData.subjectCode) {
+                        firstSubjectIndex = i;
+                    } else {
+                        if (subject.children && subject.children.length > 0) {
+                            subject.children.forEach((childSubject) => {
+                                if (childSubject.subjectCode === initialData.subjectCode) {
+                                    firstSubjectIndex = i;
+                                }
+                            })
+                        }
+                    }
+                })
+
+                // 处理表名：从完整表名中提取后缀
+                const tableNameSuffix = initialData.name.replace(initialData.layerCode + '_' + subjectTreeData[firstSubjectIndex].subjectCode + '_', '')
+                // 填充表单值
+                form.setFieldsValue({
+                    name: tableNameSuffix,
+                    subjectCode: subjectCodePath,
+                    layerCode: initialData.layerCode,
+                    owner: initialData.owner,
+                    secretLevel: initialData.secretLevel || "L1",
+                    onlineStatus: initialData.onlineStatus || "ONLINE",
+                    comment: initialData.comment,
+                    catalog: initialData.table?.catalog,
+                    schema: initialData.table?.schema,
+                });
+            } else {
+                // 导入模式：只有表结构信息
+                form.setFieldsValue({
+                    name: initialData.name,
+                    subjectCode: [],
+                    layerCode: "ODS",
+                    owner: "",
+                    secretLevel: "L1",
+                    onlineStatus: "ONLINE",
+                    comment: initialData.comment || "",
+                    catalog: initialData.table?.catalog,
+                    schema: initialData.table?.schema,
+                });
+            }
 
             // 填充字段列表
             if (initialData.table?.columns) {
@@ -246,7 +264,7 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
                         type: column.type,
                         comment: column.comment || "",
                         nullable: column.nullable,
-                        secretLevel: column.secretLevel
+                        secretLevel: column.secretLevel || "L1"
                     })),
                 );
             }
@@ -255,10 +273,6 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
             form.resetFields();
             setFields([]);
         }
-        form.validateFields().then(res=>{
-            console.log("data:",initialData)
-            console.log("form:", res)
-        })
     }, [visible, initialData, form, subjectTreeData]);
 
     // 新增字段
@@ -467,7 +481,7 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
 
     return (
         <Modal
-            title={initialData ? "编辑元数据表" : "创建元数据表"}
+            title={initialData?.id ? "编辑元数据表" : "创建元数据表"}
             open={visible}
             onCancel={onClose}
             maskClosable={false}
@@ -481,7 +495,7 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
                     onClick={handleSubmit}
                     loading={loading}
                 >
-                    {initialData ? "保存修改" : "创建表"}
+                    {initialData?.id ? "保存修改" : "创建表"}
                 </Button>,
             ]}
             width={900}
@@ -503,7 +517,7 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
                     <Input
                         placeholder="例如：order_info"
                         maxLength={255}
-                        disabled={!!initialData}
+                        disabled={!!initialData?.id}
                         prefix={
                             <span
                                 style={{
@@ -549,7 +563,7 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
                             initialValue="ODS"
                             rules={[{required: true, message: "请选择数据分层"}]}
                         >
-                            <Select options={LAYER_OPTIONS} placeholder="请选择数据分层" disabled={!!initialData}/>
+                            <Select options={LAYER_OPTIONS} placeholder="请选择数据分层" disabled={!!initialData?.id}/>
                         </Form.Item>
                     </Col>
                 </Row>

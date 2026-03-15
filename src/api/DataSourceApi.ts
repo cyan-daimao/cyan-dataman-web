@@ -1,4 +1,5 @@
 import {datamanRequest} from "./Request.ts";
+import {TableVO} from "./MetadataTableAPI.ts";
 
 interface CatalogDTO{
     name: string,
@@ -29,17 +30,9 @@ export const listSchema = async (catalogName: string): Promise<SchemaDTO[]> => {
     }
 }
 
-export interface TableDTO{
-    catalog: string
-    schema: string
-    name: string
-    comment: string
-    columns: []
-    indexes: []
-}
 
 // 获取schema下的表
-export const listTable = async (catalogName: string, schemaName: string): Promise<TableDTO[]> => {
+export const listTable = async (catalogName: string, schemaName: string): Promise<TableVO[]> => {
     try {
         const data = await datamanRequest.get(`/api/v1/gravitino/catalogs/${catalogName}/schemas/${schemaName}/tables`)
         return data.data
@@ -50,7 +43,7 @@ export const listTable = async (catalogName: string, schemaName: string): Promis
 }
 
 
-export const getTableInfo = async (catalogName: string, schemaName: string, tableName: string): Promise<TableDTO> => {
+export const getTableInfo = async (catalogName: string, schemaName: string, tableName: string): Promise<TableVO> => {
     try {
         const data = await datamanRequest.get(`/api/v1/gravitino/catalogs/${catalogName}/schemas/${schemaName}/tables/${tableName}`)
         return data.data
