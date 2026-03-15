@@ -15,7 +15,7 @@ const items: MenuProps['items'] = [
         key: '2',
     },
     {
-        label: '自助取数',
+        label: <a href={'/sql-editor'}>SQL编辑</a>,
         key: '3',
     }
 ]

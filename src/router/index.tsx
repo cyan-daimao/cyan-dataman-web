@@ -11,6 +11,7 @@ const MetadataTable = React.lazy(() => import((`@/pages/metadata/metadata_table/
 const TableEditPage = React.lazy(() => import((`@/pages/metadata/metadata_table/TableEditPage.tsx`)))
 const TableDetailPage = React.lazy(() => import((`@/pages/metadata/metadata_table/TableDetailPage.tsx`)))
 const Metrics = React.lazy(() => import((`@/pages/metrics/index.tsx`)))
+const SQLEditor = React.lazy(() => import((`@/pages/sql-editor/index.tsx`)))
 
 // 鉴权组件：拦截未登录的访问
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
@@ -56,6 +57,9 @@ const routes = createBrowserRouter([
             },{
                 path: "metrics",
                 element: <Metrics/>,
+            },{
+                path: "sql-editor",
+                element: <SQLEditor/>,
             }
         ]
     },
