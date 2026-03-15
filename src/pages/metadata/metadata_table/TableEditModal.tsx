@@ -17,8 +17,7 @@ import {
     Typography
 } from "antd";
 import {createMetadataTable, MetadataTableDTO, updateMetadataTable} from "../../../api/MetadataTableAPI.ts";
-import {EmployeeDTO, EmployeeDTO as EmployeeAPIDTO, listEmployees} from "../../../api/EmployeeApi.ts";
-import {getStorage, KEY} from "../../../utils/storage.ts";
+import {EmployeeDTO as EmployeeAPIDTO, listEmployees} from "../../../api/EmployeeApi.ts";
 import {SubjectDTO, treeSubjects,} from "../../../api/MetadataSubjectAPI.ts";
 
 // 定义字段结构类型
@@ -114,7 +113,57 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
     // 主题加载状态
     const [subjectLoading, setSubjectLoading] = useState(false);
 
-    const current: EmployeeDTO = getStorage(KEY.CURRENT, {} as EmployeeDTO);
+    // 根据主题编码在主题树中查找完整路径
+    const findSubjectPath = (subjectCode: string, nodes: SubjectDTO[], path: string[] = []): string[] | null => {
+        for (const node of nodes) {
+            const currentPath = [...path, node.subjectCode];
+            if (node.subjectCode === subjectCode) {
+                return currentPath;
+            }
+            if (node.children && node.children.length > 0) {
+                const found = findSubjectPath(subjectCode, node.children, currentPath);
+                if (found) return found;
+            }
+        }
+        return null;
+    };
+
+    // 根据主题编码找到其所属的一级主题（根节点）
+    const findRootSubject = (subjectCode: string, nodes: SubjectDTO[]): SubjectDTO | null => {
+        for (const node of nodes) {
+            // 先检查当前节点是否匹配
+            if (node.subjectCode === subjectCode) {
+                return node;
+            }
+            // 再检查子节点
+            if (node.children && node.children.length > 0) {
+                // 递归查找
+                const findInChildren = (targetCode: string, children: SubjectDTO[]): boolean => {
+                    for (const child of children) {
+                        if (child.subjectCode === targetCode) return true;
+                        if (child.children) {
+                            if (findInChildren(targetCode, child.children)) return true;
+                        }
+                    }
+                    return false;
+                };
+                if (findInChildren(subjectCode, node.children)) {
+                    return node;
+                }
+            }
+        }
+        return null;
+    };
+
+    // 获取可用的主题树数据（编辑模式下只显示当前主题所在的树）
+    const getAvailableSubjectTree = (): SubjectDTO[] => {
+        if (!initialData?.subjectCode) {
+            return subjectTreeData;
+        }
+        const rootSubject = findRootSubject(initialData.subjectCode, subjectTreeData);
+        return rootSubject ? [rootSubject] : subjectTreeData;
+    };
+
 
     // 加载主题树数据
     useEffect(() => {
@@ -150,18 +199,42 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
 
     // 初始化：编辑场景下加载父组件传入的表结构和表单值
     useEffect(() => {
-        if (visible && initialData) {
+        if (visible && initialData && subjectTreeData.length > 0) {
+            // 处理 subjectCode：将字符串转换为数组路径
+            let subjectCodePath: string[] = [];
+            if (initialData.subjectCode) {
+                const foundPath = findSubjectPath(initialData.subjectCode, subjectTreeData);
+                subjectCodePath = foundPath || [initialData.subjectCode];
+            }
+            //取一级主题
+            let firstSubjectIndex = -1;
+            subjectTreeData.forEach((subject,i) => {
+                if (subject.subjectCode===initialData.subjectCode){
+                    firstSubjectIndex = i;
+                }else{
+                    if (subject.children && subject.children.length > 0){
+                        subject.children.forEach((childSubject) => {
+                            if (childSubject.subjectCode===initialData.subjectCode){
+                                firstSubjectIndex = i;
+                            }
+                        })
+                    }
+                }
+            })
+
+            // 处理表名：从完整表名中提取后缀
+            const tableNameSuffix = initialData.name.replace(initialData.layerCode+'_'+subjectTreeData[firstSubjectIndex].subjectCode+'_','')
             // 填充表单值
             form.setFieldsValue({
-                name: initialData.name,
-                subjectCode: initialData.subjectCode,
+                name: tableNameSuffix,
+                subjectCode: subjectCodePath,
                 layerCode: initialData.layerCode,
                 owner: initialData.owner,
-                secretLevel: initialData.heatLevel || "L1",
-                onlineStatus: "ONLINE",
+                secretLevel: initialData.secretLevel || "L1",
+                onlineStatus: initialData.onlineStatus,
                 comment: initialData.comment,
-                catalog: initialData.table?.catalog || "iceberg_catalog",
-                schema: initialData.table?.schema || "default",
+                catalog: initialData.table?.catalog ,
+                schema: initialData.table?.schema ,
             });
 
             // 填充字段列表
@@ -182,8 +255,11 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
             form.resetFields();
             setFields([]);
         }
-
-    }, [visible, initialData, form]);
+        form.validateFields().then(res=>{
+            console.log("data:",initialData)
+            console.log("form:", res)
+        })
+    }, [visible, initialData, form, subjectTreeData]);
 
     // 新增字段
     const addField = () => {
@@ -244,8 +320,8 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
 
             // 构建 TableValObj
             const tableValObj = {
-                catalog: formValues.catalog || "iceberg_catalog",
-                schema: formValues.schema || "default",
+                catalog: formValues.catalog || "iceberg",
+                schema: formValues.layerCode?.toLowerCase() || "ods",
                 name: `${formValues.layerCode.toLowerCase()}_${formValues.subjectCode?.[0]}_${formValues.name}`,
                 comment: formValues.comment,
                 columns: fields.map((field) => ({
@@ -422,11 +498,12 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
                             message: "表名仅支持字母、数字、下划线",
                         },
                     ]}
-                    extra="表名将自动生成：{layerCode}_{subjectCode}_{name}"
+                    extra="表名将自动生成：{layerCode}_{一级主题subjectCode}_{name}"
                 >
                     <Input
                         placeholder="例如：order_info"
                         maxLength={255}
+                        disabled={!!initialData}
                         prefix={
                             <span
                                 style={{
@@ -451,7 +528,7 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
                         >
                             <Cascader
                                 showSearch
-                                options={subjectTreeData.map((item) => ({
+                                options={getAvailableSubjectTree().map((item) => ({
                                     value: item.subjectCode,
                                     label: item.subjectName,
                                     children: item.children?.map((child) => ({
@@ -462,11 +539,6 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
                                 changeOnSelect
                                 placeholder="请选择主题"
                                 loading={subjectLoading}
-                                // onChange={(value) => {
-                                //   // 只取最后一个值作为 subjectCode
-                                //   const lastValue = Array.isArray(value) ? value[value.length - 1] : value;
-                                //   form.setFieldsValue({ subjectCode: lastValue });
-                                // }}
                             />
                         </Form.Item>
                     </Col>
@@ -477,7 +549,7 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
                             initialValue="ODS"
                             rules={[{required: true, message: "请选择数据分层"}]}
                         >
-                            <Select options={LAYER_OPTIONS} placeholder="请选择数据分层"/>
+                            <Select options={LAYER_OPTIONS} placeholder="请选择数据分层" disabled={!!initialData}/>
                         </Form.Item>
                     </Col>
                 </Row>

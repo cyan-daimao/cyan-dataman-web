@@ -5,13 +5,10 @@ import {
     Card,
     Dropdown,
     Empty,
-    Form,
     Input,
     Layout,
-    Menu,
     message,
     Modal,
-    Select,
     Space,
     Spin,
     Table,
@@ -36,7 +33,12 @@ import type {MenuProps} from 'antd/es/menu';
 import {treeSubjects} from "../../../api/MetadataSubjectAPI.ts";
 import ImportTable from "./ImportTableForm.tsx";
 import TableEditModal from "./TableEditModal.tsx";
-import {MetadataTableDTO, pageMetadataTables} from "../../../api/MetadataTableAPI.ts";
+import {
+    deleteMetadataTable,
+    getMetadataTableById,
+    MetadataTableDTO,
+    pageMetadataTables
+} from "../../../api/MetadataTableAPI.ts";
 
 const {Header, Sider, Content} = Layout;
 const {Title, Text} = Typography;
@@ -57,6 +59,7 @@ type TableMeta = MetadataTableDTO;
 const MetaDataManagement: React.FC = () => {
     // 状态管理
     const [tableEditModalVisible, setTableEditModalVisible] = useState<boolean>(false)
+    const [editingTable, setEditingTable] = useState<MetadataTableDTO | null>(null);
     const [subjectTreeData, setSubjectTreeData] = useState<SubjectNode[]>([]);
     const [collapsed, setCollapsed] = useState(false); // 侧边栏折叠状态
     const [selectedThemeKey, setSelectedThemeKey] = useState<string>('all'); // 选中的主题key
@@ -161,7 +164,7 @@ const columns: ColumnsType<TableMeta> = [
         key: 'name',
         width: 200,
         ellipsis: true,
-        render: (text, record) => <Text strong>{record.name}</Text>,
+        render: (_:never, record: TableMeta) => <Text strong>{record.name}</Text>,
     },
     {
         title: '表描述',
@@ -175,14 +178,14 @@ const columns: ColumnsType<TableMeta> = [
         dataIndex: 'subjectCode',
         key: 'subjectCode',
         width: 150,
-        render: (text) => <Tag color="blue">{text}</Tag>,
+        render: (text:string) => <Tag color="blue">{text}</Tag>,
     },
     {
         title: '数据分层',
         dataIndex: 'layerCode',
         key: 'layerCode',
         width: 120,
-        render: (text) => <Tag color="green">{text}</Tag>,
+        render: (text:string) => <Tag color="green">{text}</Tag>,
     },
     {
         title: '负责人',
@@ -195,7 +198,7 @@ const columns: ColumnsType<TableMeta> = [
         dataIndex: 'heatLevel',
         key: 'heatLevel',
         width: 80,
-        render: (text) => <Tag color="orange">{text}</Tag>,
+        render: (text:string) => <Tag color="orange">{text}</Tag>,
     },
     {
         title: '创建时间',
@@ -207,7 +210,7 @@ const columns: ColumnsType<TableMeta> = [
         title: '操作',
         key: 'action',
         width: 180,
-        render: (_: any, record: TableMeta) => (
+        render: (_, record: TableMeta) => (
             <Space size="small">
                 <Button
                     type="text"
@@ -244,7 +247,7 @@ const fetchTableData = async (subjectCode: string = 'all') => {
             current: 1,
             size: 100
         };
-        
+
         const page = await pageMetadataTables(query);
         setTableData(page.data || []);
     } catch (error) {
@@ -277,41 +280,79 @@ const onTreeSelect: TreeProps['onSelect'] = (selectedKeys) => {
     const key = selectedKeys[0] || 'all';
     console.log(123, key)
     setSelectedThemeKey(key);
-    fetchTableData(key);
+    fetchTableData(key).then();
 };
 
 // 搜索表
 const handleSearch = () => {
-    fetchTableData(selectedThemeKey);
+    fetchTableData(selectedThemeKey).then();
 };
 
 // 重置搜索
 const handleReset = () => {
     setSearchValue('');
-    fetchTableData(selectedThemeKey);
+    fetchTableData(selectedThemeKey).then();
 };
 
-;
+
+
+// 编辑表
+const handleEdit = async (record: TableMeta) => {
+    try {
+        setLoading(true);
+        const tableDetail = await getMetadataTableById(record.id);
+        // tableDetail.name
+        setEditingTable(tableDetail);
+        setTableEditModalVisible(true);
+    } catch (error) {
+        console.error('获取表详情失败:', error);
+        message.error('获取表详情失败');
+    } finally {
+        setLoading(false);
+    }
+};
 
 // 删除表
-const handleDelete = (record: TableMeta) => {
+const handleDelete = async (record: TableMeta) => {
     confirm({
         title: '确认删除',
         content: `是否确定删除表【${record.name}】？`,
         okText: '确认',
         cancelText: '取消',
-        onOk: () => {
-            // TODO: 调用删除 API
-            setTableData(tableData.filter(item => item.id !== record.id));
-            message.success('删除成功');
+        onOk: async () => {
+            try {
+                await deleteMetadataTable(record.id);
+                message.success('删除成功');
+                fetchTableData(selectedThemeKey).then();
+            } catch (error) {
+                console.error('删除表失败:', error);
+                message.error('删除表失败');
+            }
         },
     });
+};
+
+// 新增表
+const handleAdd = () => {
+    setEditingTable(null);
+    setTableEditModalVisible(true);
+};
+
+// 编辑弹窗关闭
+const handleModalClose = () => {
+    setTableEditModalVisible(false);
+    setEditingTable(null);
+};
+
+// 编辑弹窗成功回调
+const handleModalSuccess = () => {
+    fetchTableData(selectedThemeKey).then();
 };
 
 
 // 初始化加载数据
 useEffect(() => {
-    fetchTableData();
+    fetchTableData().then();
 }, []);
 
 // 工具栏菜单
@@ -332,7 +373,7 @@ return (
                 </Title>
                 <Space>
                     <ImportTable/>
-                    <Button type="primary" icon={<PlusOutlined/>} onClick={()=>setTableEditModalVisible(true)}>
+                    <Button type="primary" icon={<PlusOutlined/>} onClick={handleAdd}>
                         新增表
                     </Button>
                     <Dropdown menu={{items: toolMenuItems}}>
@@ -422,7 +463,12 @@ return (
         </Layout>
 
         {/* 新增/编辑表弹窗 */}
-        <TableEditModal visible={tableEditModalVisible} onClose={() => setTableEditModalVisible(false)}/>
+        <TableEditModal 
+            visible={tableEditModalVisible} 
+            onClose={handleModalClose}
+            onSuccess={handleModalSuccess}
+            initialData={editingTable}
+        />
     </Layout>
 );
 }

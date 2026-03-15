@@ -41,6 +41,8 @@ export interface MetadataTableDTO {
     accessCount: string;
     lastAccessTime: string;
     heatLevel: string;
+    secretLevel: string;
+    onlineStatus: string;
     createTime: string;
     updateTime: string;
     deletedAt?: string;
