@@ -35,6 +35,7 @@ const MetaDataManagement: React.FC = () => {
     const navigate = useNavigate();
     // 状态管理
     const [subjectTreeData, setSubjectTreeData] = useState<SubjectNode[]>([]);
+    const [expandedKeys, setExpandedKeys] = useState<string[]>([]); // 展开的节点
     const [collapsed, setCollapsed] = useState(false); // 侧边栏折叠状态
     const [selectedThemeKey, setSelectedThemeKey] = useState<string>('all'); // 选中的主题key
     const [tableData, setTableData] = useState<TableMeta[]>([]); // 表数据
@@ -44,6 +45,21 @@ const MetaDataManagement: React.FC = () => {
     useEffect(() => {
         fetchTreeSubjects().then()
     }, [])
+
+    // 收集所有节点的 key
+    const collectAllKeys = (nodes: SubjectNode[]): string[] => {
+        const keys: string[] = [];
+        const traverse = (items: SubjectNode[]) => {
+            items.forEach(item => {
+                keys.push(item.key);
+                if (item.children && item.children.length > 0) {
+                    traverse(item.children);
+                }
+            });
+        };
+        traverse(nodes);
+        return keys;
+    };
 
     const fetchTreeSubjects = async () => {
         const data = await treeSubjects();
@@ -63,6 +79,8 @@ const MetaDataManagement: React.FC = () => {
             icon: <TableOutlined/>,
         })
         setSubjectTreeData(treeData)
+        // 设置所有节点展开
+        setExpandedKeys(collectAllKeys(treeData))
     }
 
 // 表列定义
@@ -277,6 +295,8 @@ return (
                 <Tree
                     treeData={subjectTreeData}
                     defaultSelectedKeys={['all']}
+                    expandedKeys={expandedKeys}
+                    onExpand={(keys) => setExpandedKeys(keys as string[])}
                     onSelect={onTreeSelect}
                     showIcon
                     style={{padding: '16px'}}
