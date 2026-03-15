@@ -6,7 +6,7 @@ import {MetadataTableDTO} from "../../../api/MetadataTableAPI.ts";
 import Sider from 'antd/es/layout/Sider';
 import {Content} from "antd/es/layout/layout";
 import {ColumnType} from "antd/es/table";
-import IcebergTableForm from "./TableEditModal.tsx";
+import {useNavigate} from "react-router-dom";
 
 const {Title} = Typography;
 
@@ -25,8 +25,8 @@ interface SchemaData {
 }
 
 const App: React.FC = () => {
+    const navigate = useNavigate();
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isIcebergTableEditOpen, setIsIcebergTableEditOpen] = useState(false);
     const [loading, setLoading] = useState(false)
     const [searchValue, setSearchValue] = useState('')
     const [treeData, setTreeData] = useState<DataNode[]>([])
@@ -34,8 +34,6 @@ const App: React.FC = () => {
     const [tableData, setTableData] = useState<TableVO[]>([])
     const [selectedCatalog, setSelectedCatalog] = useState<string>()
     const [selectedSchema, setSelectedSchema] = useState<string>()
-    // 获得表信息传入TableEditModal
-    const [tableInfo, setTableInfo] = useState<MetadataTableDTO>()
 
     useEffect(() => {
         fetchCatalog().then()
@@ -105,8 +103,13 @@ const App: React.FC = () => {
                         updateTime: '',
                         table: tableVo,
                     };
-                    setTableInfo(metadataTable);
-                    setIsIcebergTableEditOpen(true);
+                    // 跳转到导入页面
+                    navigate('/metadata/metadata_table/edit', {
+                        state: {
+                            mode: 'import',
+                            importData: metadataTable
+                        }
+                    });
                 }
             }}>
                 同步到Iceberg
@@ -275,11 +278,6 @@ const App: React.FC = () => {
                     </Content>
                 </Layout>
             </Modal>
-            <IcebergTableForm
-                visible={isIcebergTableEditOpen}
-                onClose={() => setIsIcebergTableEditOpen(false)}
-                initialData={tableInfo}
-            />
         </>
     );
 };

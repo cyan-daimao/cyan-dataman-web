@@ -22,7 +22,6 @@ import {
     DownloadOutlined,
     EditOutlined,
     FilterOutlined,
-    FolderOutlined,
     PlusOutlined,
     ReloadOutlined,
     SearchOutlined,
@@ -30,15 +29,10 @@ import {
     TableOutlined
 } from '@ant-design/icons';
 import type {MenuProps} from 'antd/es/menu';
+import {useNavigate} from 'react-router-dom';
 import {treeSubjects} from "../../../api/MetadataSubjectAPI.ts";
 import ImportTable from "./ImportTableForm.tsx";
-import TableEditModal from "./TableEditModal.tsx";
-import {
-    deleteMetadataTable,
-    getMetadataTableById,
-    MetadataTableDTO,
-    pageMetadataTables
-} from "../../../api/MetadataTableAPI.ts";
+import {deleteMetadataTable, MetadataTableDTO, pageMetadataTables} from "../../../api/MetadataTableAPI.ts";
 
 const {Header, Sider, Content} = Layout;
 const {Title, Text} = Typography;
@@ -57,9 +51,8 @@ type TableMeta = MetadataTableDTO;
 
 
 const MetaDataManagement: React.FC = () => {
+    const navigate = useNavigate();
     // 状态管理
-    const [tableEditModalVisible, setTableEditModalVisible] = useState<boolean>(false)
-    const [editingTable, setEditingTable] = useState<MetadataTableDTO | null>(null);
     const [subjectTreeData, setSubjectTreeData] = useState<SubjectNode[]>([]);
     const [collapsed, setCollapsed] = useState(false); // 侧边栏折叠状态
     const [selectedThemeKey, setSelectedThemeKey] = useState<string>('all'); // 选中的主题key
@@ -74,7 +67,7 @@ const MetaDataManagement: React.FC = () => {
     const fetchTreeSubjects = async () => {
         const data = await treeSubjects();
         const treeData: SubjectNode[] = data.map(item => ({
-            key: item.id,
+            key: item.subjectCode,
             title: item.subjectName,
             icon: <DatabaseOutlined/>,
             children: item.children?.map(child => ({
@@ -91,52 +84,6 @@ const MetaDataManagement: React.FC = () => {
         setSubjectTreeData(treeData)
     }
 
-    // 主题树数据
-    const themeTreeData: SubjectNode[] = [
-        {
-            key: 'all',
-            title: '全部主题',
-            icon: <DatabaseOutlined/>,
-        },
-        {
-            key: 'ods',
-            title: 'ODS层',
-            icon: <FolderOutlined/>,
-            children: [
-                {key: 'ods_user', title: '用户数据', icon: <TableOutlined/>},
-                {key: 'ods_order', title: '订单数据', icon: <TableOutlined/>},
-                {key: 'ods_product', title: '商品数据', icon: <TableOutlined/>},
-            ],
-        },
-        {
-            key: 'dwd',
-            title: 'DWD层',
-            icon: <FolderOutlined/>,
-            children: [
-                {key: 'dwd_user_profile', title: '用户画像', icon: <TableOutlined/>},
-                {key: 'dwd_order_detail', title: '订单明细', icon: <TableOutlined/>},
-            ],
-        },
-        {
-            key: 'dws',
-            title: 'DWS层',
-            icon: <FolderOutlined/>,
-            children: [
-                {key: 'dws_user_behavior', title: '用户行为', icon: <TableOutlined/>},
-                {key: 'dws_sales_summary', title: '销售汇总', icon: <TableOutlined/>},
-            ],
-        },
-        {
-            key: 'ads',
-            title: 'ADS层',
-            icon: <FolderOutlined/>,
-            children: [
-                {key: 'ads_sales_analysis', title: '销售分析', icon: <TableOutlined/>},
-                {key: 'ads_user_analysis', title: '用户分析', icon: <TableOutlined/>},
-            ],
-        },
-    ];
-
     const tableMenuItems: MenuProps['items'] = [
         {
             key: '1',
@@ -147,11 +94,6 @@ const MetaDataManagement: React.FC = () => {
             key: '2',
             label: (
                 <Button type={"text"}>同步数据</Button>
-            )
-        }, {
-            key: '3',
-            label: (
-                <Button type={"text"}>删除表</Button>
             )
         }
     ]
@@ -202,8 +144,8 @@ const columns: ColumnsType<TableMeta> = [
     },
     {
         title: '创建时间',
-        dataIndex: 'createTime',
-        key: 'createTime',
+        dataIndex: 'createdAt',
+        key: 'createdAt',
         width: 180,
     },
     {
@@ -259,26 +201,10 @@ const fetchTableData = async (subjectCode: string = 'all') => {
     }
 };
 
-// 根据主题key获取主题名称
-const getThemeName = (key: string): string => {
-    const findNode = (nodes: SubjectNode[], targetKey: string): SubjectNode | undefined => {
-        for (const node of nodes) {
-            if (node.key === targetKey) return node;
-            if (node.children) {
-                const found = findNode(node.children, targetKey);
-                if (found) return found;
-            }
-        }
-        return undefined;
-    };
-    const node = findNode(themeTreeData, key);
-    return node?.title || '';
-};
 
 // 树节点点击事件
 const onTreeSelect: TreeProps['onSelect'] = (selectedKeys) => {
     const key = selectedKeys[0] || 'all';
-    console.log(123, key)
     setSelectedThemeKey(key);
     fetchTableData(key).then();
 };
@@ -296,20 +222,14 @@ const handleReset = () => {
 
 
 
-// 编辑表
-const handleEdit = async (record: TableMeta) => {
-    try {
-        setLoading(true);
-        const tableDetail = await getMetadataTableById(record.id);
-        // tableDetail.name
-        setEditingTable(tableDetail);
-        setTableEditModalVisible(true);
-    } catch (error) {
-        console.error('获取表详情失败:', error);
-        message.error('获取表详情失败');
-    } finally {
-        setLoading(false);
-    }
+// 编辑表 - 跳转到编辑页面
+const handleEdit = (record: TableMeta) => {
+    navigate('/metadata/metadata_table/edit', {
+        state: {
+            mode: 'edit',
+            tableId: record.id
+        }
+    });
 };
 
 // 删除表
@@ -332,21 +252,13 @@ const handleDelete = async (record: TableMeta) => {
     });
 };
 
-// 新增表
+// 新增表 - 跳转到创建页面
 const handleAdd = () => {
-    setEditingTable(null);
-    setTableEditModalVisible(true);
-};
-
-// 编辑弹窗关闭
-const handleModalClose = () => {
-    setTableEditModalVisible(false);
-    setEditingTable(null);
-};
-
-// 编辑弹窗成功回调
-const handleModalSuccess = () => {
-    fetchTableData(selectedThemeKey).then();
+    navigate('/metadata/metadata_table/edit', {
+        state: {
+            mode: 'create'
+        }
+    });
 };
 
 
@@ -413,14 +325,6 @@ return (
             <Content style={{margin: '0px', background: '#fff', borderRadius: '1px'}}>
                 <Card style={{marginBottom: 8}}>
                     <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                        <div>
-                            <Title level={5} style={{margin: 0, display: 'inline-block'}}>
-                                {selectedThemeKey === 'all' ? '全部表' : getThemeName(selectedThemeKey)}
-                            </Title>
-                            <Text type="secondary" style={{marginLeft: 8}}>
-                                共 {tableData.length} 张表
-                            </Text>
-                        </div>
                         <Space>
                             <Input
                                 placeholder="搜索表名称/备注"
@@ -461,17 +365,8 @@ return (
                 </Spin>
             </Content>
         </Layout>
-
-        {/* 新增/编辑表弹窗 */}
-        <TableEditModal 
-            visible={tableEditModalVisible} 
-            onClose={handleModalClose}
-            onSuccess={handleModalSuccess}
-            initialData={editingTable}
-        />
     </Layout>
 );
-}
-;
+};
 
 export default MetaDataManagement;

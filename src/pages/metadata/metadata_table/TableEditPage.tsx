@@ -1,13 +1,12 @@
-// TableEditModal.tsx
 import React, {useEffect, useState} from "react";
 import {
     Button,
+    Card,
     Cascader,
     Col,
     Form,
     Input,
     message,
-    Modal,
     Popconfirm,
     Row,
     Select,
@@ -16,7 +15,9 @@ import {
     TableProps,
     Typography
 } from "antd";
-import {createMetadataTable, MetadataTableDTO, updateMetadataTable} from "../../../api/MetadataTableAPI.ts";
+import {ArrowLeftOutlined, SaveOutlined} from "@ant-design/icons";
+import {useLocation, useNavigate} from "react-router-dom";
+import {createMetadataTable, getMetadataTableById, MetadataTableDTO, updateMetadataTable} from "../../../api/MetadataTableAPI.ts";
 import {EmployeeDTO as EmployeeAPIDTO, listEmployees} from "../../../api/EmployeeApi.ts";
 import {SubjectDTO, treeSubjects,} from "../../../api/MetadataSubjectAPI.ts";
 
@@ -28,14 +29,6 @@ export interface TableColumnField {
     comment: string; // 字段注释
     nullable: boolean; // 是否可为空
     secretLevel: string; // 字段密级
-}
-
-// 定义组件 Props 类型
-export interface TableEditModalProps {
-    visible: boolean; // 弹窗显隐
-    onClose: () => void; // 关闭弹窗回调
-    onSuccess?: () => void; // 成功后的回调
-    initialData?: MetadataTableDTO; // 初始数据，用于编辑模式
 }
 
 const {Title, Text} = Typography;
@@ -80,12 +73,23 @@ const ONLINE_STATUS_OPTIONS = [
     {value: "OFFLINE", label: "已下线"},
 ];
 
-const TableEditModal: React.FC<TableEditModalProps> = ({
-                                                           visible,
-                                                           onClose,
-                                                           onSuccess,
-                                                           initialData,
-                                                       }) => {
+// 页面模式类型
+type PageMode = 'create' | 'edit' | 'import';
+
+const TableEditPage: React.FC = () => {
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    // 从 location.state 获取传递的数据
+    const locationState = location.state as {
+        mode?: PageMode;
+        tableId?: string;
+        importData?: MetadataTableDTO;
+    } | null;
+
+    const mode: PageMode = locationState?.mode || 'create';
+    const tableId = locationState?.tableId;
+    const importData = locationState?.importData;
 
     // 表单类型定义
     interface TableFormData {
@@ -110,8 +114,12 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
     const [employeeList, setEmployeeList] = useState<EmployeeAPIDTO[]>([]);
     // 加载状态
     const [loading, setLoading] = useState(false);
+    // 页面加载状态
+    const [pageLoading, setPageLoading] = useState(true);
     // 主题加载状态
     const [subjectLoading, setSubjectLoading] = useState(false);
+    // 初始数据
+    const [initialData, setInitialData] = useState<MetadataTableDTO | null>(null);
 
     // 根据主题编码在主题树中查找完整路径
     const findSubjectPath = (subjectCode: string, nodes: SubjectDTO[], path: string[] = []): string[] | null => {
@@ -131,13 +139,10 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
     // 根据主题编码找到其所属的一级主题（根节点）
     const findRootSubject = (subjectCode: string, nodes: SubjectDTO[]): SubjectDTO | null => {
         for (const node of nodes) {
-            // 先检查当前节点是否匹配
             if (node.subjectCode === subjectCode) {
                 return node;
             }
-            // 再检查子节点
             if (node.children && node.children.length > 0) {
-                // 递归查找
                 const findInChildren = (targetCode: string, children: SubjectDTO[]): boolean => {
                     for (const child of children) {
                         if (child.subjectCode === targetCode) return true;
@@ -164,14 +169,42 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
         return rootSubject ? [rootSubject] : subjectTreeData;
     };
 
-
-    // 加载主题树数据
-    useEffect(() => {
-        if (visible) {
-            loadSubjectTree().then();
-            loadEmployeeList().then();
+    // 获取页面标题
+    const getPageTitle = () => {
+        switch (mode) {
+            case 'edit':
+                return '编辑元数据表';
+            case 'import':
+                return '导入元数据表';
+            default:
+                return '创建元数据表';
         }
-    }, [visible]);
+    };
+
+    // 初始化加载
+    useEffect(() => {
+        const init = async () => {
+            try {
+                setPageLoading(true);
+                // 并行加载主题树和员工列表
+                await Promise.all([loadSubjectTree(), loadEmployeeList()]);
+
+                // 如果是编辑模式，加载表详情
+                if (mode === 'edit' && tableId) {
+                    const data = await getMetadataTableById(tableId);
+                    setInitialData(data);
+                } else if (mode === 'import' && importData) {
+                    setInitialData(importData);
+                }
+            } catch (error) {
+                console.error("初始化失败:", error);
+                message.error("初始化失败");
+            } finally {
+                setPageLoading(false);
+            }
+        };
+        init();
+    }, [mode, tableId, importData]);
 
     const loadSubjectTree = async () => {
         try {
@@ -186,7 +219,6 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
         }
     };
 
-    // 加载员工列表
     const loadEmployeeList = async () => {
         try {
             const data = await listEmployees();
@@ -197,11 +229,10 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
         }
     };
 
-    // 初始化：编辑场景下加载父组件传入的表结构和表单值
+    // 初始化表单数据
     useEffect(() => {
-        if (visible && initialData && subjectTreeData.length > 0) {
-            // 判断是编辑模式还是导入模式
-            const isEditMode = !!initialData.id;
+        if (!pageLoading && initialData && subjectTreeData.length > 0) {
+            const isEditMode = mode === 'edit';
 
             if (isEditMode) {
                 // 编辑模式：处理 subjectCode 和 layerCode
@@ -210,7 +241,7 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
                     const foundPath = findSubjectPath(initialData.subjectCode, subjectTreeData);
                     subjectCodePath = foundPath || [initialData.subjectCode];
                 }
-                //取一级主题
+                // 取一级主题
                 let firstSubjectIndex = -1;
                 subjectTreeData.forEach((subject, i) => {
                     if (subject.subjectCode === initialData.subjectCode) {
@@ -221,14 +252,16 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
                                 if (childSubject.subjectCode === initialData.subjectCode) {
                                     firstSubjectIndex = i;
                                 }
-                            })
+                            });
                         }
                     }
-                })
+                });
 
                 // 处理表名：从完整表名中提取后缀
-                const tableNameSuffix = initialData.name.replace(initialData.layerCode + '_' + subjectTreeData[firstSubjectIndex].subjectCode + '_', '')
-                // 填充表单值
+                const tableNameSuffix = firstSubjectIndex >= 0
+                    ? initialData.name.replace(initialData.layerCode + '_' + subjectTreeData[firstSubjectIndex].subjectCode + '_', '')
+                    : initialData.name;
+
                 form.setFieldsValue({
                     name: tableNameSuffix,
                     subjectCode: subjectCodePath,
@@ -268,12 +301,13 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
                     })),
                 );
             }
-        } else if (!visible) {
-            // 关闭弹窗时重置
-            form.resetFields();
-            setFields([]);
         }
-    }, [visible, initialData, form, subjectTreeData]);
+    }, [pageLoading, initialData, subjectTreeData, mode]);
+
+    // 返回列表页
+    const handleBack = () => {
+        navigate('/metadata/metadata_table');
+    };
 
     // 新增字段
     const addField = () => {
@@ -293,7 +327,7 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
         setFields(fields.filter((field) => field.id !== id));
     };
 
-    // 编辑字段属性（通用方法）
+    // 编辑字段属性
     const updateField = (id: string, key: keyof TableColumnField, value: any) => {
         setFields(
             fields.map((field) =>
@@ -306,7 +340,6 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
     const handleSubmit = async () => {
         try {
             setLoading(true);
-            // 验证所有表单字段
             const formValues = await form.validateFields();
 
             // 验证字段列表
@@ -363,27 +396,19 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
             };
 
             console.log("提交表单数据:", cmd);
-            // 调用 API
-            if (initialData?.id) {
-                // 更新模式
-                await updateMetadataTable(initialData.id, cmd);
+
+            if (mode === 'edit' && tableId) {
+                await updateMetadataTable(tableId, cmd);
                 message.success("表更新成功！");
             } else {
-                // 创建模式
                 await createMetadataTable(cmd);
                 message.success("表创建成功！");
             }
 
-            // 成功后回调
-            if (onSuccess) {
-                onSuccess();
-            }
-
-            // 关闭弹窗
-            onClose();
+            // 返回列表页
+            handleBack();
         } catch (error: any) {
             console.error("表单提交失败:", error);
-            // 错误已在拦截器处理，这里不需要重复提示
         } finally {
             setLoading(false);
         }
@@ -395,26 +420,26 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
             title: "字段名",
             dataIndex: "name",
             key: "name",
+            width: 200,
             render: (text, record) => (
-                <>
-                    <Input
-                        value={text}
-                        placeholder="输入字段名"
-                        onChange={(e) => updateField(record.id, "name", e.target.value)}
-                        maxLength={64}
-                    />
-                </>
+                <Input
+                    value={text}
+                    placeholder="输入字段名"
+                    onChange={(e) => updateField(record.id, "name", e.target.value)}
+                    maxLength={64}
+                />
             ),
         },
         {
             title: "字段类型",
             dataIndex: "type",
             key: "type",
+            width: 150,
             render: (text, record) => (
                 <Select
                     value={text}
                     onChange={(value) => updateField(record.id, "type", value)}
-                    style={{width: 120}}
+                    style={{width: 130}}
                 >
                     {FIELD_TYPE_OPTIONS.map((type) => (
                         <Option key={type} value={type}>
@@ -428,11 +453,12 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
             title: "是否可为空",
             dataIndex: "nullable",
             key: "nullable",
+            width: 120,
             render: (text, record) => (
                 <Select
                     value={text}
                     onChange={(value) => updateField(record.id, "nullable", value)}
-                    style={{width: 80}}
+                    style={{width: 100}}
                 >
                     <Option value={true}>是</Option>
                     <Option value={false}>否</Option>
@@ -443,12 +469,15 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
             title: "字段密级",
             dataIndex: "secretLevel",
             key: "secretLevel",
+            width: 140,
             render: (text, record) => (
-                <Select options={SECRET_LEVEL_OPTIONS}
-                        value={text}
-                        style={{width: 100}}
-                        onChange={(value) => updateField(record.id, "secretLevel", value)}
-                        placeholder="请选择密级"/>
+                <Select
+                    options={SECRET_LEVEL_OPTIONS}
+                    value={text}
+                    style={{width: 120}}
+                    onChange={(value) => updateField(record.id, "secretLevel", value)}
+                    placeholder="请选择密级"
+                />
             ),
         },
         {
@@ -466,6 +495,7 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
         {
             title: "操作",
             key: "action",
+            width: 80,
             render: (_, record) => (
                 <Popconfirm
                     title="确定删除该字段吗？"
@@ -473,164 +503,190 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
                     okText="是"
                     cancelText="否"
                 >
-                    <Text type="danger">删除</Text>
+                    <Text type="danger" style={{cursor: 'pointer'}}>删除</Text>
                 </Popconfirm>
             ),
         },
     ];
 
     return (
-        <Modal
-            title={initialData?.id ? "编辑元数据表" : "创建元数据表"}
-            open={visible}
-            onCancel={onClose}
-            maskClosable={false}
-            footer={[
-                <Button key="cancel" onClick={onClose} disabled={loading}>
-                    取消
-                </Button>,
-                <Button
-                    key="submit"
-                    type="primary"
-                    onClick={handleSubmit}
-                    loading={loading}
-                >
-                    {initialData?.id ? "保存修改" : "创建表"}
-                </Button>,
-            ]}
-            width={900}
-        >
+        <div style={{padding: 0}}>
+            {/* 页面头部 */}
+            <div style={{
+                marginBottom: 16,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+            }}>
+                <Space>
+                    <Button icon={<ArrowLeftOutlined/>} onClick={handleBack}>
+                        返回
+                    </Button>
+                    <Title level={4} style={{margin: 0}}>{getPageTitle()}</Title>
+                </Space>
+                <Space>
+                    <Button onClick={handleBack}>取消</Button>
+                    <Button
+                        type="primary"
+                        icon={<SaveOutlined/>}
+                        onClick={handleSubmit}
+                        loading={loading}
+                    >
+                        {mode === 'edit' ? '保存修改' : '创建表'}
+                    </Button>
+                </Space>
+            </div>
+
+            {/* 表单内容 */}
             <Form form={form} layout="vertical">
-                {/* 表名输入 */}
-                <Form.Item
-                    name="name"
-                    label="表名"
-                    rules={[
-                        {required: true, message: "请输入表名"},
-                        {
-                            pattern: /^[a-zA-Z0-9_]+$/,
-                            message: "表名仅支持字母、数字、下划线",
-                        },
-                    ]}
-                    extra="表名将自动生成：{layerCode}_{一级主题subjectCode}_{name}"
-                >
-                    <Input
-                        placeholder="例如：order_info"
-                        maxLength={255}
-                        disabled={!!initialData?.id}
-                        prefix={
-                            <span
-                                style={{
-                                    color: "rgba(0, 0, 0, 0.45)",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    height: "100%",
-                                }}
+                <Row gutter={24}>
+                    {/* 左侧：基本信息 */}
+                    <Col span={12}>
+                        <Card title="基本信息" size="small" loading={pageLoading}>
+                            <Form.Item
+                                name="name"
+                                label="表名"
+                                rules={[
+                                    {required: true, message: "请输入表名"},
+                                    {
+                                        pattern: /^[a-zA-Z0-9_]+$/,
+                                        message: "表名仅支持字母、数字、下划线",
+                                    },
+                                ]}
+                                extra="表名将自动生成：{layerCode}_{一级主题subjectCode}_{name}"
                             >
-                {Form.useWatch("layerCode", form)?.toLocaleLowerCase()}_
-                                {Form.useWatch("subjectCode", form)?.[0]}_
-              </span>
-                        }
-                    />
-                </Form.Item>
-                <Row gutter={16}>
-                    <Col span={16}>
-                        <Form.Item
-                            name="subjectCode"
-                            label="主题编码"
-                            rules={[{required: true, message: "请选择主题"}]}
-                        >
-                            <Cascader
-                                showSearch
-                                options={getAvailableSubjectTree().map((item) => ({
-                                    value: item.subjectCode,
-                                    label: item.subjectName,
-                                    children: item.children?.map((child) => ({
-                                        value: child.subjectCode,
-                                        label: child.subjectName,
-                                    })),
-                                }))}
-                                changeOnSelect
-                                placeholder="请选择主题"
-                                loading={subjectLoading}
-                            />
-                        </Form.Item>
+                                <Input
+                                    placeholder="例如：order_info"
+                                    maxLength={255}
+                                    disabled={mode === 'edit'}
+                                    prefix={
+                                        <span style={{color: "rgba(0, 0, 0, 0.45)"}}>
+                                            {Form.useWatch("layerCode", form)?.toLowerCase()}_
+                                            {Form.useWatch("subjectCode", form)?.[0]}_
+                                        </span>
+                                    }
+                                />
+                            </Form.Item>
+                            <Row gutter={16}>
+                                <Col span={16}>
+                                    <Form.Item
+                                        name="subjectCode"
+                                        label="主题编码"
+                                        rules={[{required: true, message: "请选择主题"}]}
+                                    >
+                                        <Cascader
+                                            showSearch
+                                            options={getAvailableSubjectTree().map((item) => ({
+                                                value: item.subjectCode,
+                                                label: item.subjectName,
+                                                children: item.children?.map((child) => ({
+                                                    value: child.subjectCode,
+                                                    label: child.subjectName,
+                                                })),
+                                            }))}
+                                            changeOnSelect
+                                            placeholder="请选择主题"
+                                            loading={subjectLoading}
+                                        />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={8}>
+                                    <Form.Item
+                                        name="layerCode"
+                                        label="数据分层"
+                                        initialValue="ODS"
+                                        rules={[{required: true, message: "请选择数据分层"}]}
+                                    >
+                                        <Select
+                                            options={LAYER_OPTIONS}
+                                            placeholder="请选择数据分层"
+                                            disabled={mode === 'edit'}
+                                        />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                            <Form.Item
+                                name="comment"
+                                label="表描述"
+                                rules={[{required: true, message: "请输入表描述"}]}
+                            >
+                                <Input.TextArea
+                                    placeholder="请输入表描述"
+                                    maxLength={500}
+                                    rows={3}
+                                    showCount
+                                />
+                            </Form.Item>
+                        </Card>
                     </Col>
-                    <Col span={8}>
-                        <Form.Item
-                            name="layerCode"
-                            label="数据分层"
-                            initialValue="ODS"
-                            rules={[{required: true, message: "请选择数据分层"}]}
-                        >
-                            <Select options={LAYER_OPTIONS} placeholder="请选择数据分层" disabled={!!initialData?.id}/>
-                        </Form.Item>
+
+                    {/* 右侧：管理信息 */}
+                    <Col span={12}>
+                        <Card title="管理信息" size="small" loading={pageLoading}>
+                            <Row gutter={16}>
+                                <Col span={12}>
+                                    <Form.Item
+                                        name="owner"
+                                        label="负责人"
+                                        rules={[{required: true, message: "请选择负责人"}]}
+                                    >
+                                        <Select
+                                            placeholder="请选择负责人"
+                                            showSearch
+                                            optionFilterProp="children"
+                                            filterOption={(input, option) =>
+                                                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                            }
+                                            options={employeeList.map((emp) => ({
+                                                label: `${emp.cnName} (${emp.passport})`,
+                                                value: emp.passport,
+                                            }))}
+                                        />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={12}>
+                                    <Form.Item
+                                        name="secretLevel"
+                                        label="密级"
+                                        initialValue="L1"
+                                        rules={[{required: true, message: "请选择密级"}]}
+                                    >
+                                        <Select options={SECRET_LEVEL_OPTIONS} placeholder="请选择密级"/>
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                            <Row gutter={16}>
+                                <Col span={12}>
+                                    <Form.Item
+                                        name="onlineStatus"
+                                        label="上线状态"
+                                        initialValue="ONLINE"
+                                        rules={[{required: true, message: "请选择上线状态"}]}
+                                    >
+                                        <Select
+                                            options={ONLINE_STATUS_OPTIONS}
+                                            placeholder="请选择上线状态"
+                                        />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                        </Card>
                     </Col>
                 </Row>
-                <Row gutter={16}>
-                    <Col span={8}>
-                        <Form.Item
-                            name="owner"
-                            label="负责人"
-                            rules={[{required: true, message: "请选择负责人"}]}
-                        >
-                            <Select
-                                placeholder="请选择负责人"
-                                showSearch
-                                optionFilterProp="children"
-                                filterOption={(input, option) =>
-                                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                                }
-                                options={employeeList.map((emp) => ({
-                                    label: `${emp.cnName} (${emp.passport})`,
-                                    value: emp.passport,
-                                }))}
-                            />
-                        </Form.Item>
-                    </Col>
-                    <Col span={8}>
-                        <Form.Item
-                            name="secretLevel"
-                            label="密级"
-                            initialValue="L1"
-                            rules={[{required: true, message: "请选择密级"}]}
-                        >
-                            <Select options={SECRET_LEVEL_OPTIONS} placeholder="请选择密级"/>
-                        </Form.Item>
-                    </Col>
-                    <Col span={8}>
-                        <Form.Item
-                            name="onlineStatus"
-                            label="上线状态"
-                            initialValue="ONLINE"
-                            rules={[{required: true, message: "请选择上线状态"}]}
-                        >
-                            <Select
-                                options={ONLINE_STATUS_OPTIONS}
-                                placeholder="请选择上线状态"
-                            />
-                        </Form.Item>
-                    </Col>
-                </Row>
-                <Form.Item
-                    name="comment"
-                    label="表描述"
-                    rules={[{required: true, message: "请输入表描述"}]}
-                >
-                    <Input placeholder="请输入表描述" maxLength={255}/>
-                </Form.Item>
 
                 {/* 字段列表 */}
-                <div style={{margin: "16px 0"}}>
-                    <Space align="center" style={{marginBottom: 8}}>
-                        <Title level={5} style={{margin: 0}}>
-                            字段列表
-                        </Title>
-                        <Button type="dashed" size="small" onClick={addField}>
-                            + 新增字段
-                        </Button>
-                    </Space>
-
+                <Card
+                    title={
+                        <Space>
+                            <span>字段列表</span>
+                            <Button type="dashed" size="small" onClick={addField}>
+                                + 新增字段
+                            </Button>
+                        </Space>
+                    }
+                    size="small"
+                    style={{marginTop: 16}}
+                >
                     {fields.length > 0 ? (
                         <Table
                             dataSource={fields}
@@ -638,16 +694,18 @@ const TableEditModal: React.FC<TableEditModalProps> = ({
                             rowKey="id"
                             size="small"
                             pagination={false}
+                            scroll={{x: 'max-content'}}
+                            bordered
                         />
                     ) : (
-                        <div style={{textAlign: "center", padding: 16, color: "#999"}}>
+                        <div style={{textAlign: "center", padding: 40, color: "#999"}}>
                             暂无字段，请点击「新增字段」添加
                         </div>
                     )}
-                </div>
+                </Card>
             </Form>
-        </Modal>
+        </div>
     );
 };
 
-export default TableEditModal;
+export default TableEditPage;
