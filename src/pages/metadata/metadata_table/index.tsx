@@ -1,34 +1,15 @@
 import React, {useEffect, useState} from 'react';
-import type {ColumnsType, TreeProps} from 'antd';
-import {
-    Button,
-    Card,
-    Dropdown,
-    Empty,
-    Input,
-    Layout,
-    message,
-    Modal,
-    Space,
-    Spin,
-    Table,
-    Tag,
-    Tree,
-    Typography
-} from 'antd';
+import type {TableColumnsType, TreeProps} from 'antd';
+import {Button, Card, Empty, Input, Layout, message, Modal, Space, Spin, Table, Tag, Tree, Typography} from 'antd';
 import {
     DatabaseOutlined,
     DeleteOutlined,
-    DownloadOutlined,
     EditOutlined,
     FilterOutlined,
     PlusOutlined,
-    ReloadOutlined,
     SearchOutlined,
-    SettingOutlined,
     TableOutlined
 } from '@ant-design/icons';
-import type {MenuProps} from 'antd/es/menu';
 import {useNavigate} from 'react-router-dom';
 import {treeSubjects} from "../../../api/MetadataSubjectAPI.ts";
 import ImportTable from "./ImportTableForm.tsx";
@@ -84,22 +65,8 @@ const MetaDataManagement: React.FC = () => {
         setSubjectTreeData(treeData)
     }
 
-    const tableMenuItems: MenuProps['items'] = [
-        {
-            key: '1',
-            label: (
-                <Button type={"text"}>查看数据</Button>
-            )
-        }, {
-            key: '2',
-            label: (
-                <Button type={"text"}>同步数据</Button>
-            )
-        }
-    ]
-
 // 表列定义
-const columns: ColumnsType<TableMeta> = [
+const columns: TableColumnsType<TableMeta> = [
     {
         title: '表名称',
         dataIndex: 'name',
@@ -179,9 +146,6 @@ const columns: ColumnsType<TableMeta> = [
                 >
                     删除
                 </Button>
-                <Dropdown menu={{items:tableMenuItems}}>
-                    <Button type="text" size="small">更多</Button>
-                </Dropdown>
             </Space>
         ),
     },
@@ -275,12 +239,6 @@ useEffect(() => {
     fetchTableData().then();
 }, []);
 
-// 工具栏菜单
-const toolMenuItems: MenuProps['items'] = [
-    {key: 'export', label: '导出数据', icon: <DownloadOutlined/>},
-    {key: 'refresh', label: '刷新数据', icon: <ReloadOutlined/>},
-    {key: 'setting', label: '列表设置', icon: <SettingOutlined/>},
-];
 
 return (
     <Layout style={{minHeight: '100vh'}}>
@@ -296,9 +254,6 @@ return (
                     <Button type="primary" icon={<PlusOutlined/>} onClick={handleAdd}>
                         新增表
                     </Button>
-                    <Dropdown menu={{items: toolMenuItems}}>
-                        <Button icon={<SettingOutlined/>}>更多操作</Button>
-                    </Dropdown>
                 </Space>
             </div>
         </Header>

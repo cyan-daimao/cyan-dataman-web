@@ -42,7 +42,7 @@ export const listTable = async (catalogName: string, schemaName: string): Promis
     }
 }
 
-
+// 获取表信息
 export const getTableInfo = async (catalogName: string, schemaName: string, tableName: string): Promise<TableVO> => {
     try {
         const data = await datamanRequest.get(`/api/v1/gravitino/catalogs/${catalogName}/schemas/${schemaName}/tables/${tableName}`)
@@ -50,5 +50,16 @@ export const getTableInfo = async (catalogName: string, schemaName: string, tabl
     }catch ( error){
         console.error('获取表信息失败:', error);
         throw new Error('获取表信息失败，请稍后重试');
+    }
+}
+
+// 预览表数据
+export const previewTableData = async (catalogName: string, schemaName: string, tableName: string): Promise<any[]> => {
+    try {
+        const data = await datamanRequest.get(`/api/v1/gravitino/catalogs/${catalogName}/schemas/${schemaName}/tables/${tableName}/preview`)
+        return data.data
+    }catch ( error){
+        console.error('获取表数据失败:', error);
+        throw new Error('获取表数据失败，请稍后重试');
     }
 }

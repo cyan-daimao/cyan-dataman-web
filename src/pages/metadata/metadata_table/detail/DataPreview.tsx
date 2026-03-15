@@ -2,6 +2,7 @@ import React, {useEffect, useState} from "react";
 import {Alert, Card, Pagination, Space, Spin, Table, TableProps, Tag, Typography} from "antd";
 import {ReloadOutlined} from "@ant-design/icons";
 import {ColumnVO} from "../../../../api/MetadataTableAPI.ts";
+import {previewTableData} from "../../../../api/DataSourceApi.ts";
 
 const {Text} = Typography;
 
@@ -32,54 +33,24 @@ const DataPreview: React.FC<DataPreviewProps> = ({columns, catalog, schema, tabl
 
     useEffect(() => {
         if (catalog && schema && tableName) {
-            loadPreviewData();
+            loadPreviewData().then();
         }
     }, [catalog, schema, tableName, currentPage, pageSize]);
 
     // 加载预览数据（目前使用模拟数据）
     const loadPreviewData = async () => {
         setLoading(true);
-        // TODO: 替换为真实 API 调用
-        setTimeout(() => {
-            // 根据字段生成模拟数据
-            const mockColumns = columns?.map(col => col.name) || [];
-            const mockRows = [];
-            
-            for (let i = 0; i < pageSize; i++) {
-                const row: Record<string, any> = {};
-                columns?.forEach((col, index) => {
-                    switch (col.type) {
-                        case 'INT':
-                        case 'BIGINT':
-                            row[col.name] = Math.floor(Math.random() * 10000);
-                            break;
-                        case 'FLOAT':
-                        case 'DOUBLE':
-                            row[col.name] = (Math.random() * 1000).toFixed(2);
-                            break;
-                        case 'BOOLEAN':
-                            row[col.name] = Math.random() > 0.5 ? 'true' : 'false';
-                            break;
-                        case 'DATE':
-                            row[col.name] = '2026-03-15';
-                            break;
-                        case 'TIMESTAMP':
-                            row[col.name] = '2026-03-15 08:00:00';
-                            break;
-                        default:
-                            row[col.name] = `sample_${index}_${i}`;
-                    }
+        if (catalog && schema && tableName){
+            previewTableData(catalog, schema, tableName).then(data => {
+                setPreviewData({
+                    columns: columns?.map(col => col.name) || [],
+                    rows: data || [],  // data 是 map 数组，如 [{"id":"1","name":"张三"}]
+                    total: data?.length || 0,
                 });
-                mockRows.push(row);
-            }
-
-            setPreviewData({
-                columns: mockColumns,
-                rows: mockRows,
-                total: 1000, // 模拟总数
-            });
-            setLoading(false);
-        }, 500);
+            }).finally(()=>{
+                setLoading( false)
+            })
+        }
     };
 
     // 生成表格列配置

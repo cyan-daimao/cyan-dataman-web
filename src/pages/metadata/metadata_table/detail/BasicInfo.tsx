@@ -85,13 +85,13 @@ const BasicInfo: React.FC<BasicInfoProps> = ({data}) => {
                 <Descriptions.Item label="创建时间">
                     <Space>
                         <ClockCircleOutlined/>
-                        {data.createTime || '-'}
+                        {data.createdAt || '-'}
                     </Space>
                 </Descriptions.Item>
                 <Descriptions.Item label="更新时间">
                     <Space>
                         <FieldTimeOutlined/>
-                        {data.updateTime || '-'}
+                        {data.updatedAt || '-'}
                     </Space>
                 </Descriptions.Item>
                 <Descriptions.Item label="最后访问时间">
