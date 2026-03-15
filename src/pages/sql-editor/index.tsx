@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useState, useCallback, useMemo} from 'react';
 import {Layout, message, Tabs} from 'antd';
 import {
     CodeOutlined,
@@ -9,7 +9,8 @@ import {
 import Sidebar from './components/Sidebar';
 import SQLEditor from './components/SQLEditor';
 import ResultPanel from './components/ResultPanel';
-import {QueryResult, ExecutionPlan, QueryHistory, TableInfo} from './types';
+import {QueryResult, ExecutionPlan, QueryHistory} from './types';
+import {ColumnVO} from '../../api/MetadataTableAPI';
 
 const {Sider, Content} = Layout;
 
@@ -23,6 +24,11 @@ interface QueryTab {
     error: string | null;
 }
 
+// 表字段缓存
+interface TableColumnsCache {
+    [tableName: string]: ColumnVO[];
+}
+
 const SQLEditorPage: React.FC = () => {
     // 状态
     const [tabs, setTabs] = useState<QueryTab[]>([
@@ -31,23 +37,23 @@ const SQLEditorPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState('1');
     const [loading, setLoading] = useState(false);
     const [siderCollapsed, setSiderCollapsed] = useState(false);
-    const [selectedTable, setSelectedTable] = useState<string>();
+    const [tableColumnsCache, setTableColumnsCache] = useState<TableColumnsCache>({});
 
     // 生成唯一ID
     const generateId = () => Date.now().toString();
 
     // 当前活动的标签页
-    const currentTab = tabs.find(t => t.id === activeTab);
+    const currentTab = useMemo(() => tabs.find(t => t.id === activeTab), [tabs, activeTab]);
 
-    // 更新当前标签页的 SQL
-    const handleSQLChange = (sql: string) => {
-        setTabs(tabs.map(t => 
+    // 更新当前标签页的 SQL（使用 useCallback 优化）
+    const handleSQLChange = useCallback((sql: string) => {
+        setTabs(prev => prev.map(t => 
             t.id === activeTab ? {...t, sql} : t
         ));
-    };
+    }, [activeTab]);
 
     // 新建标签页
-    const handleAddTab = () => {
+    const handleAddTab = useCallback(() => {
         const newId = generateId();
         const newTab: QueryTab = {
             id: newId,
@@ -57,25 +63,24 @@ const SQLEditorPage: React.FC = () => {
             executionPlan: null,
             error: null
         };
-        setTabs([...tabs, newTab]);
+        setTabs(prev => [...prev, newTab]);
         setActiveTab(newId);
-    };
+    }, [tabs.length]);
 
     // 关闭标签页
-    const handleCloseTab = (tabId: string) => {
+    const handleCloseTab = useCallback((tabId: string) => {
         if (tabs.length === 1) {
             message.warning('至少保留一个查询标签页');
             return;
         }
-        const newTabs = tabs.filter(t => t.id !== tabId);
-        setTabs(newTabs);
+        setTabs(prev => prev.filter(t => t.id !== tabId));
         if (activeTab === tabId) {
-            setActiveTab(newTabs[0].id);
+            setActiveTab(tabs[0].id === tabId ? tabs[1].id : tabs[0].id);
         }
-    };
+    }, [tabs.length, activeTab]);
 
     // 执行 SQL
-    const handleExecute = async () => {
+    const handleExecute = useCallback(async () => {
         if (!currentTab?.sql.trim()) {
             message.warning('请输入SQL语句');
             return;
@@ -88,7 +93,6 @@ const SQLEditorPage: React.FC = () => {
 
         // TODO: 替换为真实 API 调用
         setTimeout(() => {
-            // 模拟结果
             const mockResult: QueryResult = {
                 columns: ['id', 'name', 'age', 'create_time'],
                 rows: Array.from({length: 100}, (_, i) => ({
@@ -101,7 +105,7 @@ const SQLEditorPage: React.FC = () => {
                 duration: Math.floor(Math.random() * 2000) + 100
             };
 
-            setTabs(tabs.map(t => 
+            setTabs(prev => prev.map(t => 
                 t.id === activeTab 
                     ? {...t, result: mockResult, error: null, executionPlan: null}
                     : t
@@ -109,10 +113,10 @@ const SQLEditorPage: React.FC = () => {
             setLoading(false);
             message.success(`执行成功，返回 ${mockResult.rows.length} 行数据`);
         }, 1000);
-    };
+    }, [currentTab, activeTab]);
 
     // 查看执行计划
-    const handleExecutePlan = async () => {
+    const handleExecutePlan = useCallback(async () => {
         if (!currentTab?.sql.trim()) {
             message.warning('请输入SQL语句');
             return;
@@ -120,7 +124,6 @@ const SQLEditorPage: React.FC = () => {
 
         setLoading(true);
 
-        // TODO: 替换为真实 API 调用
         setTimeout(() => {
             const mockPlan: ExecutionPlan[] = [
                 {id: '1', operation: 'TableScan', rowCount: 10000, cost: 100, details: 'table: dwd_user_info'},
@@ -128,17 +131,17 @@ const SQLEditorPage: React.FC = () => {
                 {id: '3', operation: 'Project', rowCount: 5000, cost: 20, details: 'id, name, age'},
             ];
 
-            setTabs(tabs.map(t => 
+            setTabs(prev => prev.map(t => 
                 t.id === activeTab 
                     ? {...t, executionPlan: mockPlan, error: null}
                     : t
             ));
             setLoading(false);
         }, 500);
-    };
+    }, [currentTab, activeTab]);
 
     // 格式化 SQL
-    const handleFormat = () => {
+    const handleFormat = useCallback(() => {
         if (!currentTab?.sql) return;
         
         let formatted = currentTab.sql
@@ -150,7 +153,7 @@ const SQLEditorPage: React.FC = () => {
         
         handleSQLChange(formatted);
         message.success('SQL已格式化');
-    };
+    }, [currentTab, handleSQLChange]);
 
     // 保存历史记录
     const saveHistory = (sql: string, status: 'success' | 'error', duration: number, rowCount?: number) => {
@@ -165,30 +168,47 @@ const SQLEditorPage: React.FC = () => {
 
         const saved = localStorage.getItem('sql_history');
         let history: QueryHistory[] = saved ? JSON.parse(saved) : [];
-        history = [historyItem, ...history].slice(0, 50); // 最多保留50条
+        history = [historyItem, ...history].slice(0, 50);
         localStorage.setItem('sql_history', JSON.stringify(history));
     };
 
-    // 选择表
-    const handleTableSelect = (table: TableInfo) => {
-        const selectSQL = `SELECT * FROM ${table.name} LIMIT 100;`;
+    // 选择表 - 缓存表字段信息
+    const handleTableSelect = useCallback((table: { 
+        name: string; 
+        tableId: string; 
+        catalog?: string;
+        schema?: string;
+        columns?: ColumnVO[] 
+    }) => {
+        // 生成完整的表名：schema.tableName
+        const fullTableName = table.schema ? `${table.schema}.${table.name}` : table.name;
+        const selectSQL = `SELECT * FROM ${fullTableName} LIMIT 100;`;
         handleSQLChange(selectSQL);
-        setSelectedTable(table.name);
-        message.info(`已选择表: ${table.name}`);
-    };
+        
+        // 缓存表字段信息用于提示（使用完整表名作为key）
+        if (table.columns) {
+            setTableColumnsCache(prev => ({
+                ...prev,
+                [fullTableName]: table.columns!,
+                [table.name]: table.columns! // 同时用简短名称缓存
+            }));
+        }
+        
+        message.info(`已选择表: ${fullTableName}`);
+    }, [handleSQLChange]);
 
     // 选择历史记录
-    const handleHistorySelect = (sql: string) => {
+    const handleHistorySelect = useCallback((sql: string) => {
         handleSQLChange(sql);
-    };
+    }, [handleSQLChange]);
 
     // 选择收藏
-    const handleFavoriteSelect = (sql: string) => {
+    const handleFavoriteSelect = useCallback((sql: string) => {
         handleSQLChange(sql);
-    };
+    }, [handleSQLChange]);
 
     // 标签页配置
-    const tabItems = tabs.map(tab => ({
+    const tabItems = useMemo(() => tabs.map(tab => ({
         key: tab.id,
         label: (
             <span>
@@ -203,33 +223,8 @@ const SQLEditorPage: React.FC = () => {
                 />
             </span>
         ),
-        children: (
-            <Layout style={{height: 'calc(100vh - 120px)', background: '#fff'}}>
-                <Content style={{display: 'flex', flexDirection: 'column'}}>
-                    {/* SQL 编辑器 */}
-                    <div style={{flex: '0 0 300px', borderBottom: '1px solid #f0f0f0'}}>
-                        <SQLEditor
-                            value={tab.sql}
-                            onChange={handleSQLChange}
-                            onExecute={handleExecute}
-                            onExecutePlan={handleExecutePlan}
-                            onFormat={handleFormat}
-                            selectedTable={selectedTable}
-                        />
-                    </div>
-                    {/* 结果面板 */}
-                    <div style={{flex: 1, overflow: 'hidden'}}>
-                        <ResultPanel
-                            loading={loading}
-                            result={tab.result}
-                            executionPlan={tab.executionPlan}
-                            error={tab.error}
-                        />
-                    </div>
-                </Content>
-            </Layout>
-        )
-    }));
+        children: null // 不在这里渲染内容，单独处理
+    })), [tabs, handleCloseTab]);
 
     return (
         <Layout style={{height: '100%', background: '#f5f5f5'}}>
@@ -290,7 +285,7 @@ const SQLEditorPage: React.FC = () => {
                                         onExecute={handleExecute}
                                         onExecutePlan={handleExecutePlan}
                                         onFormat={handleFormat}
-                                        selectedTable={selectedTable}
+                                        tableColumnsCache={tableColumnsCache}
                                     />
                                 </div>
                                 {/* 结果面板 */}

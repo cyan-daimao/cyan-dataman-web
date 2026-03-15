@@ -136,3 +136,27 @@ export const deleteMetadataTable = async (id: string): Promise<void> => {
     }
 };
 
+// 主题-表树型结构
+export interface SubjectTableTreeDTO {
+    key: string;
+    title: string;
+    type: 'subject' | 'table';
+    subjectCode?: string;
+    tableId?: string;
+    catalog?: string;
+    schema?: string;
+    tableName?: string;
+    isLeaf: boolean;
+    children?: SubjectTableTreeDTO[];
+    // 表字段信息（用于SQL提示）
+    columns?: ColumnVO[];
+}
+
+// 获取主题-表树型结构
+export const getSubjectTableTree = async (content?: string): Promise<SubjectTableTreeDTO[]> => {
+    const resp = await datamanRequest.get(`/api/v1/metadata/tables/tree`, {
+        params: { content: content || '' }
+    });
+    return resp.data;
+}
+
