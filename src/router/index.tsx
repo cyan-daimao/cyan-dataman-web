@@ -9,6 +9,7 @@ const Datasource = React.lazy(() => import((`@/pages/metadata/datasource/index.t
 const Subject = React.lazy(() => import((`@/pages/metadata/subject/index.tsx`)))
 const MetadataTable = React.lazy(() => import((`@/pages/metadata/metadata_table/index.tsx`)))
 const TableEditPage = React.lazy(() => import((`@/pages/metadata/metadata_table/TableEditPage.tsx`)))
+const TableDetailPage = React.lazy(() => import((`@/pages/metadata/metadata_table/TableDetailPage.tsx`)))
 const Metrics = React.lazy(() => import((`@/pages/metrics/index.tsx`)))
 
 // 鉴权组件：拦截未登录的访问
@@ -42,6 +43,10 @@ const routes = createBrowserRouter([
                     {
                         path: "metadata_table",
                         element: <MetadataTable/>
+                    },
+                    {
+                        path: "metadata_table/detail",
+                        element: <TableDetailPage/>
                     },
                     {
                         path: "metadata_table/edit",

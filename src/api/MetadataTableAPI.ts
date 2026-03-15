@@ -43,8 +43,8 @@ export interface MetadataTableDTO {
     heatLevel: string;
     secretLevel: string;
     onlineStatus: string;
-    createTime: string;
-    updateTime: string;
+    createdAt: string;
+    updatedAt: string;
     deletedAt?: string;
     table?: TableVO;
 }

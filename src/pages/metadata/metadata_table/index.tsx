@@ -106,7 +106,15 @@ const columns: ColumnsType<TableMeta> = [
         key: 'name',
         width: 200,
         ellipsis: true,
-        render: (_:never, record: TableMeta) => <Text strong>{record.name}</Text>,
+        render: (text: string, record: TableMeta) => (
+            <Text 
+                strong 
+                style={{cursor: 'pointer', color: '#1890ff'}} 
+                onClick={() => navigate('/metadata/metadata_table/detail', { state: { tableId: record.id } })}
+            >
+                {text}
+            </Text>
+        ),
     },
     {
         title: '表描述',
