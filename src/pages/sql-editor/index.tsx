@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Layout, message, Tabs} from 'antd';
-import {CloseOutlined, CodeOutlined, DatabaseOutlined, PlusOutlined} from '@ant-design/icons';
+import {Input, Layout, message, Tabs} from 'antd';
+import {CodeOutlined, DatabaseOutlined, PlusOutlined} from '@ant-design/icons';
 import Sidebar from './components/Sidebar';
 import SQLEditor from './components/SQLEditor';
 import ResultPanel from './components/ResultPanel';
@@ -69,6 +69,10 @@ const SQLEditorPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [tableColumnsCache, setTableColumnsCache] = useState<TableColumnsCache>({});
     const [resultActiveTab, setResultActiveTab] = useState('result');
+    
+    // 重命名相关状态
+    const [editingTabId, setEditingTabId] = useState<string | null>(null);
+    const [editingTabName, setEditingTabName] = useState('');
     
     // 拖拽相关状态
     const [siderWidth, setSiderWidth] = useState(280);
@@ -357,24 +361,45 @@ const SQLEditorPage: React.FC = () => {
         handleSQLChange(sql);
     }, [handleSQLChange]);
 
+    // 开始重命名
+    const handleStartRename = useCallback((tabId: string, currentName: string) => {
+        setEditingTabId(tabId);
+        setEditingTabName(currentName);
+    }, []);
+
+    // 完成重命名
+    const handleFinishRename = useCallback(() => {
+        if (editingTabId && editingTabName.trim()) {
+            setTabs(prev => prev.map(t => 
+                t.id === editingTabId ? {...t, name: editingTabName.trim()} : t
+            ));
+        }
+        setEditingTabId(null);
+        setEditingTabName('');
+    }, [editingTabId, editingTabName]);
+
     // 标签页配置
     const tabItems = useMemo(() => tabs.map(tab => ({
         key: tab.id,
-        label: (
-            <span>
+        label: editingTabId === tab.id ? (
+            <Input
+                autoFocus
+                size="small"
+                value={editingTabName}
+                onChange={(e) => setEditingTabName(e.target.value)}
+                onBlur={handleFinishRename}
+                onPressEnter={handleFinishRename}
+                style={{width: 100}}
+                onClick={(e) => e.stopPropagation()}
+            />
+        ) : (
+            <span onDoubleClick={() => handleStartRename(tab.id, tab.name)}>
                 <CodeOutlined style={{marginRight: 4}}/>
                 {tab.name}
-                <CloseOutlined
-                    style={{marginLeft: 8, fontSize: 10}}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        handleCloseTab(tab.id);
-                    }}
-                />
             </span>
         ),
         children: null
-    })), [tabs, handleCloseTab]);
+    })), [tabs, editingTabId, editingTabName, handleStartRename, handleFinishRename]);
 
     return (
         <Layout style={{height: '100%', background: '#f5f5f5', display: 'flex', flexDirection: 'row'}}>
@@ -423,7 +448,11 @@ const SQLEditorPage: React.FC = () => {
                         onChange={setActiveTab}
                         items={tabItems}
                         onEdit={(targetKey, action) => {
-                            if (action === 'add') handleAddTab();
+                            if (action === 'add') {
+                                handleAddTab();
+                            } else if (action === 'remove' && typeof targetKey === 'string') {
+                                handleCloseTab(targetKey);
+                            }
                         }}
                         hideAdd={false}
                         addIcon={<PlusOutlined/>}
