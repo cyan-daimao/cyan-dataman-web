@@ -175,8 +175,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                 return {
                     key: node.key,
                     title: (
-                        <span 
-                            style={{cursor: 'pointer'}}
+                        <div 
+                            style={{
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden'
+                            }}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 if (node.tableName) {
@@ -190,13 +196,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 }
                             }}
                         >
-                            {displayName}
+                            <Text ellipsis style={{flex: 1}} title={displayName}>
+                                {displayName}
+                            </Text>
                             {node.columns && (
-                                <Text type="secondary" style={{fontSize: 11, marginLeft: 4}}>
+                                <Text type="secondary" style={{fontSize: 11, marginLeft: 4, flexShrink: 0}}>
                                     ({node.columns.length}字段)
                                 </Text>
                             )}
-                        </span>
+                        </div>
                     ),
                     icon: <TableOutlined style={{color: '#1890ff'}}/>,
                     isLeaf: true

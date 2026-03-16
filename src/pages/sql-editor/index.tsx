@@ -1,19 +1,14 @@
-import {useState, useCallback, useMemo} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Layout, message, Tabs} from 'antd';
-import {
-    CodeOutlined,
-    DatabaseOutlined,
-    PlusOutlined,
-    CloseOutlined
-} from '@ant-design/icons';
+import {CloseOutlined, CodeOutlined, DatabaseOutlined, PlusOutlined} from '@ant-design/icons';
 import Sidebar from './components/Sidebar';
 import SQLEditor from './components/SQLEditor';
 import ResultPanel from './components/ResultPanel';
-import {QueryResult, ExecutionPlan, QueryHistory} from './types';
+import {ExecutionPlan, QueryHistory, QueryResult} from './types';
 import {ColumnVO} from '../../api/MetadataTableAPI';
 import {executeSql} from '../../api/DatagawayApi';
 
-const {Sider, Content} = Layout;
+const {Content} = Layout;
 
 // SQL 查询标签页
 interface QueryTab {
@@ -37,9 +32,66 @@ const SQLEditorPage: React.FC = () => {
     ]);
     const [activeTab, setActiveTab] = useState('1');
     const [loading, setLoading] = useState(false);
-    const [siderCollapsed, setSiderCollapsed] = useState(false);
     const [tableColumnsCache, setTableColumnsCache] = useState<TableColumnsCache>({});
     const [resultActiveTab, setResultActiveTab] = useState('result');
+    
+    // 拖拽相关状态
+    const [siderWidth, setSiderWidth] = useState(280);
+    const [editorHeight, setEditorHeight] = useState(300);
+    const [isDraggingSider, setIsDraggingSider] = useState(false);
+    const [isDraggingEditor, setIsDraggingEditor] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // 左侧边栏拖拽处理
+    const handleSiderMouseDown = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsDraggingSider(true);
+    }, []);
+
+    // 编辑器高度拖拽处理
+    const handleEditorMouseDown = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsDraggingEditor(true);
+    }, []);
+
+    // 全局鼠标移动和释放事件
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (isDraggingSider) {
+                const newWidth = e.clientX;
+                if (newWidth >= 200 && newWidth <= 500) {
+                    setSiderWidth(newWidth);
+                }
+            }
+            if (isDraggingEditor && containerRef.current) {
+                const containerRect = containerRef.current.getBoundingClientRect();
+                const headerHeight = 41; // 标签页栏高度
+                const newHeight = e.clientY - containerRect.top - headerHeight;
+                if (newHeight >= 150 && newHeight <= containerRect.height - headerHeight - 150) {
+                    setEditorHeight(newHeight);
+                }
+            }
+        };
+
+        const handleMouseUp = () => {
+            setIsDraggingSider(false);
+            setIsDraggingEditor(false);
+        };
+
+        if (isDraggingSider || isDraggingEditor) {
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = isDraggingSider ? 'col-resize' : 'row-resize';
+            document.body.style.userSelect = 'none';
+        }
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+    }, [isDraggingSider, isDraggingEditor]);
 
     // 生成唯一ID
     const generateId = () => Date.now().toString();
@@ -269,25 +321,40 @@ const SQLEditorPage: React.FC = () => {
     })), [tabs, handleCloseTab]);
 
     return (
-        <Layout style={{height: '100%', background: '#f5f5f5'}}>
+        <Layout style={{height: '100%', background: '#f5f5f5', display: 'flex', flexDirection: 'row'}}>
             {/* 左侧边栏 */}
-            <Sider
-                width={280}
-                collapsible
-                collapsed={siderCollapsed}
-                onCollapse={setSiderCollapsed}
-                style={{background: '#fff'}}
-                theme="light"
-            >
+            <div style={{
+                width: siderWidth,
+                minWidth: 200,
+                maxWidth: 500,
+                background: '#fff',
+                position: 'relative',
+                flexShrink: 0
+            }}>
                 <Sidebar
                     onTableSelect={handleTableSelect}
                     onHistorySelect={handleHistorySelect}
                     onFavoriteSelect={handleFavoriteSelect}
                 />
-            </Sider>
+                {/* 左侧拖拽条 */}
+                <div
+                    onMouseDown={handleSiderMouseDown}
+                    style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: 6,
+                        cursor: 'col-resize',
+                        background: isDraggingSider ? '#1890ff' : 'transparent',
+                        zIndex: 10,
+                        transition: 'background 0.2s'
+                    }}
+                />
+            </div>
 
             {/* 主内容区 */}
-            <Content style={{display: 'flex', flexDirection: 'column'}}>
+            <Content style={{display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden'}} ref={containerRef}>
                 {/* 标签页栏 */}
                 <div style={{
                     background: '#fff',
@@ -317,32 +384,41 @@ const SQLEditorPage: React.FC = () => {
                 {/* 当前标签页内容 */}
                 <div style={{flex: 1, overflow: 'hidden'}}>
                     {currentTab && (
-                        <Layout style={{height: '100%', background: '#fff'}}>
-                            <Content style={{display: 'flex', flexDirection: 'column'}}>
-                                {/* SQL 编辑器 */}
-                                <div style={{flex: '0 0 300px', borderBottom: '1px solid #f0f0f0'}}>
-                                    <SQLEditor
-                                        value={currentTab.sql}
-                                        onChange={handleSQLChange}
-                                        onExecute={handleExecute}
-                                        onExecutePlan={handleExecutePlan}
-                                        onFormat={handleFormat}
-                                        tableColumnsCache={tableColumnsCache}
-                                    />
-                                </div>
-                                {/* 结果面板 */}
-                                <div style={{flex: 1, overflow: 'hidden'}}>
-                                    <ResultPanel
-                                        loading={loading}
-                                        result={currentTab.result}
-                                        executionPlan={currentTab.executionPlan}
-                                        error={currentTab.error}
-                                        activeTab={resultActiveTab}
-                                        onTabChange={setResultActiveTab}
-                                    />
-                                </div>
-                            </Content>
-                        </Layout>
+                        <div style={{height: '100%', display: 'flex', flexDirection: 'column', background: '#fff'}}>
+                            {/* SQL 编辑器 */}
+                            <div style={{height: editorHeight, minHeight: 150, borderBottom: '1px solid #f0f0f0'}}>
+                                <SQLEditor
+                                    value={currentTab.sql}
+                                    onChange={handleSQLChange}
+                                    onExecute={handleExecute}
+                                    onExecutePlan={handleExecutePlan}
+                                    onFormat={handleFormat}
+                                    tableColumnsCache={tableColumnsCache}
+                                />
+                            </div>
+                            {/* 水平拖拽条 */}
+                            <div
+                                onMouseDown={handleEditorMouseDown}
+                                style={{
+                                    height: 6,
+                                    cursor: 'row-resize',
+                                    background: isDraggingEditor ? '#1890ff' : '#f0f0f0',
+                                    transition: 'background 0.2s',
+                                    flexShrink: 0
+                                }}
+                            />
+                            {/* 结果面板 */}
+                            <div style={{flex: 1, minHeight: 150, overflow: 'hidden'}}>
+                                <ResultPanel
+                                    loading={loading}
+                                    result={currentTab.result}
+                                    executionPlan={currentTab.executionPlan}
+                                    error={currentTab.error}
+                                    activeTab={resultActiveTab}
+                                    onTabChange={setResultActiveTab}
+                                />
+                            </div>
+                        </div>
                     )}
                 </div>
             </Content>
