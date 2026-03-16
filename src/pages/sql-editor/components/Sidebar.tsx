@@ -8,7 +8,7 @@ import {
     Tree,
     TreeProps,
     Typography,
-    Spin
+    Spin,
 } from 'antd';
 import {
     ClockCircleOutlined,
@@ -18,9 +18,10 @@ import {
     HistoryOutlined,
     StarFilled,
     StarOutlined,
-    TableOutlined
+    TableOutlined,
+    ColumnHeightOutlined
 } from '@ant-design/icons';
-import {getSubjectTableTree, SubjectTableTreeDTO, ColumnVO} from '../../../api/MetadataTableAPI';
+import {getSubjectTableTree, getMetadataTableById, SubjectTableTreeDTO, ColumnVO} from '../../../api/MetadataTableAPI';
 import {QueryHistory, FavoriteQuery} from '../types';
 
 const {Text} = Typography;
@@ -37,12 +38,14 @@ export interface TableInfoWithColumns {
 }
 
 interface SidebarProps {
-    onTableSelect: (table: TableInfoWithColumns) => void;
+    currentSql?: string;
+    onTableSelect: (table: TableInfoWithColumns, shouldAppend: boolean) => void;
     onHistorySelect: (sql: string) => void;
     onFavoriteSelect: (sql: string) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
+    currentSql = '',
     onTableSelect,
     onHistorySelect,
     onFavoriteSelect
@@ -54,6 +57,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     const [loading, setLoading] = useState(false);
     const [history, setHistory] = useState<QueryHistory[]>([]);
     const [favorites, setFavorites] = useState<FavoriteQuery[]>([]);
+    
+    // 表字段缓存 - 用于在树中展示字段
+    const [tableColumnsCache, setTableColumnsCache] = useState<Record<string, ColumnVO[]>>({});
+    const [loadingTableId, setLoadingTableId] = useState<string | null>(null);
 
     // 加载主题树数据
     useEffect(() => {
@@ -116,13 +123,69 @@ const Sidebar: React.FC<SidebarProps> = ({
         const node = info.node as SubjectTableTreeDTO;
         // 只有表节点才触发选择
         if (node.type === 'table' && node.tableName) {
-            onTableSelect({
-                name: node.tableName,
-                tableId: node.tableId || '',
-                catalog: node.catalog,
-                schema: node.schema,
-                columns: node.columns
-            });
+            handleTableClick(node);
+        }
+    };
+
+    // 处理表点击 - 加载字段信息
+    const handleTableClick = async (node: SubjectTableTreeDTO) => {
+        if (!node.tableId) return;
+        
+        // 如果编辑器有内容，只加载字段信息展示，不修改 SQL
+        const hasContent = currentSql.trim().length > 0;
+        
+        // 如果已经有缓存的字段信息，直接使用
+        const cachedColumns = tableColumnsCache[node.tableId];
+        if (cachedColumns) {
+            // 只有编辑器为空时才生成 SELECT 语句
+            if (!hasContent) {
+                onTableSelect({
+                    name: node.tableName || node.title,
+                    tableId: node.tableId || '',
+                    catalog: node.catalog,
+                    schema: node.schema,
+                    columns: cachedColumns
+                }, false);
+            }
+            return;
+        }
+
+        // 从 API 加载字段信息
+        setLoadingTableId(node.tableId);
+        try {
+            const tableDetail = await getMetadataTableById(node.tableId);
+            const columns = tableDetail.table?.columns || [];
+            
+            // 缓存字段信息
+            setTableColumnsCache(prev => ({
+                ...prev,
+                [node.tableId!]: columns
+            }));
+            
+            // 只有编辑器为空时才生成 SELECT 语句
+            if (!hasContent) {
+                onTableSelect({
+                    name: node.tableName || node.title,
+                    tableId: node.tableId || '',
+                    catalog: node.catalog,
+                    schema: node.schema,
+                    columns
+                }, false);
+            }
+        } catch (error) {
+            console.error('加载表字段失败:', error);
+            // 即使加载失败，也只在编辑器为空时传递基本信息
+            if (!hasContent) {
+                onTableSelect({
+                    name: node.tableName || node.title,
+                    tableId: node.tableId || '',
+                    catalog: node.catalog,
+                    schema: node.schema,
+                    columns: []
+                }, false);
+            }
+        } finally {
+            setLoadingTableId(null);
         }
     };
 
@@ -172,6 +235,32 @@ const Sidebar: React.FC<SidebarProps> = ({
                 const displayName = node.schema 
                     ? `${node.schema}.${node.tableName || node.title}` 
                     : node.title;
+                
+                // 检查是否有缓存的字段信息
+                const cachedColumns = node.tableId ? tableColumnsCache[node.tableId] : undefined;
+                const isLoading = loadingTableId === node.tableId;
+                
+                // 构建字段子节点
+                const columnChildren = cachedColumns ? cachedColumns.map((col, index) => ({
+                    key: `${node.key}_col_${index}`,
+                    title: (
+                        <span style={{fontSize: 12}}>
+                            <ColumnHeightOutlined style={{marginRight: 4, color: '#52c41a'}}/>
+                            <Text>{col.name}</Text>
+                            <Text type="secondary" style={{marginLeft: 4, fontSize: 10}}>
+                                {col.type}
+                            </Text>
+                            {col.comment && (
+                                <Text type="secondary" style={{marginLeft: 4, fontSize: 10}}>
+                                    {col.comment}
+                                </Text>
+                            )}
+                        </span>
+                    ),
+                    icon: null,
+                    isLeaf: true
+                })) : [];
+                
                 return {
                     key: node.key,
                     title: (
@@ -187,13 +276,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                             onClick={(e) => {
                                 e.stopPropagation();
                                 if (node.tableName) {
-                                    onTableSelect({
-                                        name: node.tableName,
-                                        tableId: node.tableId || '',
-                                        catalog: node.catalog,
-                                        schema: node.schema,
-                                        columns: node.columns
-                                    });
+                                    handleTableClick(node);
                                 }
                             }}
                         >
@@ -201,19 +284,25 @@ const Sidebar: React.FC<SidebarProps> = ({
                             <Text ellipsis style={{flex: 1}} title={displayName}>
                                 {displayName}
                             </Text>
-                            {node.columns && (
+                            {isLoading && (
                                 <Text type="secondary" style={{fontSize: 11, marginLeft: 4, flexShrink: 0}}>
-                                    ({node.columns.length}字段)
+                                    加载中...
+                                </Text>
+                            )}
+                            {cachedColumns && !isLoading && (
+                                <Text type="secondary" style={{fontSize: 11, marginLeft: 4, flexShrink: 0}}>
+                                    ({cachedColumns.length}字段)
                                 </Text>
                             )}
                         </div>
                     ),
                     icon: null,
-                    isLeaf: true
+                    isLeaf: columnChildren.length === 0,
+                    children: columnChildren.length > 0 ? columnChildren : undefined
                 };
             }
         });
-    }, [onTableSelect]);
+    }, [tableColumnsCache, loadingTableId]);
 
     // 使用 useMemo 缓存树数据转换
     const treeDataMemo = useMemo(() => convertToTreeData(treeData), [treeData, convertToTreeData]);

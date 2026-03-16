@@ -413,6 +413,7 @@ const SQLEditorPage: React.FC = () => {
                 flexShrink: 0
             }}>
                 <Sidebar
+                    currentSql={currentTab?.sql || ''}
                     onTableSelect={handleTableSelect}
                     onHistorySelect={handleHistorySelect}
                     onFavoriteSelect={handleFavoriteSelect}
