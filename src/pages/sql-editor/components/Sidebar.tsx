@@ -178,10 +178,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <div 
                             style={{
                                 cursor: 'pointer',
-                                display: 'flex',
+                                display: 'inline-flex',
                                 alignItems: 'center',
                                 whiteSpace: 'nowrap',
-                                overflow: 'hidden'
+                                overflow: 'hidden',
+                                maxWidth: '100%'
                             }}
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -196,6 +197,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 }
                             }}
                         >
+                            <TableOutlined style={{color: '#1890ff', marginRight: 6, flexShrink: 0}}/>
                             <Text ellipsis style={{flex: 1}} title={displayName}>
                                 {displayName}
                             </Text>
@@ -206,7 +208,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                             )}
                         </div>
                     ),
-                    icon: <TableOutlined style={{color: '#1890ff'}}/>,
+                    icon: null,
                     isLeaf: true
                 };
             }
