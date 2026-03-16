@@ -25,12 +25,47 @@ interface TableColumnsCache {
     [tableName: string]: ColumnVO[];
 }
 
+// localStorage key
+const STORAGE_KEY = 'sql_editor_tabs';
+const ACTIVE_TAB_KEY = 'sql_editor_active_tab';
+
+// 生成唯一ID
+const generateId = () => Date.now().toString();
+
+// 从 localStorage 加载 tabs
+const loadTabsFromStorage = (): { tabs: QueryTab[], activeTab: string } => {
+    try {
+        const savedTabs = localStorage.getItem(STORAGE_KEY);
+        const savedActiveTab = localStorage.getItem(ACTIVE_TAB_KEY);
+        if (savedTabs) {
+            const tabs = JSON.parse(savedTabs);
+            // 清除 result 和 executionPlan，因为这些都是临时的
+            const cleanTabs = tabs.map((tab: QueryTab) => ({
+                ...tab,
+                result: null,
+                executionPlan: null,
+                error: null
+            }));
+            return {
+                tabs: cleanTabs.length > 0 ? cleanTabs : [{id: '1', name: '查询 1', sql: '', result: null, executionPlan: null, error: null}],
+                activeTab: savedActiveTab && cleanTabs.some((t: QueryTab) => t.id === savedActiveTab) ? savedActiveTab : cleanTabs[0]?.id || '1'
+            };
+        }
+    } catch (e) {
+        console.error('加载 tabs 失败:', e);
+    }
+    return {
+        tabs: [{id: '1', name: '查询 1', sql: '', result: null, executionPlan: null, error: null}],
+        activeTab: '1'
+    };
+};
+
 const SQLEditorPage: React.FC = () => {
-    // 状态
-    const [tabs, setTabs] = useState<QueryTab[]>([
-        {id: '1', name: '查询 1', sql: '', result: null, executionPlan: null, error: null}
-    ]);
-    const [activeTab, setActiveTab] = useState('1');
+    // 从 localStorage 初始化状态
+    const initialState = useMemo(() => loadTabsFromStorage(), []);
+    
+    const [tabs, setTabs] = useState<QueryTab[]>(initialState.tabs);
+    const [activeTab, setActiveTab] = useState(initialState.activeTab);
     const [loading, setLoading] = useState(false);
     const [tableColumnsCache, setTableColumnsCache] = useState<TableColumnsCache>({});
     const [resultActiveTab, setResultActiveTab] = useState('result');
@@ -41,6 +76,26 @@ const SQLEditorPage: React.FC = () => {
     const [isDraggingSider, setIsDraggingSider] = useState(false);
     const [isDraggingEditor, setIsDraggingEditor] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+    
+    // 使用 ref 保存最新的 activeTab，避免闭包问题
+    const activeTabRef = useRef(activeTab);
+    useEffect(() => {
+        activeTabRef.current = activeTab;
+    }, [activeTab]);
+
+    // 持久化 tabs 到 localStorage（只保存 sql 和基本信息，不保存 result）
+    useEffect(() => {
+        const tabsToSave = tabs.map(tab => ({
+            id: tab.id,
+            name: tab.name,
+            sql: tab.sql,
+            result: null,
+            executionPlan: null,
+            error: null
+        }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(tabsToSave));
+        localStorage.setItem(ACTIVE_TAB_KEY, activeTab);
+    }, [tabs, activeTab]);
 
     // 左侧边栏拖拽处理
     const handleSiderMouseDown = useCallback((e: React.MouseEvent) => {
@@ -65,7 +120,7 @@ const SQLEditorPage: React.FC = () => {
             }
             if (isDraggingEditor && containerRef.current) {
                 const containerRect = containerRef.current.getBoundingClientRect();
-                const headerHeight = 41; // 标签页栏高度
+                const headerHeight = 41;
                 const newHeight = e.clientY - containerRect.top - headerHeight;
                 if (newHeight >= 150 && newHeight <= containerRect.height - headerHeight - 150) {
                     setEditorHeight(newHeight);
@@ -93,49 +148,58 @@ const SQLEditorPage: React.FC = () => {
         };
     }, [isDraggingSider, isDraggingEditor]);
 
-    // 生成唯一ID
-    const generateId = () => Date.now().toString();
-
     // 当前活动的标签页
     const currentTab = useMemo(() => tabs.find(t => t.id === activeTab), [tabs, activeTab]);
 
-    // 更新当前标签页的 SQL（使用 useCallback 优化）
+    // 更新当前标签页的 SQL - 使用 ref 获取最新的 activeTab
     const handleSQLChange = useCallback((sql: string) => {
+        const currentActiveTab = activeTabRef.current;
         setTabs(prev => prev.map(t => 
-            t.id === activeTab ? {...t, sql} : t
+            t.id === currentActiveTab ? {...t, sql} : t
         ));
-    }, [activeTab]);
+    }, []);
 
     // 新建标签页
     const handleAddTab = useCallback(() => {
         const newId = generateId();
-        const newTab: QueryTab = {
-            id: newId,
-            name: `查询 ${tabs.length + 1}`,
-            sql: '',
-            result: null,
-            executionPlan: null,
-            error: null
-        };
-        setTabs(prev => [...prev, newTab]);
-        setActiveTab(newId);
-    }, [tabs.length]);
+        setTabs(prev => {
+            const newTab: QueryTab = {
+                id: newId,
+                name: `查询 ${prev.length + 1}`,
+                sql: '',
+                result: null,
+                executionPlan: null,
+                error: null
+            };
+            return [...prev, newTab];
+        });
+        setActiveTab(newId => newId); // 使用函数形式确保使用最新值
+        // 直接设置，因为 generateId 在外面已经生成了
+        setTimeout(() => setActiveTab(newId), 0);
+    }, []);
 
-    // 关闭标签页
+    // 关闭标签页 - 修复逻辑
     const handleCloseTab = useCallback((tabId: string) => {
-        if (tabs.length === 1) {
-            message.warning('至少保留一个查询标签页');
-            return;
-        }
-        setTabs(prev => prev.filter(t => t.id !== tabId));
-        if (activeTab === tabId) {
-            setActiveTab(tabs[0].id === tabId ? tabs[1].id : tabs[0].id);
-        }
-    }, [tabs.length, activeTab]);
+        setTabs(prev => {
+            if (prev.length === 1) {
+                message.warning('至少保留一个查询标签页');
+                return prev;
+            }
+            const newTabs = prev.filter(t => t.id !== tabId);
+            // 如果关闭的是当前活动的 tab，切换到第一个 tab
+            if (activeTabRef.current === tabId) {
+                setActiveTab(newTabs[0].id);
+            }
+            return newTabs;
+        });
+    }, []);
 
     // 执行 SQL
     const handleExecute = useCallback(async () => {
-        if (!currentTab?.sql.trim()) {
+        const currentActiveTab = activeTabRef.current;
+        const currentTabData = tabs.find(t => t.id === currentActiveTab);
+        
+        if (!currentTabData?.sql.trim()) {
             message.warning('请输入SQL语句');
             return;
         }
@@ -143,9 +207,8 @@ const SQLEditorPage: React.FC = () => {
         setLoading(true);
 
         try {
-            const resp = await executeSql(currentTab.sql);
-            const result = resp.data
-            // 从返回的数据中提取列名
+            const resp = await executeSql(currentTabData.sql);
+            const result = resp.data;
             const columns = result.data.length > 0 ? Object.keys(result.data[0]) : [];
             
             const queryResult: QueryResult = {
@@ -156,39 +219,36 @@ const SQLEditorPage: React.FC = () => {
             };
 
             setTabs(prev => prev.map(t => 
-                t.id === activeTab 
+                t.id === currentActiveTab 
                     ? {...t, result: queryResult, error: null, executionPlan: null}
                     : t
             ));
             
-            // 保存历史记录
-            saveHistory(currentTab.sql, 'success', result.costTimeMs, result.data.length);
-            
-            // 自动切换到查询结果 tab
+            saveHistory(currentTabData.sql, 'success', result.costTimeMs, result.data.length);
             setResultActiveTab('result');
-            
             message.success(`执行成功，返回 ${result.data.length} 行数据，耗时 ${result.costTimeMs}ms`);
         } catch (error: any) {
             const errorMessage = error.message || 'SQL执行失败';
             
             setTabs(prev => prev.map(t => 
-                t.id === activeTab 
+                t.id === currentActiveTab 
                     ? {...t, result: null, error: errorMessage, executionPlan: null}
                     : t
             ));
             
-            // 保存历史记录
-            saveHistory(currentTab.sql, 'error', 0);
-            
+            saveHistory(currentTabData.sql, 'error', 0);
             message.error(errorMessage);
         } finally {
             setLoading(false);
         }
-    }, [currentTab, activeTab]);
+    }, [tabs]);
 
     // 查看执行计划
     const handleExecutePlan = useCallback(async () => {
-        if (!currentTab?.sql.trim()) {
+        const currentActiveTab = activeTabRef.current;
+        const currentTabData = tabs.find(t => t.id === currentActiveTab);
+        
+        if (!currentTabData?.sql.trim()) {
             message.warning('请输入SQL语句');
             return;
         }
@@ -196,11 +256,10 @@ const SQLEditorPage: React.FC = () => {
         setLoading(true);
 
         try {
-            // 在 SQL 前添加 EXPLAIN 前缀
-            const explainSql = `EXPLAIN ${currentTab.sql}`;
+            const explainSql = `EXPLAIN ${currentTabData.sql}`;
             const resp = await executeSql(explainSql);
-            const result = resp.data
-            // 将返回数据转换为执行计划格式
+            const result = resp.data;
+            
             const plan: ExecutionPlan[] = result.data.map((row: any, index: number) => ({
                 id: String(index + 1),
                 operation: row.operation || row.Operation || row.id || '',
@@ -210,20 +269,18 @@ const SQLEditorPage: React.FC = () => {
             }));
 
             setTabs(prev => prev.map(t => 
-                t.id === activeTab 
+                t.id === currentActiveTab 
                     ? {...t, executionPlan: plan, error: null}
                     : t
             ));
             
-            // 自动切换到执行计划 tab
             setResultActiveTab('plan');
-            
             message.success(`执行计划生成成功，耗时 ${result.costTimeMs}ms`);
         } catch (error: any) {
             const errorMessage = error.message || '获取执行计划失败';
             
             setTabs(prev => prev.map(t => 
-                t.id === activeTab 
+                t.id === currentActiveTab 
                     ? {...t, executionPlan: null, error: errorMessage}
                     : t
             ));
@@ -232,13 +289,14 @@ const SQLEditorPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [currentTab, activeTab]);
+    }, [tabs]);
 
     // 格式化 SQL
     const handleFormat = useCallback(() => {
-        if (!currentTab?.sql) return;
+        const currentTabData = tabs.find(t => t.id === activeTabRef.current);
+        if (!currentTabData?.sql) return;
         
-        let formatted = currentTab.sql
+        let formatted = currentTabData.sql
             .replace(/\s+/g, ' ')
             .replace(/\s*,\s*/g, ',\n    ')
             .replace(/\s+(SELECT|FROM|WHERE|JOIN|LEFT JOIN|RIGHT JOIN|INNER JOIN|GROUP BY|HAVING|ORDER BY|LIMIT|UNION|WITH)/gi, '\n$1')
@@ -247,7 +305,7 @@ const SQLEditorPage: React.FC = () => {
         
         handleSQLChange(formatted);
         message.success('SQL已格式化');
-    }, [currentTab, handleSQLChange]);
+    }, [tabs, handleSQLChange]);
 
     // 保存历史记录
     const saveHistory = (sql: string, status: 'success' | 'error', duration: number, rowCount?: number) => {
@@ -274,17 +332,15 @@ const SQLEditorPage: React.FC = () => {
         schema?: string;
         columns?: ColumnVO[] 
     }) => {
-        // 生成完整的表名：schema.tableName
         const fullTableName = table.schema ? `${table.schema}.${table.name}` : table.name;
         const selectSQL = `SELECT * FROM ${fullTableName} LIMIT 100;`;
         handleSQLChange(selectSQL);
         
-        // 缓存表字段信息用于提示（使用完整表名作为key）
         if (table.columns) {
             setTableColumnsCache(prev => ({
                 ...prev,
                 [fullTableName]: table.columns!,
-                [table.name]: table.columns! // 同时用简短名称缓存
+                [table.name]: table.columns!
             }));
         }
         
@@ -317,7 +373,7 @@ const SQLEditorPage: React.FC = () => {
                 />
             </span>
         ),
-        children: null // 不在这里渲染内容，单独处理
+        children: null
     })), [tabs, handleCloseTab]);
 
     return (
