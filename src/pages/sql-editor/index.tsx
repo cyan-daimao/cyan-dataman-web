@@ -11,6 +11,7 @@ import SQLEditor from './components/SQLEditor';
 import ResultPanel from './components/ResultPanel';
 import {QueryResult, ExecutionPlan, QueryHistory} from './types';
 import {ColumnVO} from '../../api/MetadataTableAPI';
+import {executeSql} from '../../api/DatagawayApi';
 
 const {Sider, Content} = Layout;
 
@@ -38,6 +39,7 @@ const SQLEditorPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [siderCollapsed, setSiderCollapsed] = useState(false);
     const [tableColumnsCache, setTableColumnsCache] = useState<TableColumnsCache>({});
+    const [resultActiveTab, setResultActiveTab] = useState('result');
 
     // 生成唯一ID
     const generateId = () => Date.now().toString();
@@ -87,32 +89,49 @@ const SQLEditorPage: React.FC = () => {
         }
 
         setLoading(true);
-        
-        // 保存历史记录
-        saveHistory(currentTab.sql, 'success', 1234, 100);
 
-        // TODO: 替换为真实 API 调用
-        setTimeout(() => {
-            const mockResult: QueryResult = {
-                columns: ['id', 'name', 'age', 'create_time'],
-                rows: Array.from({length: 100}, (_, i) => ({
-                    id: i + 1,
-                    name: `用户${i + 1}`,
-                    age: Math.floor(Math.random() * 50) + 18,
-                    create_time: new Date().toISOString()
-                })),
-                total: 100,
-                duration: Math.floor(Math.random() * 2000) + 100
+        try {
+            const resp = await executeSql(currentTab.sql);
+            const result = resp.data
+            // 从返回的数据中提取列名
+            const columns = result.data.length > 0 ? Object.keys(result.data[0]) : [];
+            
+            const queryResult: QueryResult = {
+                columns,
+                rows: result.data,
+                total: result.data.length,
+                duration: result.costTimeMs
             };
 
             setTabs(prev => prev.map(t => 
                 t.id === activeTab 
-                    ? {...t, result: mockResult, error: null, executionPlan: null}
+                    ? {...t, result: queryResult, error: null, executionPlan: null}
                     : t
             ));
+            
+            // 保存历史记录
+            saveHistory(currentTab.sql, 'success', result.costTimeMs, result.data.length);
+            
+            // 自动切换到查询结果 tab
+            setResultActiveTab('result');
+            
+            message.success(`执行成功，返回 ${result.data.length} 行数据，耗时 ${result.costTimeMs}ms`);
+        } catch (error: any) {
+            const errorMessage = error.message || 'SQL执行失败';
+            
+            setTabs(prev => prev.map(t => 
+                t.id === activeTab 
+                    ? {...t, result: null, error: errorMessage, executionPlan: null}
+                    : t
+            ));
+            
+            // 保存历史记录
+            saveHistory(currentTab.sql, 'error', 0);
+            
+            message.error(errorMessage);
+        } finally {
             setLoading(false);
-            message.success(`执行成功，返回 ${mockResult.rows.length} 行数据`);
-        }, 1000);
+        }
     }, [currentTab, activeTab]);
 
     // 查看执行计划
@@ -124,20 +143,43 @@ const SQLEditorPage: React.FC = () => {
 
         setLoading(true);
 
-        setTimeout(() => {
-            const mockPlan: ExecutionPlan[] = [
-                {id: '1', operation: 'TableScan', rowCount: 10000, cost: 100, details: 'table: dwd_user_info'},
-                {id: '2', operation: 'Filter', rowCount: 5000, cost: 50, details: 'age > 18'},
-                {id: '3', operation: 'Project', rowCount: 5000, cost: 20, details: 'id, name, age'},
-            ];
+        try {
+            // 在 SQL 前添加 EXPLAIN 前缀
+            const explainSql = `EXPLAIN ${currentTab.sql}`;
+            const resp = await executeSql(explainSql);
+            const result = resp.data
+            // 将返回数据转换为执行计划格式
+            const plan: ExecutionPlan[] = result.data.map((row: any, index: number) => ({
+                id: String(index + 1),
+                operation: row.operation || row.Operation || row.id || '',
+                rowCount: row.rows || row.Rows || row.row_count || 0,
+                cost: row.cost || row.Cost || 0,
+                details: row.details || row.Details || JSON.stringify(row),
+            }));
 
             setTabs(prev => prev.map(t => 
                 t.id === activeTab 
-                    ? {...t, executionPlan: mockPlan, error: null}
+                    ? {...t, executionPlan: plan, error: null}
                     : t
             ));
+            
+            // 自动切换到执行计划 tab
+            setResultActiveTab('plan');
+            
+            message.success(`执行计划生成成功，耗时 ${result.costTimeMs}ms`);
+        } catch (error: any) {
+            const errorMessage = error.message || '获取执行计划失败';
+            
+            setTabs(prev => prev.map(t => 
+                t.id === activeTab 
+                    ? {...t, executionPlan: null, error: errorMessage}
+                    : t
+            ));
+            
+            message.error(errorMessage);
+        } finally {
             setLoading(false);
-        }, 500);
+        }
     }, [currentTab, activeTab]);
 
     // 格式化 SQL
@@ -295,6 +337,8 @@ const SQLEditorPage: React.FC = () => {
                                         result={currentTab.result}
                                         executionPlan={currentTab.executionPlan}
                                         error={currentTab.error}
+                                        activeTab={resultActiveTab}
+                                        onTabChange={setResultActiveTab}
                                     />
                                 </div>
                             </Content>

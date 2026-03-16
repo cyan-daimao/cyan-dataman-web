@@ -1,7 +1,6 @@
 import {useRef, useCallback, memo} from 'react';
 import Editor, {Monaco} from '@monaco-editor/react';
-import {Button, Dropdown, message, Space, Tooltip} from 'antd';
-import type {MenuProps} from 'antd';
+import {Button, message, Space, Tooltip} from 'antd';
 import {
     CaretRightOutlined,
     ClearOutlined,
@@ -163,14 +162,6 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
         onChange('');
     }, [onChange]);
 
-    // 执行菜单
-    const executeMenuItems: MenuProps['items'] = [
-        {key: 'execute', label: '执行 (Ctrl+Enter)', icon: <CaretRightOutlined/>, onClick: onExecute},
-        {key: 'plan', label: '执行计划', icon: <FileSearchOutlined/>, onClick: onExecutePlan},
-        {type: 'divider'},
-        {key: 'format', label: '格式化 (Ctrl+Shift+F)', icon: <FormatPainterOutlined/>, onClick: onFormat}
-    ];
-
     return (
         <div style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
             {/* 工具栏 */}
@@ -183,13 +174,13 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
                 alignItems: 'center'
             }}>
                 <Space>
-                    <Dropdown menu={{items: executeMenuItems}} trigger={['click']}>
-                        <Button type="primary" icon={<CaretRightOutlined/>}>运行</Button>
-                    </Dropdown>
+                    <Tooltip title="执行 (Ctrl+Enter)">
+                        <Button type="primary" icon={<CaretRightOutlined/>} onClick={onExecute}>运行</Button>
+                    </Tooltip>
                     <Tooltip title="执行计划">
                         <Button icon={<FileSearchOutlined/>} onClick={onExecutePlan}/>
                     </Tooltip>
-                    <Tooltip title="格式化">
+                    <Tooltip title="格式化 (Ctrl+Shift+F)">
                         <Button icon={<FormatPainterOutlined/>} onClick={onFormat}/>
                     </Tooltip>
                 </Space>

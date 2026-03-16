@@ -14,13 +14,17 @@ interface ResultPanelProps {
     result: QueryResult | null;
     executionPlan: ExecutionPlan[] | null;
     error: string | null;
+    activeTab?: string;
+    onTabChange?: (tab: string) => void;
 }
 
 const ResultPanel: React.FC<ResultPanelProps> = ({
     loading,
     result,
     executionPlan,
-    error
+    error,
+    activeTab = 'result',
+    onTabChange
 }) => {
     // 结果表格列配置
     const resultColumns: TableProps<Record<string, any>>["columns"] = result?.columns.map((col) => ({
@@ -182,6 +186,8 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
     return (
         <div style={{height: '100%', background: '#fff'}}>
             <Tabs
+                activeKey={activeTab}
+                onChange={onTabChange}
                 items={tabItems}
                 size="small"
                 style={{padding: '0 12px'}}

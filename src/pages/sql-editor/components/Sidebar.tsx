@@ -57,7 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     // 加载主题树数据
     useEffect(() => {
-        loadSubjectTree();
+        loadSubjectTree().then();
         loadHistory();
         loadFavorites();
     }, []);
@@ -161,11 +161,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                     key: node.key,
                     title: (
                         <span>
-                            <DatabaseOutlined style={{marginRight: 4, color: '#1890ff'}}/>
                             {node.title}
                         </span>
                     ),
-                    icon: <DatabaseOutlined />,
+                    icon: <DatabaseOutlined style={{color: '#1890ff'}}/>,
                     children: node.children ? convertToTreeData(node.children) : undefined
                 };
             } else {
@@ -191,7 +190,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 }
                             }}
                         >
-                            <TableOutlined style={{marginRight: 4, color: '#52c41a'}}/>
                             {displayName}
                             {node.columns && (
                                 <Text type="secondary" style={{fontSize: 11, marginLeft: 4}}>
@@ -200,7 +198,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                             )}
                         </span>
                     ),
-                    icon: <TableOutlined />,
+                    icon: <TableOutlined style={{color: '#1890ff'}}/>,
                     isLeaf: true
                 };
             }

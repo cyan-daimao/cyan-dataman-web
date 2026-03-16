@@ -7,15 +7,18 @@ import { KEY } from '../utils/storage';
 const envURL: { [key: string]: { [key: string]: string } } = {
     "dev": {
         dataman: "http://cyan-dataman.cyan.com/",
-        employee: "http://cyan-employee.cyan.com/" // 员工系统地址
+        employee: "http://cyan-employee.cyan.com/",
+        datagateway: "http://cyan-datagateway.cyan.com/"
     },
     "pre": {
-        dataman: "http://127.0.0.1:8000",
-        employee: "http://127.0.0.1:8001" // 预发环境员工系统地址
+        dataman: "http://cyan-dataman.cyan.com/",
+        employee: "http://cyan-employee.cyan.com/",
+        datagateway: "http://cyan-datagateway.cyan.com/"
     },
-    "pro": {
-        dataman: "http://127.0.0.1:8000",
-        employee: "http://127.0.0.1:8001" // 生产环境员工系统地址
+    "pro":  {
+        dataman: "http://cyan-dataman.cyan.com/",
+        employee: "http://cyan-employee.cyan.com/",
+        datagateway: "http://cyan-datagateway.cyan.com/"
     },
 };
 
@@ -95,6 +98,7 @@ export default createRequest('dataman');
 // 单独导出 employee 业务线的请求实例
 export const employeeRequest = createRequest('employee');
 export const datamanRequest = createRequest('dataman');
+export const datagatewayRequest = createRequest('datagateway');
 
 // 也可以导出创建函数，支持后续扩展更多业务线
 export const createCustomRequest = createRequest;
