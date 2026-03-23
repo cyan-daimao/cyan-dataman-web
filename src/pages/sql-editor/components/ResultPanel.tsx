@@ -6,6 +6,7 @@ import {
     TableOutlined
 } from '@ant-design/icons';
 import {QueryResult, ExecutionPlan} from '../types';
+import React from "react";
 
 const {Text} = Typography;
 

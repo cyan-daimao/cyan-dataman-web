@@ -8,5 +8,11 @@ export default defineConfig({
     alias:{
       '@':'/src'
     }
-  }
+  },
+  define: {
+    'global': 'globalThis',
+  },
+  build: {
+    target: 'esnext',
+  },
 })

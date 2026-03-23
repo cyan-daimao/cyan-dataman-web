@@ -1,5 +1,5 @@
-import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Input, Layout, message, Tabs} from 'antd';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {Input, Layout, message, Tabs, Spin} from 'antd';
 import {CodeOutlined, DatabaseOutlined, PlusOutlined} from '@ant-design/icons';
 import Sidebar from './components/Sidebar';
 import SQLEditor from './components/SQLEditor';
@@ -7,6 +7,19 @@ import ResultPanel from './components/ResultPanel';
 import {ExecutionPlan, QueryHistory, QueryResult} from './types';
 import {ColumnVO} from '../../api/MetadataTableAPI';
 import {executeSql} from '../../api/DatagawayApi';
+import {loader} from '@monaco-editor/react';
+import * as monaco from 'monaco-editor';
+
+// 预加载 Monaco 编辑器 - 使用本地 monaco-editor
+loader.config({ monaco });
+
+let monacoLoaded = false;
+const loadMonaco = () => {
+    if (monacoLoaded) return Promise.resolve();
+    return loader.init().then(() => {
+        monacoLoaded = true;
+    });
+};
 
 const {Content} = Layout;
 
@@ -63,10 +76,21 @@ const loadTabsFromStorage = (): { tabs: QueryTab[], activeTab: string } => {
 const SQLEditorPage: React.FC = () => {
     // 从 localStorage 初始化状态
     const initialState = useMemo(() => loadTabsFromStorage(), []);
-    
+
     const [tabs, setTabs] = useState<QueryTab[]>(initialState.tabs);
     const [activeTab, setActiveTab] = useState(initialState.activeTab);
     const [loading, setLoading] = useState(false);
+    const [editorInitializing, setEditorInitializing] = useState(true);
+
+    // 预加载 Monaco 编辑器
+    useEffect(() => {
+        loadMonaco()
+            .then(() => setEditorInitializing(false))
+            .catch((err) => {
+                console.error('Monaco 加载失败:', err);
+                setEditorInitializing(false);
+            });
+    }, []);
     const [tableColumnsCache, setTableColumnsCache] = useState<TableColumnsCache>({});
     const [resultActiveTab, setResultActiveTab] = useState('result');
     
@@ -76,7 +100,7 @@ const SQLEditorPage: React.FC = () => {
     
     // 拖拽相关状态
     const [siderWidth, setSiderWidth] = useState(280);
-    const [editorHeight, setEditorHeight] = useState(300);
+    const [editorHeight, setEditorHeight] = useState(400);
     const [isDraggingSider, setIsDraggingSider] = useState(false);
     const [isDraggingEditor, setIsDraggingEditor] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -469,10 +493,14 @@ const SQLEditorPage: React.FC = () => {
 
                 {/* 当前标签页内容 */}
                 <div style={{flex: 1, overflow: 'hidden'}}>
-                    {currentTab && (
+                    {editorInitializing ? (
+                        <div style={{height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff'}}>
+                            <Spin tip="SQL 编辑器初始化中..." size="large" />
+                        </div>
+                    ) : currentTab && (
                         <div style={{height: '100%', display: 'flex', flexDirection: 'column', background: '#fff'}}>
                             {/* SQL 编辑器 */}
-                            <div style={{height: editorHeight, minHeight: 150, borderBottom: '1px solid #f0f0f0'}}>
+                            <div style={{height: editorHeight, minHeight: 250, borderBottom: '1px solid #f0f0f0'}}>
                                 <SQLEditor
                                     value={currentTab.sql}
                                     onChange={handleSQLChange}
