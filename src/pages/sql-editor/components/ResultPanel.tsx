@@ -1,4 +1,5 @@
 import {Card, Empty, Spin, Table, TableProps, Tabs, Tag, Typography, Space} from 'antd';
+import {useState} from 'react';
 import {
     ClockCircleOutlined,
     FileSearchOutlined,
@@ -27,8 +28,23 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
     activeTab = 'result',
     onTabChange
 }) => {
-    // 结果表格列配置
-    const resultColumns: TableProps<Record<string, any>>["columns"] = result?.columns.map((col) => ({
+    // 分页状态
+    const [pagination, setPagination] = useState({
+        current: 1,
+        pageSize: 20
+    });
+
+    // 处理分页变化
+    const handleTableChange = (newPagination: any) => {
+        setPagination({
+            current: newPagination.current,
+            pageSize: newPagination.pageSize
+        });
+    };
+
+    // 为每行数据添加唯一索引，用于 rowKey
+    const rowsWithIndex = result?.rows.map((row, idx) => ({...row, _idx: idx})) || [];
+    const columnsWithKey = result?.columns.map((col) => ({
         title: col,
         dataIndex: col,
         key: col,
@@ -94,43 +110,53 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                 </span>
             ),
             children: (
-                <Spin spinning={loading}>
-                    {error ? (
-                        <div style={{padding: 24, textAlign: 'center'}}>
-                            <Text type="danger">{error}</Text>
-                        </div>
-                    ) : result ? (
-                        <div>
-                            <div style={{
-                                padding: '8px 12px',
-                                background: '#f5f5f5',
-                                marginBottom: 8,
-                                borderRadius: 4
-                            }}>
-                                <Space split={<span>|</span>}>
-                                    <span><ClockCircleOutlined/> 耗时: {result.duration}ms</span>
-                                    <span>返回行数: {result.rows.length}</span>
-                                    <span>总行数: {result.total}</span>
-                                </Space>
+                <div style={{height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden'}}>
+                    <Spin spinning={loading} style={{flex: 1, minHeight: 0}}>
+                        {error ? (
+                            <div style={{padding: 24, textAlign: 'center'}}>
+                                <Text type="danger">{error}</Text>
                             </div>
-                            <Table
-                                dataSource={result.rows}
-                                columns={resultColumns}
-                                rowKey={(_, index) => `row_${index}`}
-                                size="small"
-                                pagination={{
-                                    pageSize: 20,
-                                    showSizeChanger: true,
-                                    showTotal: (total) => `共 ${total} 条`
-                                }}
-                                scroll={{x: 'max-content', y: 300}}
-                                bordered
-                            />
-                        </div>
-                    ) : (
-                        <Empty description="暂无查询结果，请先执行SQL" image={Empty.PRESENTED_IMAGE_SIMPLE}/>
-                    )}
-                </Spin>
+                        ) : result ? (
+                            <div style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
+                                <div style={{
+                                    padding: '8px 12px',
+                                    background: '#f5f5f5',
+                                    marginBottom: 8,
+                                    borderRadius: 4,
+                                    flexShrink: 0
+                                }}>
+                                    <Space split={<span>|</span>}>
+                                        <span><ClockCircleOutlined/> 耗时：{result.duration}ms</span>
+                                        <span>返回行数：{result.rows.length}</span>
+                                        <span>总行数：{result.total}</span>
+                                    </Space>
+                                </div>
+                                <div style={{flex: 1, minHeight: 0, overflow: 'auto'}}>
+                                    <Table
+                                        dataSource={rowsWithIndex}
+                                        columns={columnsWithKey}
+                                        rowKey="_idx"
+                                        size="small"
+                                        pagination={{
+                                            current: pagination.current,
+                                            pageSize: pagination.pageSize,
+                                            total: result.rows.length,
+                                            showSizeChanger: true,
+                                            showQuickJumper: true,
+                                            showTotal: (total) => `共 ${total} 条`,
+                                            pageSizeOptions: ['10', '20', '50', '100']
+                                        }}
+                                        onChange={handleTableChange}
+                                        scroll={{x: 'max-content', y: 300}}
+                                        bordered
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <Empty description="暂无查询结果，请先执行 SQL" image={Empty.PRESENTED_IMAGE_SIMPLE}/>
+                        )}
+                    </Spin>
+                </div>
             )
         },
         {
@@ -142,21 +168,23 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                 </span>
             ),
             children: (
-                <Spin spinning={loading}>
-                    {executionPlan ? (
-                        <Table
-                            dataSource={executionPlan}
-                            columns={planColumns}
-                            rowKey="id"
-                            size="small"
-                            pagination={false}
-                            scroll={{x: 'max-content'}}
-                            bordered
-                        />
-                    ) : (
-                        <Empty description="暂无执行计划" image={Empty.PRESENTED_IMAGE_SIMPLE}/>
-                    )}
-                </Spin>
+                <div style={{height: '100%', overflow: 'auto'}}>
+                    <Spin spinning={loading}>
+                        {executionPlan ? (
+                            <Table
+                                dataSource={executionPlan}
+                                columns={planColumns}
+                                rowKey="id"
+                                size="small"
+                                pagination={false}
+                                scroll={{x: 'max-content'}}
+                                bordered
+                            />
+                        ) : (
+                            <Empty description="暂无执行计划" image={Empty.PRESENTED_IMAGE_SIMPLE}/>
+                        )}
+                    </Spin>
+                </div>
             )
         },
         {
@@ -168,31 +196,33 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                 </span>
             ),
             children: (
-                <Card size="small">
-                    {result ? (
-                        <div>
-                            <p><strong>查询时间:</strong> {new Date().toLocaleString()}</p>
-                            <p><strong>执行耗时:</strong> {result.duration}ms</p>
-                            <p><strong>返回行数:</strong> {result.rows.length}</p>
-                            <p><strong>数据大小:</strong> {(JSON.stringify(result.rows).length / 1024).toFixed(2)} KB</p>
-                        </div>
-                    ) : (
-                        <Empty description="暂无查询信息" image={Empty.PRESENTED_IMAGE_SIMPLE}/>
-                    )}
-                </Card>
+                <div style={{height: '100%', overflow: 'auto'}}>
+                    <Card size="small">
+                        {result ? (
+                            <div>
+                                <p><strong>查询时间:</strong> {new Date().toLocaleString()}</p>
+                                <p><strong>执行耗时:</strong> {result.duration}ms</p>
+                                <p><strong>返回行数:</strong> {result.rows.length}</p>
+                                <p><strong>数据大小:</strong> {(JSON.stringify(result.rows).length / 1024).toFixed(2)} KB</p>
+                            </div>
+                        ) : (
+                            <Empty description="暂无查询信息" image={Empty.PRESENTED_IMAGE_SIMPLE}/>
+                        )}
+                    </Card>
+                </div>
             )
         }
     ];
 
     return (
-        <div style={{height: '100%', background: '#fff'}}>
+        <div style={{height: '100%', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden'}}>
             <Tabs
                 activeKey={activeTab}
                 onChange={onTabChange}
                 items={tabItems}
                 size="small"
-                style={{padding: '0 12px'}}
-                tabBarStyle={{marginBottom: 0, paddingLeft: 8}}
+                style={{flex: 1, minHeight: 0}}
+                tabBarStyle={{padding: '0 12px', flexShrink: 0}}
             />
         </div>
     );

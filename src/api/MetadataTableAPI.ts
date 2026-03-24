@@ -1,5 +1,6 @@
 import {datamanRequest} from "./Request.ts";
 import {AxiosRequestConfig} from "axios";
+import {Response} from './Response.ts'
 
 // 字段值对象
 export interface ColumnVO {
@@ -105,10 +106,9 @@ export const getMetadataTableById = async (id: string): Promise<MetadataTableDTO
 };
 
 // 创建表
-export const createMetadataTable = async (cmd: MetadataTableCmd): Promise<MetadataTableDTO> => {
+export const createMetadataTable = async (cmd: MetadataTableCmd): Promise<Response<MetadataTableDTO>> => {
     try {
-        const resp = await datamanRequest.post('/api/v1/metadata/tables', cmd);
-        return resp.data;
+        return await datamanRequest.post('/api/v1/metadata/tables', cmd);
     } catch (error) {
         console.error('创建表失败:', error);
         throw new Error('创建表失败，请稍后重试');
@@ -116,10 +116,9 @@ export const createMetadataTable = async (cmd: MetadataTableCmd): Promise<Metada
 };
 
 // 更新表
-export const updateMetadataTable = async (id: string, cmd: MetadataTableCmd): Promise<MetadataTableDTO> => {
+export const updateMetadataTable = async (id: string, cmd: MetadataTableCmd): Promise<Response<MetadataTableDTO>> => {
     try {
-        const resp = await datamanRequest.put(`/api/v1/metadata/tables/${id}`, cmd);
-        return resp.data;
+        return await datamanRequest.put(`/api/v1/metadata/tables/${id}`, cmd);
     } catch (error) {
         console.error('更新表失败:', error);
         throw new Error('更新表失败，请稍后重试');
@@ -127,9 +126,9 @@ export const updateMetadataTable = async (id: string, cmd: MetadataTableCmd): Pr
 };
 
 // 删除表
-export const deleteMetadataTable = async (id: string): Promise<void> => {
+export const deleteMetadataTable = async (id: string): Promise<Response<void>> => {
     try {
-        await datamanRequest.delete(`/api/v1/metadata/tables/${id}`);
+        return datamanRequest.delete(`/api/v1/metadata/tables/${id}`);
     } catch (error) {
         console.error('删除表失败:', error);
         throw new Error('删除表失败，请稍后重试');

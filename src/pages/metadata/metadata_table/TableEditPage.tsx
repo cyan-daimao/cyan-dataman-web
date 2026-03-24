@@ -17,9 +17,15 @@ import {
 } from "antd";
 import {ArrowLeftOutlined, SaveOutlined} from "@ant-design/icons";
 import {useLocation, useNavigate} from "react-router-dom";
-import {createMetadataTable, getMetadataTableById, MetadataTableDTO, updateMetadataTable} from "../../../api/MetadataTableAPI.ts";
+import {
+    createMetadataTable,
+    getMetadataTableById,
+    MetadataTableDTO,
+    updateMetadataTable
+} from "../../../api/MetadataTableAPI.ts";
 import {EmployeeDTO as EmployeeAPIDTO, listEmployees} from "../../../api/EmployeeApi.ts";
 import {SubjectDTO, treeSubjects,} from "../../../api/MetadataSubjectAPI.ts";
+import {ErrorCode} from "../../../api/Response.ts";
 
 // 定义字段结构类型
 export interface TableColumnField {
@@ -398,15 +404,19 @@ const TableEditPage: React.FC = () => {
             console.log("提交表单数据:", cmd);
 
             if (mode === 'edit' && tableId) {
-                await updateMetadataTable(tableId, cmd);
-                message.success("表更新成功！");
+                await updateMetadataTable(tableId, cmd).then(res=>{
+                    if (res.code === ErrorCode.SUCCESS){
+                        // 返回列表页
+                        handleBack();
+                    }
+                });
             } else {
-                await createMetadataTable(cmd);
-                message.success("表创建成功！");
+                await createMetadataTable(cmd).then(res=>{
+                    if (res.code === ErrorCode.SUCCESS){
+                        handleBack();
+                    }
+                });
             }
-
-            // 返回列表页
-            handleBack();
         } catch (error: any) {
             console.error("表单提交失败:", error);
         } finally {

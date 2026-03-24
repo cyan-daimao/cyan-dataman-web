@@ -485,7 +485,7 @@ const SQLEditorPage: React.FC = () => {
                         tabBarExtraContent={
                             <span style={{color: '#999', fontSize: 12}}>
                                 <DatabaseOutlined style={{marginRight: 4}}/>
-                                数据仓库 SQL 编辑器
+                                数据仓库SQL编辑器,默认只展示1000行
                             </span>
                         }
                     />
@@ -494,8 +494,9 @@ const SQLEditorPage: React.FC = () => {
                 {/* 当前标签页内容 */}
                 <div style={{flex: 1, overflow: 'hidden'}}>
                     {editorInitializing ? (
-                        <div style={{height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff'}}>
-                            <Spin tip="SQL 编辑器初始化中..." size="large" />
+                        <div style={{height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', flexDirection: 'column', gap: 16}}>
+                            <Spin size="large" />
+                            <div style={{color: '#999', fontSize: 14}}>SQL 编辑器初始化中...</div>
                         </div>
                     ) : currentTab && (
                         <div style={{height: '100%', display: 'flex', flexDirection: 'column', background: '#fff'}}>
