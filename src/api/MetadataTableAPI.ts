@@ -159,3 +159,26 @@ export const getSubjectTableTree = async (content?: string): Promise<SubjectTabl
     return resp.data;
 }
 
+export interface TableSnapshotDTO {
+    snapshotID: string
+    operation: string
+    sequenceNumber: string
+    createdAt: string
+    manifestListLocation: string
+    totalRecords: string
+    addedRecords: string
+}
+// 获取表快照
+export const snapshots = async (fullName: string): Promise<Response<TableSnapshotDTO[]>> => {
+    return await datamanRequest.get(`/api/v1/metadata/tables/${fullName}/snapshots`)
+}
+
+// 快照回滚
+export const rollback = async (fullName: string, snapshotID: string): Promise<Response<void>> => {
+    return await datamanRequest.post(`/api/v1/metadata/tables/${fullName}/snapshots/${snapshotID}/rollback`)
+}
+
+// 合并小文件-清理快照
+export const maintenance = async (fullName: string): Promise<Response<void>> => {
+    return await datamanRequest.post(`/api/v1/metadata/tables/${fullName}/maintenance`)
+}
