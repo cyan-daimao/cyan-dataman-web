@@ -15,8 +15,12 @@ const items: MenuProps['items'] = [
         key: '2',
     },
     {
-        label: <a href={'/sql-editor'}>SQL编辑</a>,
+        label: <a href={'/sql-editor'}>SQL查询</a>,
         key: '3',
+    },
+    {
+        label: <a href={'/data-work'}>数据加工</a>,
+        key: '4',
     }
 ]
 
