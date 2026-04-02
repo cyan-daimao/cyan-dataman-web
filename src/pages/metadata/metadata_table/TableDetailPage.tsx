@@ -11,7 +11,7 @@ import {
 } from "antd";
 import {
     ArrowLeftOutlined,
-    ClockCircleOutlined,
+    ClockCircleOutlined, DashboardOutlined,
     DatabaseOutlined,
     EyeOutlined,
     FileTextOutlined,
@@ -28,6 +28,7 @@ import DataLineage from "./detail/DataLineage.tsx";
 import DataQuality from "./detail/DataQuality.tsx";
 import ScheduleInfo from "./detail/ScheduleInfo.tsx";
 import DataPreview from "./detail/DataPreview.tsx";
+import Snapshot from "./detail/Snapshot.tsx";
 
 const {Title} = Typography;
 
@@ -118,6 +119,24 @@ const TableDetailPage: React.FC = () => {
                     catalog={tableData?.table?.catalog}
                     schema={tableData?.table?.schema}
                     tableName={tableData?.name}
+                />
+            ),
+        },
+        {
+            key: 'snapshot',
+            label: (
+                <span>
+                    <DashboardOutlined />
+                    时间旅行
+                </span>
+            ),
+            children: (
+                <Snapshot
+                    fullName={
+                        tableData?.table?.catalog && tableData?.table?.schema && tableData?.name
+                            ? `${tableData.table.catalog}.${tableData.table.schema}.${tableData.name}`
+                            : ''
+                    }
                 />
             ),
         },
