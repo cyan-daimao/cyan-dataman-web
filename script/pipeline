@@ -1,0 +1,296 @@
+pipeline {
+    agent {
+        kubernetes {
+            yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  name: react-vite-template
+  namespace: jenkins
+spec:
+  serviceAccountName: jenkins
+  hostAliases:
+  - ip: "10.0.0.2"
+    hostnames:
+    - "harbor.cyan.com"
+  containers:
+  - name: node
+    image: node:lts-bullseye
+    command: ['cat']
+    tty: true
+  - name: kaniko
+    image: gcr.io/kaniko-project/executor:debug
+    command: ['cat']
+    tty: true
+    volumeMounts:
+    - mountPath: /kaniko/.docker
+      name: docker-config
+  - name: jnlp
+    image: jenkins/inbound-agent:latest-rhel-ubi9-jdk21
+    args: ["\$(JENKINS_SECRET)", "\$(JENKINS_AGENT_NAME)"]
+  - name: k8s-tools
+    image: gcr.io/cloud-builders/kubectl
+    command: ['cat']
+    tty: true
+    securityContext:
+        runAsUser: 1000
+  volumes:
+  - name: docker-config
+    projected:
+      sources:
+      - secret:
+          name: harbor-regcred
+          items:
+          - key: .dockerconfigjson
+            path: config.json
+"""
+        }
+    }
+    parameters {
+        choice(name: 'env',choices: ['prod', 'pre', 'dev', 'local'], description: '选择部署环境')
+        string(name: 'BRANCH', defaultValue: '1.0.0', description: 'GIT 分支')
+    }
+    environment {
+        APP_NAME = "${JOB_NAME}"
+        HARBOR_ADDR = "harbor.cyan.com"
+        HARBOR_USER = "admin"
+        HARBOR_PWD = "123456"
+        HARBOR_PROJECT = "library"
+
+        // Vite 项目默认打包目录 = dist
+        BUILD_DIR = "dist"
+
+        IMAGE_NAME = "${JOB_NAME}"
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        LATEST_TAG = "latest"
+        FULL_IMAGE = "${HARBOR_ADDR}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG}"
+        FULL_IMAGE_LATEST = "${HARBOR_ADDR}/${HARBOR_PROJECT}/${IMAGE_NAME}:${LATEST_TAG}"
+
+        GIT_URL = "https://github.com/cyan-daimao/${JOB_NAME}.git"
+        K8S_NAMESPACE = "${params.env}"
+        WORKSPACE = "/home/jenkins/agent/workspace/${JOB_NAME}"
+    }
+
+    stages {
+        stage('拉取代码') {
+            steps {
+                container('node') {
+                    script {
+                        sh """
+                            git config --global --add safe.directory ${WORKSPACE}
+                            rm -rf ${WORKSPACE}/*
+                            git clone -b ${params.BRANCH} ${GIT_URL} ${WORKSPACE}
+                            cd ${WORKSPACE}
+                            echo "CODE_CHANGED=true" > ${WORKSPACE}/build-flag
+                            git fetch --all
+                        """
+
+                        def branchList = sh(
+                            script: """
+                                cd ${WORKSPACE}
+                                git branch -r | grep -v HEAD | sed 's/origin\\///g' | sort -u
+                            """,
+                            returnStdout: true
+                        ).trim().split('\n').toList()
+
+                        properties([
+                            parameters([
+                                choice(name: 'env', choices: ['prod','pre','dev','local'], description: '环境'),
+                                choice(name: 'BRANCH', choices: branchList, description: 'Git分支')
+                            ])
+                        ])
+                    }
+                }
+            }
+        }
+
+stage('Vite 构建打包') {
+    when {
+        expression {
+            def flag = readFile("${WORKSPACE}/build-flag").trim()
+            return flag == "CODE_CHANGED=true"
+        }
+    }
+    steps {
+        container('node') {
+            sh """
+                echo "=== 安装依赖 ==="
+                cd ${WORKSPACE}
+                npm config set registry https://registry.npmmirror.com/
+                npm ci  // 改用 npm ci
+
+                echo "=== Vite 构建：环境 = ${params.env} ==="
+                npm run build:${params.env}
+
+                echo "=== 验证构建产物 ==="
+                ls -l ${BUILD_DIR}/
+                if [ ! -d "${BUILD_DIR}" ]; then
+                    echo "❌ Vite 构建失败，未生成 dist 目录！"
+                    exit 1
+                fi
+                echo "✅ Vite 构建完成"
+            """
+        }
+    }
+}
+
+stage('构建并推送镜像') {
+    when {
+        expression {
+            def flag = readFile("${WORKSPACE}/build-flag").trim()
+            return flag == "CODE_CHANGED=true"
+        }
+    }
+    steps {
+        container('kaniko') {
+            sh """
+                echo "=== 生成 Vite 项目 Dockerfile ==="
+                cd ${WORKSPACE}
+
+                cat > Dockerfile << EOF
+FROM harbor.cyan.com/library/node:lts-bullseye AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --registry=https://registry.npmmirror.com/
+COPY . .
+RUN npm run build:${params.env}
+
+FROM harbor.cyan.com/library/nginx:alpine
+# 复制构建产物
+COPY --from=build /app/${BUILD_DIR} /usr/share/nginx/html
+# 配置 nginx 支持 SPA 路由
+RUN echo 'server { \\
+    listen 80; \\
+    server_name localhost; \\
+    root /usr/share/nginx/html; \\
+    index index.html; \\
+    \\
+    # SPA 路由支持：所有请求先尝试文件，找不到则返回 index.html \\
+    location / { \\
+        try_files \$uri \$uri/ /index.html; \\
+    } \\
+    \\
+    # 静态资源缓存 \\
+    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)\$ { \\
+        expires 1y; \\
+        add_header Cache-Control "public, immutable"; \\
+    } \\
+}' > /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+EOF
+
+                echo "=== 查看 Dockerfile ==="
+                cat Dockerfile
+                echo "=== 构建并推送镜像 ==="
+                /kaniko/executor \
+                --context ${WORKSPACE} \
+                --dockerfile ${WORKSPACE}/Dockerfile \
+                --destination ${FULL_IMAGE} \
+                --destination ${FULL_IMAGE_LATEST} \
+                --insecure \
+                --insecure-pull
+            """
+        }
+    }
+}
+
+stage('部署到 k8s') {
+    steps {
+        container('k8s-tools') {
+            sh """
+                set -e
+                set -x
+
+                echo "=== 创建命名空间 ==="
+                kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+
+                echo "=== 创建镜像拉取密钥 ==="
+                kubectl create secret docker-registry harbor-regcred \
+                  --namespace=${K8S_NAMESPACE} \
+                  --docker-server=${HARBOR_ADDR} \
+                  --docker-username=${HARBOR_USER} \
+                  --docker-password=${HARBOR_PWD} \
+                  --dry-run=client -o yaml | kubectl apply -f -
+
+                echo "=== 生成 K8s 部署文件 ==="
+                cd ${WORKSPACE}
+                cat > deploy.yaml <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${APP_NAME}
+  namespace: ${K8S_NAMESPACE}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ${APP_NAME}
+  template:
+    metadata:
+      labels:
+        app: ${APP_NAME}
+      annotations:
+        build-number: "${BUILD_NUMBER}"
+    spec:
+      containers:
+      - name: ${APP_NAME}
+        image: ${FULL_IMAGE}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+      imagePullSecrets:
+      - name: harbor-regcred
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${APP_NAME}-svc
+  namespace: ${K8S_NAMESPACE}
+spec:
+  selector:
+    app: ${APP_NAME}
+  ports:
+  - port: 80
+    targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ${APP_NAME}-ingress
+  namespace: ${K8S_NAMESPACE}
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: ${APP_NAME}-${K8S_NAMESPACE}.cyan.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ${APP_NAME}-svc
+            port:
+              number: 80
+EOF
+
+                kubectl apply -f deploy.yaml -n ${K8S_NAMESPACE}
+                kubectl rollout restart deployment/${APP_NAME} -n ${K8S_NAMESPACE}
+                kubectl rollout status deployment/${APP_NAME} -n ${K8S_NAMESPACE}
+
+                echo "✅ 部署成功！访问地址：http://${APP_NAME}-${K8S_NAMESPACE}.cyan.com"
+            """
+        }
+    }
+}
+    }
+
+    post {
+        success {
+            echo "🎉 Vite + React 项目部署成功！当前环境：${params.env}"
+        }
+        failure {
+            echo "❌ 构建失败，请检查日志！"
+        }
+    }
+}

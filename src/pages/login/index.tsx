@@ -95,13 +95,14 @@ const LoginPage: React.FC = () => {
                         <Form.Item
                             name="username"
                             rules={[
-                                { required: true, message: '请输入用户名！' },
+                                { required: true, message: '请输入用户名！'},
                             ]}
                         >
                             <Input
                                 prefix={<UserOutlined className="site-form-item-icon" />}
                                 placeholder="请输入用户名"
                                 size="large"
+                                value={'cyan1'}
                             />
                         </Form.Item>
 
@@ -116,6 +117,7 @@ const LoginPage: React.FC = () => {
                                 prefix={<LockOutlined className="site-form-item-icon" />}
                                 placeholder="请输入密码"
                                 size="large"
+                                value={'123456'}
                             />
                         </Form.Item>
 
