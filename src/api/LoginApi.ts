@@ -1,7 +1,7 @@
 import {Response} from "./Response.ts";
 import axios from "axios";
 
-const LOGIN_URL = 'http://cyan-employee.cyan.com/login'
+const LOGIN_URL = 'http://cyan-employee-prod.cyan.com/login'
 
 export interface LoginCmd  {
     passport: string,

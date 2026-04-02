@@ -15,10 +15,10 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         employee: "http://cyan-employee.cyan.com/",
         datagateway: "http://cyan-datagateway.cyan.com/"
     },
-    "pro":  {
-        dataman: "http://cyan-dataman.cyan.com/",
-        employee: "http://cyan-employee.cyan.com/",
-        datagateway: "http://cyan-datagateway.cyan.com/"
+    "prod":  {
+        dataman: "http://cyan-dataman-prod.cyan.com/",
+        employee: "http://cyan-employee-prod.cyan.com/",
+        datagateway: "http://cyan-datagateway-prod.cyan.com/"
     },
 };
 
