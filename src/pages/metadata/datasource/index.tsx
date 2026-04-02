@@ -2,7 +2,7 @@ import 'antd/dist/reset.css';
 
 function App() {
     // 目标URL
-    const targetUrl = 'http://gravitino.cyan.com/ui/metalakes?metalake=cyan';
+    const targetUrl = 'http://gravitino.cyan.com/';
 
     return (
         <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>

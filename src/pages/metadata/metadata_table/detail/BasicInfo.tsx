@@ -6,7 +6,7 @@ import {
     SafetyOutlined,
     UserOutlined
 } from "@ant-design/icons";
-import {MetadataTableDTO} from "../../../../api/MetadataTableAPI.ts";
+import {MetadataTableDTO} from "../../../../api/MetadataTableAPI";
 
 const {Text} = Typography;
 

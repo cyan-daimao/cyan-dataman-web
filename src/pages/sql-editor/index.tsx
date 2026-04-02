@@ -223,11 +223,14 @@ const SQLEditorPage: React.FC = () => {
     }, []);
 
     // 执行 SQL
-    const handleExecute = useCallback(async () => {
+    const handleExecute = useCallback(async (sqlToExecute?: string) => {
         const currentActiveTab = activeTabRef.current;
         const currentTabData = tabs.find(t => t.id === currentActiveTab);
         
-        if (!currentTabData?.sql.trim()) {
+        // 使用传入的 SQL 或当前 tab 的全部 SQL
+        const sql = sqlToExecute || currentTabData?.sql || '';
+        
+        if (!sql.trim()) {
             message.warning('请输入SQL语句');
             return;
         }
@@ -235,7 +238,7 @@ const SQLEditorPage: React.FC = () => {
         setLoading(true);
 
         try {
-            const resp = await executeSql(currentTabData.sql);
+            const resp = await executeSql(sql);
             const result = resp.data;
             const columns = result.data.length > 0 ? Object.keys(result.data[0]) : [];
             
@@ -252,7 +255,7 @@ const SQLEditorPage: React.FC = () => {
                     : t
             ));
             
-            saveHistory(currentTabData.sql, 'success', result.costTimeMs, result.data.length);
+            saveHistory(sql, 'success', result.costTimeMs, result.data.length);
             setResultActiveTab('result');
             message.success(`执行成功，返回 ${result.data.length} 行数据，耗时 ${result.costTimeMs}ms`);
         } catch (error: any) {
@@ -264,7 +267,7 @@ const SQLEditorPage: React.FC = () => {
                     : t
             ));
             
-            saveHistory(currentTabData.sql, 'error', 0);
+            saveHistory(sql, 'error', 0);
             message.error(errorMessage);
         } finally {
             setLoading(false);

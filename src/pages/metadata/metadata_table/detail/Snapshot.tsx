@@ -15,7 +15,7 @@ import {
     ToolOutlined
 } from "@ant-design/icons";
 import type {ColumnsType} from "antd/es/table";
-import {maintenance, rollback, snapshots, TableSnapshotDTO} from "../../../../api/MetadataTableAPI.ts";
+import {maintenance, rollback, snapshots, TableSnapshotDTO} from "../../../../api/MetadataTableAPI";
 
 interface SnapshotProps {
     fullName: string;
@@ -197,6 +197,9 @@ const Snapshot: React.FC<SnapshotProps> = ({fullName}) => {
             title="快照列表"
             extra={
                 <Space>
+                    <Tag key={"cyan"} color={"cyan"}>
+                        每天零点会合并数据并只保留10个快照
+                    </Tag>
                     <Button
                         icon={<ReloadOutlined/>}
                         onClick={loadSnapshots}

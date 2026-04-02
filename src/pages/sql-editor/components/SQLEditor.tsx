@@ -14,7 +14,7 @@ import {ColumnVO} from '../../../api/MetadataTableAPI';
 interface SQLEditorProps {
     value: string;
     onChange: (value: string) => void;
-    onExecute: () => void;
+    onExecute: (sql: string) => void;
     onExecutePlan: () => void;
     onFormat: () => void;
     tableColumnsCache?: Record<string, ColumnVO[]>;
@@ -55,6 +55,24 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
 }) => {
     const editorRef = useRef<any>(null);
     const monacoRef = useRef<Monaco | null>(null);
+
+    // 获取要执行的 SQL（优先选中内容）
+    const getExecuteSQL = useCallback((): string => {
+        const editor = editorRef.current;
+        if (!editor) return value;
+        
+        const selection = editor.getSelection();
+        const selectedText = editor.getModel().getValueInRange(selection);
+        
+        // 如果有选中内容，返回选中内容；否则返回全部内容
+        return selectedText?.trim() || value;
+    }, [value]);
+
+    // 执行 SQL
+    const handleExecute = useCallback(() => {
+        const sql = getExecuteSQL();
+        onExecute(sql);
+    }, [getExecuteSQL, onExecute]);
 
     // 编辑器挂载
     const handleEditorDidMount = useCallback((editor: any, monaco: Monaco) => {
@@ -145,9 +163,9 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
         });
 
         // 快捷键
-        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, onExecute);
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, handleExecute);
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF, onFormat);
-    }, [onExecute, onFormat, tableColumnsCache]);
+    }, [handleExecute, onFormat, tableColumnsCache]);
 
     // 复制
     const copySQL = useCallback(() => {
@@ -174,8 +192,8 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
                 alignItems: 'center'
             }}>
                 <Space>
-                    <Tooltip title="执行 (Ctrl+Enter)">
-                        <Button type="primary" icon={<CaretRightOutlined/>} onClick={onExecute}>运行</Button>
+                    <Tooltip title="执行选中内容或全部 (Ctrl+Enter)">
+                        <Button type="primary" icon={<CaretRightOutlined/>} onClick={handleExecute}>运行</Button>
                     </Tooltip>
                     <Tooltip title="执行计划">
                         <Button icon={<FileSearchOutlined/>} onClick={onExecutePlan}/>

@@ -1,8 +1,8 @@
 import React, {useEffect, useState} from 'react';
 import {Button, Card, Empty, Input, Layout, Modal, Space, Spin, Table, Tree, Typography} from 'antd';
 import {DatabaseOutlined, ReloadOutlined, SearchOutlined, UploadOutlined} from "@ant-design/icons";
-import {getTableInfo, listCatalog, listSchema, listTable, TableVO} from "../../../api/DataSourceApi.ts";
-import {MetadataTableDTO} from "../../../api/MetadataTableAPI.ts";
+import {getTableInfo, listCatalog, listSchema, listTable, TableVO} from "../../../api/DataSourceApi";
+import {MetadataTableDTO} from "../../../api/MetadataTableAPI";
 import Sider from 'antd/es/layout/Sider';
 import {Content} from "antd/es/layout/layout";
 import {ColumnType} from "antd/es/table";

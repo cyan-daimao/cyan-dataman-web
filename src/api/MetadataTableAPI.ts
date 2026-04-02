@@ -1,6 +1,6 @@
-import {datamanRequest} from "./Request.ts";
+import {datamanRequest} from "./Request";
 import {AxiosRequestConfig} from "axios";
-import {Response} from './Response.ts'
+import {Response} from './Response'
 
 // 字段值对象
 export interface ColumnVO {

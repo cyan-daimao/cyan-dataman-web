@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {Select} from 'antd';
-import {listEmployees} from "../../api/EmployeeApi.ts";
+import {listEmployees} from "../../api/EmployeeApi";
 
 // 定义组件入参（移除无用的name相关，只保留必要属性）
 interface EmployeeSelectProps {

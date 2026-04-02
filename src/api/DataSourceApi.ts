@@ -1,5 +1,5 @@
-import {datamanRequest} from "./Request.ts";
-import {TableVO} from "./MetadataTableAPI.ts";
+import {datamanRequest} from "./Request";
+import {TableVO} from "./MetadataTableAPI";
 
 interface CatalogDTO{
     name: string,

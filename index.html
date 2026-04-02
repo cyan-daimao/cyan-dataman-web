@@ -5,6 +5,12 @@
     <link rel="icon" type="image/svg+xml" href="/src/assets/logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DATA-CENTER</title>
+    <script>
+      // Polyfill for axios - ensure global points to globalThis
+      if (typeof global === 'undefined') {
+        window.global = globalThis;
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

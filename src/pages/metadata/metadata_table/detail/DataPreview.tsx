@@ -1,8 +1,8 @@
 import React, {useEffect, useState} from "react";
 import {Alert, Card, Pagination, Space, Spin, Table, TableProps, Tag, Typography} from "antd";
 import {ReloadOutlined} from "@ant-design/icons";
-import {ColumnVO} from "../../../../api/MetadataTableAPI.ts";
-import {previewTableData} from "../../../../api/DataSourceApi.ts";
+import {ColumnVO} from "../../../../api/MetadataTableAPI";
+import {previewTableData} from "../../../../api/DataSourceApi";
 
 const {Text} = Typography;
 

@@ -19,16 +19,16 @@ import {
     TableOutlined
 } from "@ant-design/icons";
 import {useLocation, useNavigate} from "react-router-dom";
-import {getMetadataTableById, MetadataTableDTO} from "../../../api/MetadataTableAPI.ts";
+import {getMetadataTableById, MetadataTableDTO} from "../../../api/MetadataTableAPI";
 
 // 导入子组件
-import BasicInfo from "./detail/BasicInfo.tsx";
-import FieldInfo from "./detail/FieldInfo.tsx";
-import DataLineage from "./detail/DataLineage.tsx";
-import DataQuality from "./detail/DataQuality.tsx";
-import ScheduleInfo from "./detail/ScheduleInfo.tsx";
-import DataPreview from "./detail/DataPreview.tsx";
-import Snapshot from "./detail/Snapshot.tsx";
+import BasicInfo from "./detail/BasicInfo";
+import FieldInfo from "./detail/FieldInfo";
+import DataLineage from "./detail/DataLineage";
+import DataQuality from "./detail/DataQuality";
+import ScheduleInfo from "./detail/ScheduleInfo";
+import DataPreview from "./detail/DataPreview";
+import Snapshot from "./detail/Snapshot";
 
 const {Title} = Typography;
 

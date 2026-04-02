@@ -1,5 +1,5 @@
-import {employeeRequest} from './Request.ts'
-import {Response} from "./Response.ts";
+import {employeeRequest} from './Request'
+import {Response} from "./Response";
 
 export interface EmployeeDTO {
     id: string

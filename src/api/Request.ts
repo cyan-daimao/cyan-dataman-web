@@ -20,6 +20,12 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         employee: "http://cyan-employee-prod.cyan.com/",
         datagateway: "http://cyan-datagateway-prod.cyan.com/"
     },
+    // vite preview 默认使用 production mode
+    "production":  {
+        dataman: "http://cyan-dataman-prod.cyan.com/",
+        employee: "http://cyan-employee-prod.cyan.com/",
+        datagateway: "http://cyan-datagateway-prod.cyan.com/"
+    },
 };
 
 // 获取当前环境的基础URL（默认使用dataman）

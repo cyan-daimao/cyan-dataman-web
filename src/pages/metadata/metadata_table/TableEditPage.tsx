@@ -22,10 +22,10 @@ import {
     getMetadataTableById,
     MetadataTableDTO,
     updateMetadataTable
-} from "../../../api/MetadataTableAPI.ts";
-import {EmployeeDTO as EmployeeAPIDTO, listEmployees} from "../../../api/EmployeeApi.ts";
-import {SubjectDTO, treeSubjects,} from "../../../api/MetadataSubjectAPI.ts";
-import {ErrorCode} from "../../../api/Response.ts";
+} from "../../../api/MetadataTableAPI";
+import {EmployeeDTO as EmployeeAPIDTO, listEmployees} from "../../../api/EmployeeApi";
+import {SubjectDTO, treeSubjects,} from "../../../api/MetadataSubjectAPI";
+import {ErrorCode} from "../../../api/Response";
 
 // 定义字段结构类型
 export interface TableColumnField {

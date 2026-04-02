@@ -1,4 +1,4 @@
-import {datamanRequest} from "./Request.ts";
+import {datamanRequest} from "./Request";
 import {AxiosRequestConfig} from "axios";
 
 export interface SubjectDTO {

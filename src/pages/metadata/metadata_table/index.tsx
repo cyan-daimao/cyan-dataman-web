@@ -11,9 +11,9 @@ import {
     TableOutlined
 } from '@ant-design/icons';
 import {useNavigate} from 'react-router-dom';
-import {treeSubjects} from "../../../api/MetadataSubjectAPI.ts";
-import ImportTable from "./ImportTableForm.tsx";
-import {deleteMetadataTable, MetadataTableDTO, pageMetadataTables} from "../../../api/MetadataTableAPI.ts";
+import {treeSubjects} from "../../../api/MetadataSubjectAPI";
+import ImportTable from "./ImportTableForm";
+import {deleteMetadataTable, MetadataTableDTO, pageMetadataTables} from "../../../api/MetadataTableAPI";
 
 const {Header, Sider, Content} = Layout;
 const {Title, Text} = Typography;

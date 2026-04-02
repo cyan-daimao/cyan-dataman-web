@@ -1,5 +1,5 @@
-import {datagatewayRequest} from "./Request.ts";
-import {Response} from './Response.ts'
+import {datagatewayRequest} from "./Request";
+import {Response} from './Response'
 
 // SQL 执行结果
 export interface SqlResultDTO {

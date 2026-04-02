@@ -1,4 +1,4 @@
-import {Response} from "./Response.ts";
+import {Response} from "./Response";
 import axios from "axios";
 
 const LOGIN_URL = 'http://cyan-employee-prod.cyan.com/login'

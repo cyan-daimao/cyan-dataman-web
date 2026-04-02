@@ -1,6 +1,6 @@
 import React from "react";
 import {Card, Table, TableProps, Tag, Typography} from "antd";
-import {ColumnVO} from "../../../../api/MetadataTableAPI.ts";
+import {ColumnVO} from "../../../../api/MetadataTableAPI";
 
 const {Text} = Typography;
 

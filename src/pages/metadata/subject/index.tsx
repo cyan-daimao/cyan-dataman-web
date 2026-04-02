@@ -1,8 +1,8 @@
 import React, {useEffect, useState} from 'react';
 import {Button, Card, Col, Divider, Form, Input, message, Modal, Popconfirm, Row, Space, Table, Typography} from 'antd';
 import {ArrowLeftOutlined, DeleteOutlined, EditOutlined, FolderOpenOutlined, PlusOutlined} from '@ant-design/icons';
-import {deleteSubject, editSubject, listSubjects, saveSubject, SubjectDTO} from "../../../api/MetadataSubjectAPI.ts";
-import EmployeeSelect from "../../../component/employee/EmployeeSelect.tsx";
+import {deleteSubject, editSubject, listSubjects, saveSubject, SubjectDTO} from "../../../api/MetadataSubjectAPI";
+import EmployeeSelect from "../../../component/employee/EmployeeSelect";
 import {ColumnType} from "antd/es/table";
 
 const {Title, Text} = Typography;
