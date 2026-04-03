@@ -1,30 +1,47 @@
 import React from 'react';
 import {Layout, Menu, MenuProps, theme} from 'antd';
 import Logo from "./logo";
-import {Outlet} from "react-router-dom";
+import {Outlet, useLocation, useNavigate} from "react-router-dom";
 
 const {Header, Content, Footer} = Layout;
 
+const routeKeyMap: Record<string, string> = {
+    '/metadata': '1',
+    '/metrics': '2',
+    '/sql-editor': '3',
+    '/data-work': '4',
+};
+
 const items: MenuProps['items'] = [
     {
-        label: <a href={'/metadata'}>数据资产</a>,
+        label: '数据资产',
         key: '1',
     },
     {
-        label: <a href={'/metrics'}>指标平台</a>,
+        label: '指标平台',
         key: '2',
     },
     {
-        label: <a href={'/sql-editor'}>SQL查询</a>,
+        label: 'SQL查询',
         key: '3',
     },
     {
-        label: <a href={'/data-work'}>数据加工</a>,
+        label: '数据加工',
         key: '4',
     }
 ]
 
 const App: React.FC = () => {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const keyToRoute = Object.fromEntries(Object.entries(routeKeyMap).map(([k, v]) => [v, k]));
+    
+    const handleMenuClick: MenuProps['onClick'] = (e) => {
+        const route = keyToRoute[e.key];
+        if (route) {
+            navigate(route);
+        }
+    };
 
     const {
         token: {colorBgContainer, borderRadiusLG},
@@ -39,8 +56,9 @@ const App: React.FC = () => {
                 <Menu
                     theme="light"
                     mode="horizontal"
-                    defaultSelectedKeys={['1']}
+                    selectedKeys={[routeKeyMap[location.pathname] || '1']}
                     items={items}
+                    onClick={handleMenuClick}
                     style={{flex: 1, minWidth: 0, marginLeft: 24}}
                 />
             </Header>

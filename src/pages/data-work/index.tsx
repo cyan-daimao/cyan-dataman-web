@@ -2,9 +2,7 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Input, Layout, message, Tabs, Spin, Radio, Space, Button, Tooltip} from 'antd';
 import {
     CodeOutlined,
-    DatabaseOutlined,
     PlusOutlined,
-    SettingOutlined,
     MenuOutlined
 } from '@ant-design/icons';
 import Sidebar from '../sql-editor/components/Sidebar';
