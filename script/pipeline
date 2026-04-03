@@ -116,11 +116,11 @@ stage('Vite 构建打包') {
             sh """
                 echo "=== 安装依赖 ==="
                 cd ${WORKSPACE}
-                npm config set registry https://registry.npmmirror.com/
-                npm ci  // 改用 npm ci
+                yarn config set registry https://registry.npmmirror.com/
+                yarn install --frozen-lockfile --network-timeout 600000 --ignore-scripts --mutex file:/tmp/.yarn-mutex --non-interactive
 
                 echo "=== Vite 构建：环境 = ${params.env} ==="
-                npm run build:${params.env}
+                yarn build:${params.env}
 
                 echo "=== 验证构建产物 ==="
                 ls -l ${BUILD_DIR}/
@@ -150,10 +150,11 @@ stage('构建并推送镜像') {
                 cat > Dockerfile << EOF
 FROM harbor.cyan.com/library/node:lts-bullseye AS build
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci --registry=https://registry.npmmirror.com/
+COPY package.json yarn.lock ./
+RUN yarn config set registry https://registry.npmmirror.com/ && \
+    yarn install --frozen-lockfile --network-timeout 600000 --ignore-scripts --mutex file:/tmp/.yarn-mutex
 COPY . .
-RUN npm run build:${params.env}
+RUN yarn build:${params.env}
 
 FROM harbor.cyan.com/library/nginx:alpine
 # 复制构建产物

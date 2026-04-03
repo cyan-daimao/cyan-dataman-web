@@ -10,8 +10,8 @@ import SQLEditor from '../sql-editor/components/SQLEditor';
 import ResultPanel from '../sql-editor/components/ResultPanel';
 import ScheduleSidebar from './components/ScheduleSidebar';
 import {ExecutionPlan, QueryHistory, QueryResult, SQLEngine, ScheduleConfig} from './types';
-import {ColumnVO} from '../../api/MetadataTableAPI';
-import {executeSql} from '../../api/DatagawayApi';
+import {ColumnVO} from '@/api/MetadataTableAPI.ts';
+import {executeSql} from '@/api/DatagawayApi.ts';
 import {loader} from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 
