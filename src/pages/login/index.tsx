@@ -87,7 +87,7 @@ const LoginPage: React.FC = () => {
                     <Form
                         form={form}
                         name="login_form"
-                        initialValues={{ username: '', password: '' }}
+                        initialValues={{ username: 'cyan1', password: '12345' }}
                         onFinish={handleLogin}
                         autoComplete="off"
                     >
