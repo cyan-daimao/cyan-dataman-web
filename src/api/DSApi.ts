@@ -1,5 +1,5 @@
-import { datamanRequest } from './Request';
-import { ApiResponse } from './Response';
+import {datamanRequest} from './Request';
+import {ApiResponse} from './Response';
 
 // ==================== 数据源相关类型 ====================
 
@@ -159,23 +159,23 @@ export interface SyncHistoryDTO {
 
 // ==================== 数据源 API ====================
 
-export const listDataSources = async (): Promise<DataSourceDTO[]> => {
-    const response = await datamanRequest.get<ApiResponse<DataSourceDTO[]>>('/api/v1/ds/datasources');
+export const listDataSources = async (): Promise<ApiResponse<DataSourceDTO[]>> => {
+    const response = await datamanRequest.get('/api/v1/ds/datasources');
     return response.data;
 };
 
-export const getDataSource = async (id: string): Promise<DataSourceDTO> => {
-    const response = await datamanRequest.get<ApiResponse<DataSourceDTO>>(`/api/v1/ds/datasources/${id}`);
+export const getDataSource = async (id: string): Promise<ApiResponse<DataSourceDTO>> => {
+    const response = await datamanRequest.get(`/api/v1/ds/datasources/${id}`);
     return response.data;
 };
 
-export const createDataSource = async (cmd: CreateDataSourceCmd): Promise<DataSourceDTO> => {
-    const response = await datamanRequest.post<ApiResponse<DataSourceDTO>>('/api/v1/ds/datasources', cmd);
+export const createDataSource = async (cmd: CreateDataSourceCmd): Promise<ApiResponse<DataSourceDTO>> => {
+    const response = await datamanRequest.post('/api/v1/ds/datasources', cmd);
     return response.data;
 };
 
-export const updateDataSource = async (cmd: UpdateDataSourceCmd): Promise<DataSourceDTO> => {
-    const response = await datamanRequest.put<ApiResponse<DataSourceDTO>>(`/api/v1/ds/datasources/${cmd.id}`, cmd);
+export const updateDataSource = async (cmd: UpdateDataSourceCmd): Promise<ApiResponse<DataSourceDTO>> => {
+    const response = await datamanRequest.put(`/api/v1/ds/datasources/${cmd.id}`, cmd);
     return response.data;
 };
 
@@ -183,8 +183,8 @@ export const deleteDataSource = async (id: string): Promise<void> => {
     await datamanRequest.delete(`/api/v1/ds/datasources/${id}`);
 };
 
-export const testDataSourceConnection = async (id: string): Promise<{ success: boolean; message: string }> => {
-    const response = await datamanRequest.post<ApiResponse<{ success: boolean; message: string }>>(
+export const testDataSourceConnection = async (id: string): Promise<ApiResponse<any>> => {
+    const response = await datamanRequest.post(
         `/api/v1/ds/datasources/${id}/test`
     );
     return response.data;
@@ -192,100 +192,100 @@ export const testDataSourceConnection = async (id: string): Promise<{ success: b
 
 // ==================== 数据库 API ====================
 
-export const listDatabases = async (datasourceId?: string): Promise<DatabaseDTO[]> => {
-    const params = datasourceId ? { datasourceId } : {};
-    const response = await datamanRequest.get<ApiResponse<DatabaseDTO[]>>('/api/v1/ds/databases', { params });
+export const listDatabases = async (datasourceId?: string): Promise<ApiResponse<DatabaseDTO[]>> => {
+    const params = datasourceId ? {datasourceId} : {};
+    const response = await datamanRequest.get('/api/v1/ds/databases', {params});
     return response.data;
 };
 
-export const getDatabase = async (id: string): Promise<DatabaseDTO> => {
-    const response = await datamanRequest.get<ApiResponse<DatabaseDTO>>(`/api/v1/ds/databases/${id}`);
+export const getDatabase = async (id: string): Promise<ApiResponse<DatabaseDTO>> => {
+    const response = await datamanRequest.get(`/api/v1/ds/databases/${id}`);
     return response.data;
 };
 
-export const createDatabase = async (cmd: CreateDatabaseCmd): Promise<DatabaseDTO> => {
-    const response = await datamanRequest.post<ApiResponse<DatabaseDTO>>('/api/v1/ds/databases', cmd);
+export const createDatabase = async (cmd: CreateDatabaseCmd): Promise<ApiResponse<DatabaseDTO>> => {
+    const response = await datamanRequest.post('/api/v1/ds/databases', cmd);
     return response.data;
 };
 
-export const deleteDatabase = async (id: string): Promise<void> => {
-    await datamanRequest.delete(`/api/v1/ds/databases/${id}`);
+export const deleteDatabase = async (id: string): Promise<ApiResponse<void>> => {
+    return await datamanRequest.delete(`/api/v1/ds/databases/${id}`);
 };
 
 // ==================== 表结构 API ====================
 
-export const pageTableSchemas = async (query: TableSchemaQuery): Promise<TableSchemaPageResult> => {
-    const response = await datamanRequest.get<ApiResponse<TableSchemaPageResult>>('/api/v1/ds/table-schemas', {
+export const pageTableSchemas = async (query: TableSchemaQuery): Promise<ApiResponse<TableSchemaPageResult>> => {
+    const response = await datamanRequest.get('/api/v1/ds/table-schemas', {
         params: query
     });
     return response.data;
 };
 
-export const getTableSchema = async (id: string): Promise<TableSchemaDTO> => {
-    const response = await datamanRequest.get<ApiResponse<TableSchemaDTO>>(`/api/v1/ds/table-schemas/${id}`);
+export const getTableSchema = async (id: string): Promise<ApiResponse<TableSchemaDTO>> => {
+    const response = await datamanRequest.get(`/api/v1/ds/table-schemas/${id}`);
     return response.data;
 };
 
-export const createTableSchema = async (cmd: CreateTableSchemaCmd): Promise<TableSchemaDTO> => {
-    const response = await datamanRequest.post<ApiResponse<TableSchemaDTO>>('/api/v1/ds/table-schemas', cmd);
+export const createTableSchema = async (cmd: CreateTableSchemaCmd): Promise<ApiResponse<TableSchemaDTO>> => {
+    const response = await datamanRequest.post('/api/v1/ds/table-schemas', cmd);
     return response.data;
 };
 
-export const updateTableSchema = async (cmd: UpdateTableSchemaCmd): Promise<TableSchemaDTO> => {
-    const response = await datamanRequest.put<ApiResponse<TableSchemaDTO>>(`/api/v1/ds/table-schemas/${cmd.id}`, cmd);
+export const updateTableSchema = async (cmd: UpdateTableSchemaCmd): Promise<ApiResponse<TableSchemaDTO>> => {
+    const response = await datamanRequest.put(`/api/v1/ds/table-schemas/${cmd.id}`, cmd);
     return response.data;
 };
 
-export const deleteTableSchema = async (id: string): Promise<void> => {
-    await datamanRequest.delete(`/api/v1/ds/table-schemas/${id}`);
+export const deleteTableSchema = async (id: string): Promise<ApiResponse<void>> => {
+    return await datamanRequest.delete(`/api/v1/ds/table-schemas/${id}`);
 };
 
-export const toggleTableCdc = async (id: string, enabled: boolean): Promise<TableSchemaDTO> => {
-    const response = await datamanRequest.put<ApiResponse<TableSchemaDTO>>(
+export const toggleTableCdc = async (id: string, enabled: boolean): Promise<ApiResponse<TableSchemaDTO>> => {
+    const response = await datamanRequest.put(
         `/api/v1/ds/table-schemas/${id}/cdc`,
-        { enabled }
+        {enabled}
     );
     return response.data;
 };
 
-export const compareTableEnvironment = async (id: string): Promise<TableEnvironmentCompare> => {
-    const response = await datamanRequest.get<ApiResponse<TableEnvironmentCompare>>(
+export const compareTableEnvironment = async (id: string): Promise<ApiResponse<TableEnvironmentCompare>> => {
+    const response = await datamanRequest.get(
         `/api/v1/ds/table-schemas/${id}/compare`
     );
     return response.data;
 };
 
-export const generateDDL = async (id: string): Promise<string> => {
-    const response = await datamanRequest.get<ApiResponse<string>>(
+export const generateDDL = async (id: string): Promise<ApiResponse<string>> => {
+    const response = await datamanRequest.get(
         `/api/v1/ds/table-schemas/${id}/ddl`
     );
     return response.data;
 };
 
-export const previewCreateDDL = async (cmd: CreateTableSchemaCmd): Promise<string> => {
-    const response = await datamanRequest.post<ApiResponse<string>>(
+export const previewCreateDDL = async (cmd: CreateTableSchemaCmd): Promise<ApiResponse<string>> => {
+    const response = await datamanRequest.post(
         '/api/v1/ds/table-schemas/preview-ddl',
         cmd
     );
     return response.data;
 };
 
-export const publishTableSchema = async (id: string): Promise<{ success: boolean; message: string }> => {
-    const response = await datamanRequest.post<ApiResponse<{ success: boolean; message: string }>>(
+export const publishTableSchema = async (id: string): Promise<ApiResponse<any>> => {
+    const response = await datamanRequest.post(
         `/api/v1/ds/table-schemas/${id}/publish`
     );
     return response.data;
 };
 
-export const getTableSyncHistory = async (tableId: string): Promise<SyncHistoryDTO[]> => {
-    const response = await datamanRequest.get<ApiResponse<SyncHistoryDTO[]>>(
+export const getTableSyncHistory = async (tableId: string): Promise<ApiResponse<SyncHistoryDTO[]>> => {
+    const response = await datamanRequest.get(
         `/api/v1/ds/table-schemas/${tableId}/history`
     );
     return response.data;
 };
 
-export const saveDraftTableSchema = async (cmd: CreateTableSchemaCmd | UpdateTableSchemaCmd): Promise<TableSchemaDTO> => {
-    const response = await datamanRequest.post<ApiResponse<TableSchemaDTO>>(
+export const saveDraftTableSchema = async (cmd: CreateTableSchemaCmd | UpdateTableSchemaCmd): Promise<ApiResponse<TableSchemaDTO>> => {
+    const response = await datamanRequest.post(
         '/api/v1/ds/table-schemas/draft',
         cmd
     );
