@@ -13,6 +13,10 @@ const items: MenuProps['items'] = [
         icon: <LaptopOutlined />,
         children: [
             {
+                key:'',
+                label: <Link to=''>业务库管理</Link>,
+            },
+            {
                 key:'datasource',
                 label: <Link to='/metadata/datasource'>数据源</Link>,
             },

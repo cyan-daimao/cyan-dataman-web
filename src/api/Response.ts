@@ -8,6 +8,15 @@ export interface Response<T> {
     traceId: string;
 }
 
+/**
+ * 统一响应结构
+ */
+export interface ApiResponse<T> {
+    code: number;
+    message: string;
+    data: T;
+}
+
 // 错误码
 export enum ErrorCode{
     SUCCESS= 200,
