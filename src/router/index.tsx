@@ -15,11 +15,11 @@ const SQLEditor = React.lazy(() => import((`@/pages/sql-editor/index.tsx`)))
 const DataWork = React.lazy(() => import((`@/pages/data-work/index.tsx`)))
 
 // 鉴权组件：拦截未登录的访问
-const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
+const PrivateRoute = ({children}: { children: React.ReactNode }) => {
     const hasToken = !!localStorage.getItem('token');
     if (!hasToken) {
         // 核心：跳转到登录页时，传递当前页面地址（location.pathname）
-        return <Navigate to="/login" state={{ from: window.location.pathname }} replace />;
+        return <Navigate to="/login" state={{from: window.location.pathname}} replace/>;
     }
     return <>{children}</>;
 };
@@ -30,6 +30,15 @@ const routes = createBrowserRouter([
         path: '/',
         element: <PrivateRoute><Index/></PrivateRoute>,
         children: [
+            {
+                path: "business-ds",
+                element: <Metadata/>,
+                children: [
+                    {
+                        path: "",
+                        element: <div></div>
+                    },]
+            },
             {
                 path: "metadata",
                 element: <Metadata/>,
@@ -55,21 +64,21 @@ const routes = createBrowserRouter([
                         element: <TableEditPage/>
                     },
                 ]
-            },{
+            }, {
                 path: "metrics",
                 element: <Metrics/>,
-            },{
+            }, {
                 path: "sql-editor",
                 element: <SQLEditor/>,
-            },{
+            }, {
                 path: "data-work",
                 element: <DataWork/>,
             }
         ]
     },
     {
-      path: "/login",
-      element: <Login/>
+        path: "/login",
+        element: <Login/>
     },
     {
         path: "/about",
