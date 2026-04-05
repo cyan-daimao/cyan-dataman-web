@@ -32,11 +32,36 @@ const PrivateRoute = ({children}: { children: React.ReactNode }) => {
 };
 
 
+// 首页欢迎组件
+const HomeWelcome: React.FC = () => {
+    return (
+        <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            width: '100%',
+        }}>
+            <h1 style={{ fontSize: 32, color: '#1890ff', marginBottom: 16 }}>
+                欢迎使用数据资产管理平台
+            </h1>
+            <p style={{ fontSize: 16, color: '#666', marginBottom: 24 }}>
+                管理企业数据资产、元数据、主题域和指标的综合平台
+            </p>
+        </div>
+    );
+};
+
 const routes = createBrowserRouter([
     {
         path: '/',
         element: <PrivateRoute><Index/></PrivateRoute>,
         children: [
+            {
+                index: true,
+                element: <HomeWelcome/>
+            },
             {
                 path: "business-ds",
                 element: <Metadata/>,

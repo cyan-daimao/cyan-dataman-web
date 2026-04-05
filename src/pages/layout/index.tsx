@@ -6,28 +6,33 @@ import {Outlet, useLocation, useNavigate} from "react-router-dom";
 const {Header, Content, Footer} = Layout;
 
 const routeKeyMap: Record<string, string> = {
-    '/metadata': '1',
-    '/metrics': '2',
-    '/sql-editor': '3',
-    '/data-work': '4',
+    '/business-ds': '1',
+    '/metadata': '2',
+    '/metrics': '3',
+    '/sql-editor': '4',
+    '/data-work': '5',
 };
 
 const items: MenuProps['items'] = [
     {
-        label: '数据资产',
+        label: '业务数据库',
         key: '1',
     },
     {
-        label: '指标平台',
+        label: '数据资产',
         key: '2',
     },
     {
-        label: 'SQL查询',
+        label: '指标平台',
         key: '3',
     },
     {
-        label: '数据加工',
+        label: 'SQL查询',
         key: '4',
+    },
+    {
+        label: '数据加工',
+        key: '5',
     }
 ]
 
@@ -35,6 +40,22 @@ const App: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const keyToRoute = Object.fromEntries(Object.entries(routeKeyMap).map(([k, v]) => [v, k]));
+    
+    // 获取当前选中的菜单 key（支持子路径匹配）
+    const getSelectedKey = () => {
+        const pathname = location.pathname;
+        // 先尝试精确匹配
+        if (routeKeyMap[pathname]) {
+            return routeKeyMap[pathname];
+        }
+        // 再尝试前缀匹配
+        for (const route of Object.keys(routeKeyMap)) {
+            if (pathname.startsWith(route)) {
+                return routeKeyMap[route];
+            }
+        }
+        return '1';
+    };
     
     const handleMenuClick: MenuProps['onClick'] = (e) => {
         const route = keyToRoute[e.key];
@@ -56,7 +77,7 @@ const App: React.FC = () => {
                 <Menu
                     theme="light"
                     mode="horizontal"
-                    selectedKeys={[routeKeyMap[location.pathname] || '1']}
+                    selectedKeys={[getSelectedKey()]}
                     items={items}
                     onClick={handleMenuClick}
                     style={{flex: 1, minWidth: 0, marginLeft: 24}}
