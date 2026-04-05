@@ -6,6 +6,7 @@
 
 ### 核心功能模块
 
+- **业务数据库管理**：业务数据源管理、数据库管理、表结构管理（支持 MySQL/PostgreSQL）
 - **元数据管理**：数据源管理、主题域管理、元数据表管理
 - **指标平台**：指标管理和配置
 - **SQL 编辑器**：在线 SQL 查询和编辑
@@ -32,6 +33,7 @@ src/
 │   ├── Request.ts                # Axios 请求封装
 │   ├── Response.ts               # 响应类型定义
 │   ├── DataSourceApi.ts          # 数据源 API
+│   ├── DSApi.ts                  # 业务数据源管理 API（数据源/数据库/表管理）
 │   ├── EmployeeApi.ts            # 员工 API
 │   ├── LoginApi.ts               # 登录 API
 │   ├── MetadataSubjectAPI.ts     # 主题域 API
@@ -51,6 +53,15 @@ src/
 │   │   ├── index.tsx             # 元数据主页
 │   │   ├── datasource/           # 数据源管理
 │   │   ├── subject/              # 主题域管理
+│   │   ├── business_db/          # 业务数据库管理（新增）
+│   │   │   ├── datasource/       # 业务数据源管理
+│   │   │   │   └── index.tsx
+│   │   │   ├── database/         # 业务数据库管理
+│   │   │   │   └── index.tsx
+│   │   │   └── table_schema/     # 业务表结构管理
+│   │   │       ├── index.tsx         # 表结构列表页
+│   │   │       ├── TableSchemaEdit.tsx   # 表结构编辑页
+│   │   │       └── TableSchemaDetail.tsx # 表结构详情页
 │   │   └── metadata_table/       # 元数据表管理
 │   │       ├── index.tsx         # 表管理主页
 │   │       ├── ImportTableForm.tsx  # 导入表表单
@@ -190,6 +201,35 @@ const result = await datamanRequest.post('/api/v1/xxx', { ... });
 - `employeeRequest` - 员工管理业务线
 - `datagatewayRequest` - 数据网关业务线
 
+### DSApi 业务数据库接口
+
+`src/api/DSApi.ts` 提供业务数据库管理的完整接口，包含三个子模块：
+
+```typescript
+import { DSApi, databaseApi, tableApi } from '@/api/DSApi';
+
+// 数据源管理
+await DSApi.list();                    // 获取数据源列表
+await DSApi.create(data);              // 创建数据源
+await DSApi.findById(dsId);            // 获取数据源详情
+await DSApi.update(dsId, data);        // 更新数据源
+await DSApi.delete(dsId);              // 删除数据源
+await DSApi.testConnection(dsId);      // 测试连接
+
+// 数据库管理
+await databaseApi.list(dsId);          // 获取数据库列表
+await databaseApi.create(dsId, data);  // 创建数据库
+
+// 表管理
+await tableApi.list(dsId, dbName);              // 获取表列表
+await tableApi.getSchema(dsId, dbName, tbl);    // 获取表结构
+await tableApi.create(dsId, dbName, data);      // 创建表
+await tableApi.update(dsId, dbName, tbl, data); // 更新表结构
+await tableApi.drop(dsId, dbName, tbl);         // 删除表
+```
+
+支持的数据源类型：`MYSQL`、`POSTGRESQL`、`ICEBERG`
+
 ### 路由规范
 
 - 使用 `React.lazy()` 实现路由懒加载
@@ -267,6 +307,12 @@ export const getExample = async (): Promise<ApiResponse<ExampleDTO[]>> => {
 
 ```
 /                           # 主页（需认证）
+├── /business-ds            # 业务数据库管理（新增）
+│   ├── /datasource         # 业务数据源管理
+│   ├── /database           # 业务数据库管理
+│   └── /table-schema       # 业务表结构管理
+│       ├── /edit           # 表结构编辑
+│       └── /detail         # 表结构详情
 ├── /metadata               # 元数据管理
 │   ├── /datasource         # 数据源管理
 │   ├── /subject            # 主题域管理

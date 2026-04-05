@@ -153,7 +153,7 @@ const DatasourceManagement: React.FC = () => {
             title: '数据源名称',
             dataIndex: 'name',
             key: 'name',
-            width: 180,
+            width: 150,
         },
         {
             title: '类型',
@@ -166,18 +166,20 @@ const DatasourceManagement: React.FC = () => {
             title: '连接地址',
             dataIndex: 'url',
             key: 'url',
+            width: 180,
             ellipsis: true,
         },
         {
             title: '用户名',
             dataIndex: 'username',
             key: 'username',
-            width: 120,
+            width: 100,
         },
         {
             title: '描述',
             dataIndex: 'description',
             key: 'description',
+            width: 150,
             ellipsis: true,
         },
         {
