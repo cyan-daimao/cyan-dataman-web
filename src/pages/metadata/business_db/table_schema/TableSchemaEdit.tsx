@@ -20,7 +20,7 @@ import {
     Typography
 } from 'antd';
 import {ArrowLeftOutlined, CloudSyncOutlined, DeleteOutlined, PlusOutlined, SaveOutlined} from '@ant-design/icons';
-import {Column, ColumnDataType, Index, SecretLevel, tableApi, TableSchemaCmd} from '@/api/DSApi';
+import {Column, Index, IndexType, MysqlType, tableApi, TableSchemaCmd} from '@/api/DSApi';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {ColumnType} from 'antd/es/table';
 
@@ -28,6 +28,90 @@ const {Title, Text} = Typography;
 
 // 生成简单的 UUID
 const generateId = () => Math.random().toString(36).substr(2, 9);
+
+// 默认时间字段名称
+const DEFAULT_TIME_COLUMNS = ['created_at', 'updated_at', 'deleted_at'];
+const DEFAULT_INDEX_COLUMNS = ['created_at', 'updated_at'];
+
+// 支持精度的 MySQL 类型
+const TYPES_WITH_PRECISION = new Set([
+    'TINYINT', 'SMALLINT', 'MEDIUMINT', 'INT', 'BIGINT', 'INTEGER',
+    'FLOAT', 'DOUBLE',
+    'DECIMAL', 'NUMERIC',
+    'CHAR', 'VARCHAR',
+]);
+
+// 支持标度（小数位）的 MySQL 类型
+const TYPES_WITH_SCALE = new Set([
+    'FLOAT', 'DOUBLE',
+    'DECIMAL', 'NUMERIC',
+]);
+
+// 支持无符号的 MySQL 类型（整数类型）
+const UNSIGNED_TYPES = new Set([
+    'TINYINT', 'SMALLINT', 'MEDIUMINT', 'INT', 'BIGINT', 'INTEGER',
+]);
+
+// 判断类型是否支持精度
+const supportsPrecision = (type: string): boolean => {
+    const upperType = type.toUpperCase();
+    return TYPES_WITH_PRECISION.has(upperType);
+};
+
+// 判断类型是否支持标度
+const supportsScale = (type: string): boolean => {
+    const upperType = type.toUpperCase();
+    return TYPES_WITH_SCALE.has(upperType);
+};
+
+// 判断类型是否支持无符号
+const supportsUnsigned = (type: string): boolean => {
+    const upperType = type.toUpperCase();
+    return UNSIGNED_TYPES.has(upperType);
+};
+
+// 生成默认的时间字段
+const createDefaultTimeColumns = (): EditableColumn[] => [
+    {
+        _id: generateId(),
+        name: 'created_at',
+        type: 'TIMESTAMP',
+        comment: '创建时间',
+        nullable: false,
+        defaultValue: 'CURRENT_TIMESTAMP',
+    },
+    {
+        _id: generateId(),
+        name: 'updated_at',
+        type: 'TIMESTAMP',
+        comment: '更新时间',
+        nullable: false,
+        defaultValue: 'CURRENT_TIMESTAMP',
+    },
+    {
+        _id: generateId(),
+        name: 'deleted_at',
+        type: 'TIMESTAMP',
+        comment: '删除时间',
+        nullable: true,
+    },
+];
+
+// 生成默认的时间索引
+const createDefaultTimeIndexes = (): EditableIndex[] => [
+    {
+        _id: generateId(),
+        name: 'idx_created_at',
+        indexType: 'INDEX',
+        fieldNames: ['created_at'],
+    },
+    {
+        _id: generateId(),
+        name: 'idx_updated_at',
+        indexType: 'INDEX',
+        fieldNames: ['updated_at'],
+    },
+];
 
 // 带有临时 ID 的字段（用于前端编辑）
 interface EditableColumn extends Column {
@@ -69,8 +153,54 @@ const TableSchemaEdit: React.FC = () => {
     useEffect(() => {
         if (dsId && dbName && tableName && !isNewTable) {
             fetchTableSchema();
+        } else if (isNewTable) {
+            // 新建表时，初始化默认的时间字段和索引
+            setColumns(createDefaultTimeColumns());
+            setIndexes(createDefaultTimeIndexes());
         }
     }, [dsId, dbName, tableName, isNewTable]);
+
+    // 检查并补充缺失的时间字段
+    const ensureDefaultTimeColumns = (existingColumns: EditableColumn[]): {
+        columns: EditableColumn[];
+        addedCount: number;
+        addedNames: string[];
+    } => {
+        const existingNames = existingColumns.map(col => col.name.toLowerCase());
+        const addedNames: string[] = [];
+
+        const defaultCols = createDefaultTimeColumns();
+        const missingCols = defaultCols.filter(col => !existingNames.includes(col.name.toLowerCase()));
+
+        if (missingCols.length > 0) {
+            addedNames.push(...missingCols.map(col => col.name));
+        }
+
+        return {
+            columns: [...existingColumns, ...missingCols],
+            addedCount: missingCols.length,
+            addedNames,
+        };
+    };
+
+    // 检查并补充缺失的时间索引
+    const ensureDefaultTimeIndexes = (
+        existingIndexes: EditableIndex[],
+        allColumnNames: string[]
+    ): EditableIndex[] => {
+        const existingIndexFields = new Set(
+            existingIndexes.flatMap(idx => idx.fieldNames.map(f => f.toLowerCase()))
+        );
+
+        const defaultIndexes = createDefaultTimeIndexes();
+        const missingIndexes = defaultIndexes.filter(idx => {
+            const fieldName = idx.fieldNames[0];
+            return !existingIndexFields.has(fieldName.toLowerCase()) &&
+                allColumnNames.includes(fieldName.toLowerCase());
+        });
+
+        return [...existingIndexes, ...missingIndexes];
+    };
 
     const fetchTableSchema = async () => {
         if (!dsId || !dbName || !tableName) return;
@@ -82,8 +212,22 @@ const TableSchemaEdit: React.FC = () => {
                 const schema = response.data;
                 setTableNameValue(schema.tableName);
                 setTableComment(schema.tableComment || '');
-                setColumns((schema.columns || []).map(col => ({...col, _id: generateId()})));
-                setIndexes((schema.indexes || []).map(idx => ({...idx, _id: generateId()})));
+
+                const loadedColumns = (schema.columns || []).map(col => ({...col, _id: generateId()}));
+
+                // 检查并补充缺失的时间字段
+                const {columns: finalColumns, addedCount, addedNames} = ensureDefaultTimeColumns(loadedColumns);
+                setColumns(finalColumns);
+
+                if (addedCount > 0) {
+                    message.info(`已自动添加缺失的时间字段: ${addedNames.join(', ')}`);
+                }
+
+                // 加载索引并补充缺失的时间索引
+                const loadedIndexes = (schema.indexes || []).map(idx => ({...idx, _id: generateId()}));
+                const allColumnNames = finalColumns.map(col => col.name.toLowerCase());
+                const finalIndexes = ensureDefaultTimeIndexes(loadedIndexes, allColumnNames);
+                setIndexes(finalIndexes);
             } else {
                 message.error(response.message || '获取表结构失败');
             }
@@ -101,13 +245,23 @@ const TableSchemaEdit: React.FC = () => {
 
         const columnDefs = columns.map(col => {
             let def = `  \`${col.name}\` ${col.type}`;
-            if (col.precision !== undefined) {
-                if (col.scale !== undefined) {
-                    def += `(${col.precision}, ${col.scale})`;
-                } else {
-                    def += `(${col.precision})`;
+
+            // 只有支持精度的类型才显示括号
+            if (supportsPrecision(col.type)) {
+                if (col.precision !== undefined && col.precision !== null) {
+                    if (supportsScale(col.type) && col.scale !== undefined && col.scale !== null) {
+                        def += `(${col.precision}, ${col.scale})`;
+                    } else {
+                        def += `(${col.precision})`;
+                    }
                 }
             }
+
+            // 无符号属性（仅整数类型）
+            if (col.unsigned && supportsUnsigned(col.type)) {
+                def += ' UNSIGNED';
+            }
+
             if (!col.nullable) def += ' NOT NULL';
             if (col.autoIncrement) def += ' AUTO_INCREMENT';
             if (col.defaultValue) def += ` DEFAULT ${col.defaultValue}`;
@@ -139,7 +293,12 @@ const TableSchemaEdit: React.FC = () => {
     }, [tableNameValue, columns, indexes, tableComment]);
 
     const handleBack = () => {
-        navigate('/business-ds/table-schema');
+        // 返回列表页，保留数据源和数据库选择
+        if (dsId && dbName) {
+            navigate(`/business-ds/table-schema?dsId=${dsId}&dbName=${dbName}`);
+        } else {
+            navigate('/business-ds/table-schema');
+        }
     };
 
     // 添加字段
@@ -149,7 +308,7 @@ const TableSchemaEdit: React.FC = () => {
             {
                 _id: generateId(),
                 name: '',
-                type: ColumnDataType.STRING,
+                type: 'VARCHAR',
                 comment: '',
                 nullable: true,
                 autoIncrement: false,
@@ -201,15 +360,28 @@ const TableSchemaEdit: React.FC = () => {
             return;
         }
 
-        if (columns.length === 0) {
-            message.warning('请至少添加一个字段');
-            return;
-        }
-
         // 验证字段名
         const hasEmptyName = columns.some(col => !col.name.trim());
         if (hasEmptyName) {
             message.warning('字段名不能为空');
+            return;
+        }
+
+        // 检查并补充缺失的时间字段
+        const {columns: finalColumns, addedCount, addedNames} = ensureDefaultTimeColumns(columns);
+
+        if (addedCount > 0) {
+            message.info(`已自动添加缺失的时间字段: ${addedNames.join(', ')}`);
+            setColumns(finalColumns);
+            // 同时补充缺失的索引
+            const allColumnNames = finalColumns.map(col => col.name.toLowerCase());
+            const finalIndexes = ensureDefaultTimeIndexes(indexes, allColumnNames);
+            setIndexes(finalIndexes);
+            return; // 让用户确认后再保存
+        }
+
+        if (columns.length === 0) {
+            message.warning('请至少添加一个字段');
             return;
         }
 
@@ -223,7 +395,7 @@ const TableSchemaEdit: React.FC = () => {
             const cmd: TableSchemaCmd = {
                 tableName: tableNameValue,
                 tableComment,
-                columns: columns.map(({_id, ...col}) => col),
+                columns: finalColumns.map(({_id, ...col}) => col),
                 indexes: indexes.map(({_id, ...idx}) => idx),
             };
 
@@ -236,11 +408,8 @@ const TableSchemaEdit: React.FC = () => {
 
             if (response && response.code === 200) {
                 message.success('保存成功');
-                if (isNewTable) {
-                    navigate('/business-ds/table-schema');
-                } else {
-                    fetchTableSchema();
-                }
+                // 返回列表页，保留数据源和数据库选择
+                navigate(`/business-ds/table-schema?dsId=${dsId}&dbName=${dbName}`);
             } else {
                 message.error(response?.message || '保存失败');
             }
@@ -270,7 +439,7 @@ const TableSchemaEdit: React.FC = () => {
             title: '字段名',
             dataIndex: 'name',
             key: 'name',
-            width: 150,
+            width: 120,
             render: (value: string, record: EditableColumn) => (
                 <Input
                     value={value}
@@ -283,14 +452,16 @@ const TableSchemaEdit: React.FC = () => {
             title: '数据类型',
             dataIndex: 'type',
             key: 'type',
-            width: 130,
-            render: (value: ColumnDataType, record: EditableColumn) => (
+            width: 100,
+            render: (value: string, record: EditableColumn) => (
                 <Select
                     value={value}
                     onChange={v => handleUpdateColumn(record._id, 'type', v)}
                     style={{width: '100%'}}
+                    showSearch
+                    optionFilterProp="children"
                 >
-                    {Object.values(ColumnDataType).map(t => (
+                    {Object.values(MysqlType).map(t => (
                         <Select.Option key={t} value={t}>{t}</Select.Option>
                     ))}
                 </Select>
@@ -300,13 +471,14 @@ const TableSchemaEdit: React.FC = () => {
             title: '精度',
             dataIndex: 'precision',
             key: 'precision',
-            width: 80,
+            width: 50,
             render: (value: number | undefined, record: EditableColumn) => (
                 <InputNumber
                     value={value}
                     onChange={v => handleUpdateColumn(record._id, 'precision', v ?? undefined)}
                     min={0}
                     placeholder="精度"
+                    disabled={!supportsPrecision(record.type)}
                 />
             ),
         },
@@ -314,13 +486,28 @@ const TableSchemaEdit: React.FC = () => {
             title: '标度',
             dataIndex: 'scale',
             key: 'scale',
-            width: 80,
+            width: 50,
             render: (value: number | undefined, record: EditableColumn) => (
                 <InputNumber
                     value={value}
                     onChange={v => handleUpdateColumn(record._id, 'scale', v ?? undefined)}
                     min={0}
                     placeholder="标度"
+                    disabled={!supportsScale(record.type)}
+                />
+            ),
+        },
+        {
+            title: '无符号',
+            dataIndex: 'unsigned',
+            key: 'unsigned',
+            width: 50,
+            render: (value: boolean | undefined, record: EditableColumn) => (
+                <Switch
+                    size="small"
+                    checked={value || false}
+                    onChange={v => handleUpdateColumn(record._id, 'unsigned', v)}
+                    disabled={!supportsUnsigned(record.type)}
                 />
             ),
         },
@@ -328,7 +515,7 @@ const TableSchemaEdit: React.FC = () => {
             title: '可空',
             dataIndex: 'nullable',
             key: 'nullable',
-            width: 70,
+            width: 50,
             render: (value: boolean, record: EditableColumn) => (
                 <Switch
                     size="small"
@@ -341,7 +528,7 @@ const TableSchemaEdit: React.FC = () => {
             title: '自增',
             dataIndex: 'autoIncrement',
             key: 'autoIncrement',
-            width: 70,
+            width: 50,
             render: (value: boolean, record: EditableColumn) => (
                 <Switch
                     size="small"
@@ -354,7 +541,7 @@ const TableSchemaEdit: React.FC = () => {
             title: '默认值',
             dataIndex: 'defaultValue',
             key: 'defaultValue',
-            width: 120,
+            width: 80,
             render: (value: string | undefined, record: EditableColumn) => (
                 <Input
                     value={value}
@@ -364,28 +551,10 @@ const TableSchemaEdit: React.FC = () => {
             ),
         },
         {
-            title: '敏感级别',
-            dataIndex: 'secretLevel',
-            key: 'secretLevel',
-            width: 100,
-            render: (value: SecretLevel | undefined, record: EditableColumn) => (
-                <Select
-                    value={value}
-                    onChange={v => handleUpdateColumn(record._id, 'secretLevel', v)}
-                    style={{width: '100%'}}
-                    allowClear
-                >
-                    {Object.values(SecretLevel).map(l => (
-                        <Select.Option key={l} value={l}>{l}</Select.Option>
-                    ))}
-                </Select>
-            ),
-        },
-        {
             title: '注释',
             dataIndex: 'comment',
             key: 'comment',
-            width: 150,
+            width: 120,
             render: (value: string, record: EditableColumn) => (
                 <Input
                     value={value}
@@ -435,9 +604,9 @@ const TableSchemaEdit: React.FC = () => {
                     onChange={v => handleUpdateIndex(record._id, 'indexType', v)}
                     style={{width: '100%'}}
                 >
-                    <Select.Option value="PRIMARY">PRIMARY</Select.Option>
-                    <Select.Option value="UNIQUE">UNIQUE</Select.Option>
-                    <Select.Option value="INDEX">INDEX</Select.Option>
+                    {Object.values(IndexType).map(t => (
+                        <Select.Option key={t} value={t}>{t}</Select.Option>
+                    ))}
                 </Select>
             ),
         },
@@ -519,7 +688,7 @@ const TableSchemaEdit: React.FC = () => {
 
                 <Row gutter={24}>
                     {/* 左侧：表结构定义 */}
-                    <Col span={14}>
+                    <Col span={16}>
                         <Card title="表结构定义" size="small">
                             <Space direction="vertical" style={{width: '100%'}} size="large">
                                 {/* 基本信息 */}
@@ -578,7 +747,7 @@ const TableSchemaEdit: React.FC = () => {
                                         bordered
                                         pagination={false}
                                         size="small"
-                                        scroll={{x: 1000}}
+                                        scroll={{x: 1200}}
                                     />
                                 </div>
 
@@ -610,7 +779,7 @@ const TableSchemaEdit: React.FC = () => {
                     </Col>
 
                     {/* 右侧：预览与操作 */}
-                    <Col span={10}>
+                    <Col span={8}>
                         <Card title="DDL 预览" size="small">
                             <Input.TextArea
                                 value={ddlPreview}

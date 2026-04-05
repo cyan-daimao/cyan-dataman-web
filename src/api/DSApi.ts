@@ -21,25 +21,6 @@ export enum DatasourceType {
 }
 
 /**
- * 字段数据类型
- */
-export enum ColumnDataType {
-    BOOLEAN = 'BOOLEAN',
-    INTEGER = 'INTEGER',
-    LONG = 'LONG',
-    FLOAT = 'FLOAT',
-    DOUBLE = 'DOUBLE',
-    DECIMAL = 'DECIMAL',
-    STRING = 'STRING',
-    DATE = 'DATE',
-    TIMESTAMP = 'TIMESTAMP',
-    TIMESTAMP_TZ = 'TIMESTAMP_TZ',
-    TIME = 'TIME',
-    BINARY = 'BINARY',
-    UUID = 'UUID',
-}
-
-/**
  * 秘密等级
  */
 export enum SecretLevel {
@@ -47,6 +28,114 @@ export enum SecretLevel {
     L2 = 'L2',
     L3 = 'L3',
     L4 = 'L4',
+}
+
+/**
+ * MySQL 字段类型枚举
+ */
+export enum MysqlType {
+    // 整数类型
+    TINYINT = 'TINYINT',
+    SMALLINT = 'SMALLINT',
+    MEDIUMINT = 'MEDIUMINT',
+    INT = 'INT',
+    BIGINT = 'BIGINT',
+    // 浮点类型
+    FLOAT = 'FLOAT',
+    DOUBLE = 'DOUBLE',
+    DECIMAL = 'DECIMAL',
+    // 字符串类型
+    CHAR = 'CHAR',
+    VARCHAR = 'VARCHAR',
+    TEXT = 'TEXT',
+    MEDIUMTEXT = 'MEDIUMTEXT',
+    LONGTEXT = 'LONGTEXT',
+    // 二进制类型
+    BLOB = 'BLOB',
+    MEDIUMBLOB = 'MEDIUMBLOB',
+    LONGBLOB = 'LONGBLOB',
+    // 日期时间类型
+    DATE = 'DATE',
+    TIME = 'TIME',
+    DATETIME = 'DATETIME',
+    TIMESTAMP = 'TIMESTAMP',
+    YEAR = 'YEAR',
+    // 其他类型
+    BOOLEAN = 'BOOLEAN',
+    JSON = 'JSON',
+    ENUM = 'ENUM',
+    SET = 'SET',
+}
+
+/**
+ * PostgreSQL 字段类型枚举
+ */
+export enum PgsqlType {
+    // 整数类型
+    SMALLINT = 'SMALLINT',
+    INTEGER = 'INTEGER',
+    BIGINT = 'BIGINT',
+    SMALLSERIAL = 'SMALLSERIAL',
+    SERIAL = 'SERIAL',
+    BIGSERIAL = 'BIGSERIAL',
+    // 浮点类型
+    REAL = 'REAL',
+    DOUBLE_PRECISION = 'DOUBLE PRECISION',
+    NUMERIC = 'NUMERIC',
+    DECIMAL = 'DECIMAL',
+    // 字符串类型
+    CHAR = 'CHAR',
+    VARCHAR = 'VARCHAR',
+    TEXT = 'TEXT',
+    // 二进制类型
+    BYTEA = 'BYTEA',
+    // 日期时间类型
+    DATE = 'DATE',
+    TIME = 'TIME',
+    TIME_WITH_TIME_ZONE = 'TIME WITH TIME ZONE',
+    TIMESTAMP = 'TIMESTAMP',
+    TIMESTAMP_WITH_TIME_ZONE = 'TIMESTAMP WITH TIME ZONE',
+    // 布尔类型
+    BOOLEAN = 'BOOLEAN',
+    // JSON 类型
+    JSON = 'JSON',
+    JSONB = 'JSONB',
+    // UUID 类型
+    UUID = 'UUID',
+    // 数组类型
+    ARRAY = 'ARRAY',
+    // 网络地址类型
+    CIDR = 'CIDR',
+    INET = 'INET',
+    MACADDR = 'MACADDR',
+    // 几何类型
+    POINT = 'POINT',
+    LINE = 'LINE',
+    LSEG = 'LSEG',
+    BOX = 'BOX',
+    PATH = 'PATH',
+    POLYGON = 'POLYGON',
+    CIRCLE = 'CIRCLE',
+}
+
+/**
+ * 索引类型
+ */
+export enum IndexType {
+    PRIMARY = 'PRIMARY',
+    UNIQUE = 'UNIQUE',
+    INDEX = 'INDEX',
+    FULLTEXT = 'FULLTEXT',
+}
+
+/**
+ * 索引方法
+ */
+export enum IndexMethod {
+    BTREE = 'BTREE',
+    HASH = 'HASH',
+    GIN = 'GIN',
+    GIST = 'GIST',
 }
 
 // ==================== 类型定义 ====================
@@ -109,27 +198,76 @@ export interface DatabaseCreateCmd {
 }
 
 /**
- * 字段信息
+ * 字段信息基类
  */
-export interface Column {
+export interface BaseColumn {
+    /** 字段名称 */
     name: string;
-    type: ColumnDataType;
+    /** 字段类型（原始数据库类型字符串，如 VARCHAR(255), INT, BIGINT 等） */
+    type: string;
+    /** 字段注释 */
     comment: string;
-    nullable: boolean;
+    /** 字段是否为空 */
+    nullable?: boolean;
+    /** 字段是否自增 */
     autoIncrement?: boolean;
+    /** 字段默认值 */
     defaultValue?: string;
+    /** 字段密级 */
     secretLevel?: SecretLevel;
+    /** 精度（如 DECIMAL(10,2) 中的 10，或 VARCHAR(255) 中的 255） */
     precision?: number;
+    /** 小数位数（仅 DECIMAL 类型使用） */
     scale?: number;
 }
+
+/**
+ * MySQL 字段信息
+ */
+export interface MysqlColumn extends BaseColumn {
+    /** 无符号标识 */
+    unsigned?: boolean;
+    /** 零填充标识 */
+    zerofill?: boolean;
+    /** 字符集 */
+    charset?: string;
+    /** 排序规则 */
+    collation?: string;
+}
+
+/**
+ * PostgreSQL 字段信息
+ */
+export interface PgsqlColumn extends BaseColumn {
+    /** 数组维度（PostgreSQL 支持数组类型） */
+    arrayDimensions?: number;
+    /** 时区标识 */
+    withTimeZone?: boolean;
+}
+
+/**
+ * 字段信息（兼容旧接口，根据数据源类型选择具体类型）
+ */
+export type Column = MysqlColumn | PgsqlColumn;
 
 /**
  * 索引信息
  */
 export interface Index {
+    /** 索引名称 */
     name: string;
+    /** 索引类型（PRIMARY, UNIQUE, INDEX, FULLTEXT） */
     indexType: string;
+    /** 索引字段列表 */
     fieldNames: string[];
+    /** 索引方法（BTREE, HASH, GIN, GIST） */
+    indexMethod?: string;
+    /** 索引注释 */
+    comment?: string;
+    /** 是否唯一索引 */
+    unique?: boolean;
+    /** 是否主键 */
+    primaryKey?: boolean;
 }
 
 /**

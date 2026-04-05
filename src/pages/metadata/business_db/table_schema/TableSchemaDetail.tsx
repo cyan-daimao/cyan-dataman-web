@@ -16,7 +16,7 @@ import {
     Typography
 } from 'antd';
 import { ArrowLeftOutlined, EditOutlined, TableOutlined } from '@ant-design/icons';
-import { tableApi, TableSchema, Column, Index, ColumnDataType, SecretLevel } from '@/api/DSApi';
+import { tableApi, TableSchema, Column, Index } from '@/api/DSApi';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ColumnType } from 'antd/es/table';
 
@@ -35,7 +35,7 @@ const TableSchemaDetail: React.FC = () => {
 
     useEffect(() => {
         if (dsId && dbName && tableName) {
-            fetchTableSchema();
+            fetchTableSchema().then();
         }
     }, [dsId, dbName, tableName]);
 
@@ -59,43 +59,46 @@ const TableSchemaDetail: React.FC = () => {
     };
 
     const handleBack = () => {
-        navigate('/business-ds/table-schema');
+        // 返回列表页，保留数据源和数据库选择
+        if (dsId && dbName) {
+            navigate(`/business-ds/table-schema?dsId=${dsId}&dbName=${dbName}`);
+        } else {
+            navigate('/business-ds/table-schema');
+        }
     };
 
     const handleEdit = () => {
         navigate(`/business-ds/table-schema/edit?dsId=${dsId}&dbName=${dbName}&tableName=${tableName}`);
     };
 
-    const getDataTypeTag = (type: ColumnDataType) => {
-        const colorMap: Record<ColumnDataType, string> = {
-            [ColumnDataType.BOOLEAN]: 'cyan',
-            [ColumnDataType.INTEGER]: 'blue',
-            [ColumnDataType.LONG]: 'blue',
-            [ColumnDataType.FLOAT]: 'geekblue',
-            [ColumnDataType.DOUBLE]: 'geekblue',
-            [ColumnDataType.DECIMAL]: 'purple',
-            [ColumnDataType.STRING]: 'green',
-            [ColumnDataType.DATE]: 'orange',
-            [ColumnDataType.TIMESTAMP]: 'orange',
-            [ColumnDataType.TIMESTAMP_TZ]: 'orange',
-            [ColumnDataType.TIME]: 'orange',
-            [ColumnDataType.BINARY]: 'magenta',
-            [ColumnDataType.UUID]: 'volcano',
-        };
-        return <Tag color={colorMap[type] || 'default'}>{type}</Tag>;
+    // 根据数据类型获取标签颜色
+    const getDataTypeTag = (type: string) => {
+        // 根据类型前缀匹配颜色
+        const upperType = type.toUpperCase();
+        let color = 'default';
+        
+        if (upperType.includes('INT') || upperType.includes('SERIAL')) {
+            color = 'blue';
+        } else if (upperType.includes('FLOAT') || upperType.includes('DOUBLE') || upperType.includes('DECIMAL') || upperType.includes('NUMERIC') || upperType.includes('REAL')) {
+            color = 'geekblue';
+        } else if (upperType.includes('CHAR') || upperType.includes('TEXT') || upperType.includes('VARCHAR')) {
+            color = 'green';
+        } else if (upperType.includes('DATE') || upperType.includes('TIME') || upperType.includes('TIMESTAMP') || upperType.includes('YEAR')) {
+            color = 'orange';
+        } else if (upperType.includes('BOOL')) {
+            color = 'cyan';
+        } else if (upperType.includes('BLOB') || upperType.includes('BINARY') || upperType.includes('BYTEA')) {
+            color = 'magenta';
+        } else if (upperType.includes('JSON')) {
+            color = 'purple';
+        } else if (upperType.includes('UUID')) {
+            color = 'volcano';
+        } else if (upperType.includes('ENUM') || upperType.includes('SET')) {
+            color = 'gold';
+        }
+        
+        return <Tag color={color}>{type}</Tag>;
     };
-
-    const getSecretLevelTag = (level?: SecretLevel) => {
-        if (!level) return '-';
-        const colorMap: Record<SecretLevel, string> = {
-            [SecretLevel.L1]: 'green',
-            [SecretLevel.L2]: 'blue',
-            [SecretLevel.L3]: 'orange',
-            [SecretLevel.L4]: 'red',
-        };
-        return <Tag color={colorMap[level]}>{level}</Tag>;
-    };
-
     const columnColumns: ColumnType<Column>[] = [
         {
             title: '字段名',
@@ -108,8 +111,8 @@ const TableSchemaDetail: React.FC = () => {
             title: '数据类型',
             dataIndex: 'type',
             key: 'type',
-            width: 120,
-            render: (type: ColumnDataType) => getDataTypeTag(type),
+            width: 150,
+            render: (type: string) => getDataTypeTag(type),
         },
         {
             title: '精度/长度',
@@ -157,13 +160,6 @@ const TableSchemaDetail: React.FC = () => {
             render: (value: string) => value || '-',
         },
         {
-            title: '敏感级别',
-            dataIndex: 'secretLevel',
-            key: 'secretLevel',
-            width: 100,
-            render: (level: SecretLevel) => getSecretLevelTag(level),
-        },
-        {
             title: '注释',
             dataIndex: 'comment',
             key: 'comment',
@@ -183,8 +179,23 @@ const TableSchemaDetail: React.FC = () => {
             title: '类型',
             dataIndex: 'indexType',
             key: 'indexType',
-            width: 120,
-            render: (type: string) => <Tag color="blue">{type}</Tag>,
+            width: 100,
+            render: (type: string) => {
+                const colorMap: Record<string, string> = {
+                    'PRIMARY': 'red',
+                    'UNIQUE': 'blue',
+                    'INDEX': 'green',
+                    'FULLTEXT': 'purple',
+                };
+                return <Tag color={colorMap[type] || 'default'}>{type}</Tag>;
+            },
+        },
+        {
+            title: '方法',
+            dataIndex: 'indexMethod',
+            key: 'indexMethod',
+            width: 80,
+            render: (method: string) => method ? <Tag>{method}</Tag> : '-',
         },
         {
             title: '包含字段',
@@ -197,6 +208,14 @@ const TableSchemaDetail: React.FC = () => {
                     ))}
                 </Space>
             ),
+        },
+        {
+            title: '注释',
+            dataIndex: 'comment',
+            key: 'comment',
+            width: 150,
+            ellipsis: true,
+            render: (comment: string) => comment || '-',
         },
     ];
 

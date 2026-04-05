@@ -26,7 +26,7 @@ import {
 } from '@ant-design/icons';
 import {Database, databaseApi, DatasourceType, DSApi, DsConfig, tableApi} from '@/api/DSApi';
 import {ColumnType} from 'antd/es/table';
-import {useNavigate} from 'react-router-dom';
+import {useNavigate, useSearchParams} from 'react-router-dom';
 
 const {Title} = Typography;
 
@@ -50,13 +50,18 @@ interface TableInfo {
 
 const TableSchemaManagement: React.FC = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+
+    // 从 URL 参数获取预选的数据源和数据库
+    const urlDsId = searchParams.get('dsId');
+    const urlDbName = searchParams.get('dbName');
 
     const [datasources, setDatasources] = useState<DsConfig[]>([]);
     const [databases, setDatabases] = useState<Database[]>([]);
     const [tables, setTables] = useState<TableInfo[]>([]);
 
-    const [selectedDsId, setSelectedDsId] = useState<string | null>(null);
-    const [selectedDbName, setSelectedDbName] = useState<string | null>(null);
+    const [selectedDsId, setSelectedDsId] = useState<string | null>(urlDsId);
+    const [selectedDbName, setSelectedDbName] = useState<string | null>(urlDbName);
 
     const [dsLoading, setDsLoading] = useState(false);
     const [dbLoading, setDbLoading] = useState(false);
@@ -67,18 +72,48 @@ const TableSchemaManagement: React.FC = () => {
     const [createModalVisible, setCreateModalVisible] = useState(false);
     const [newTableName, setNewTableName] = useState('');
 
+    // 标记是否正在初始化（用于区分用户手动切换和 URL 参数恢复）
+    const [initialized, setInitialized] = useState(false);
+
     useEffect(() => {
         fetchDatasources();
     }, []);
 
+    // 数据源列表加载完成后，如果有 URL 参数，自动选择并加载数据库
+    useEffect(() => {
+        if (datasources.length > 0 && urlDsId && !initialized) {
+            const dsExists = datasources.some(ds => ds.id === urlDsId);
+            if (dsExists) {
+                setSelectedDsId(urlDsId);
+                fetchDatabases(urlDsId);
+            }
+            setInitialized(true);
+        }
+    }, [datasources, urlDsId, initialized]);
+
+    // 数据库列表加载完成后，如果有 URL 参数，自动选择并加载表
+    useEffect(() => {
+        if (databases.length > 0 && urlDbName && selectedDsId === urlDsId && !selectedDbName) {
+            const dbExists = databases.some(db => db.name === urlDbName);
+            if (dbExists) {
+                setSelectedDbName(urlDbName);
+            }
+        }
+    }, [databases, urlDbName, selectedDsId, selectedDbName]);
+
+    // 监听数据源变化，加载对应的数据库列表
     useEffect(() => {
         if (selectedDsId) {
             fetchDatabases(selectedDsId);
-            setSelectedDbName(null);
-            setTables([]);
+            // 如果不是从 URL 参数恢复，则重置数据库和表选择
+            if (selectedDsId !== urlDsId) {
+                setSelectedDbName(null);
+                setTables([]);
+            }
         }
     }, [selectedDsId]);
 
+    // 监听数据库变化，加载对应的表列表
     useEffect(() => {
         if (selectedDsId && selectedDbName) {
             fetchTables(selectedDsId, selectedDbName);
@@ -156,8 +191,8 @@ const TableSchemaManagement: React.FC = () => {
             message.warning('请输入表名');
             return;
         }
-        // 跳转到编辑页面创建新表
-        navigate(`/business-ds/table-schema/edit?dsId=${selectedDsId}&dbName=${selectedDbName}&tableName=${newTableName}`);
+        // 跳转到编辑页面创建新表，添加 isNew=true 参数区分新建和编辑
+        navigate(`/business-ds/table-schema/edit?dsId=${selectedDsId}&dbName=${selectedDbName}&tableName=${newTableName}&isNew=true`);
         setCreateModalVisible(false);
     };
 
