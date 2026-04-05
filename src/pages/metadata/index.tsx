@@ -1,12 +1,43 @@
-import React, { useState } from 'react';
-import { LaptopOutlined, UserOutlined, MenuUnfoldOutlined, MenuFoldOutlined } from '@ant-design/icons';
+import React, { useState, useMemo } from 'react';
+import {LaptopOutlined, UserOutlined, MenuUnfoldOutlined, MenuFoldOutlined, DatabaseOutlined} from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { Layout, Menu, theme } from 'antd';
-import {Link, Outlet} from "react-router-dom";
+import {Link, Outlet, useLocation} from "react-router-dom";
 
 const { Sider } = Layout;
 
+// 路由到菜单 key 的映射
+const pathToKeyMap: Record<string, string> = {
+    '/business-ds': 'bd-datasource',
+    '/business-ds/datasource': 'bd-datasource',
+    '/business-ds/database': 'bd-database',
+    '/business-ds/table-schema': 'bd-table-schema',
+    '/metadata': '',
+    '/metadata/datasource': 'datasource',
+    '/metadata/subject': 'subjectManage',
+    '/metadata/metadata_table': 'metadataTable',
+};
+
 const items: MenuProps['items'] = [
+    {
+        key: 'business-ds',
+        label: <Link to={'/business-ds'}>业务数据库</Link>,
+        icon: <DatabaseOutlined />,
+        children: [
+            {
+                key:'bd-datasource',
+                label: <Link to='/business-ds/datasource'>数据源</Link>,
+            },
+            {
+                key:'bd-database',
+                label: <Link to='/business-ds/database'>数据库</Link>,
+            },
+            {
+                key: 'bd-table-schema',
+                label: <Link to={'/business-ds/table-schema'}>表结构</Link>,
+            },
+        ]
+    },
     {
         key: '1',
         label: <Link to={'/metadata'}>元数据</Link>,
@@ -46,8 +77,23 @@ const items: MenuProps['items'] = [
 const App: React.FC = () => {
     // 正确获取 token，避免类型错误
     const { token } = theme.useToken();
+    const location = useLocation();
 
     const [collapsed, setCollapsed] = useState(false);
+
+    // 根据路径计算选中的菜单 key
+    const selectedKeys = useMemo(() => {
+        const key = pathToKeyMap[location.pathname];
+        return key ? [key] : ['1'];
+    }, [location.pathname]);
+
+    // 根据路径计算展开的菜单 key
+    const openKeys = useMemo(() => {
+        if (location.pathname.startsWith('/business-ds')) {
+            return ['business-ds'];
+        }
+        return ['1'];
+    }, [location.pathname]);
 
     return (
         <div style={{ width: '100%', height: '100%' }}>
@@ -100,8 +146,8 @@ const App: React.FC = () => {
                         mode="inline"
                         style={{ height: '100%', borderRight: 0, paddingTop: '16px' }}
                         items={items}
-                        defaultSelectedKeys={['1']}
-                        defaultOpenKeys={['1']}
+                        selectedKeys={selectedKeys}
+                        defaultOpenKeys={openKeys}
                         inlineCollapsed={collapsed}
                     />
                 </Sider>

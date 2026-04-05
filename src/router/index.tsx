@@ -14,6 +14,13 @@ const Metrics = React.lazy(() => import((`@/pages/metrics/index.tsx`)))
 const SQLEditor = React.lazy(() => import((`@/pages/sql-editor/index.tsx`)))
 const DataWork = React.lazy(() => import((`@/pages/data-work/index.tsx`)))
 
+// 业务数据库模块
+const BusinessDsDatasource = React.lazy(() => import((`@/pages/metadata/business_db/datasource/index.tsx`)))
+const BusinessDsDatabase = React.lazy(() => import((`@/pages/metadata/business_db/database/index.tsx`)))
+const BusinessDsTableSchema = React.lazy(() => import((`@/pages/metadata/business_db/table_schema/index.tsx`)))
+const TableSchemaEdit = React.lazy(() => import((`@/pages/metadata/business_db/table_schema/TableSchemaEdit.tsx`)))
+const TableSchemaDetail = React.lazy(() => import((`@/pages/metadata/business_db/table_schema/TableSchemaDetail.tsx`)))
+
 // 鉴权组件：拦截未登录的访问
 const PrivateRoute = ({children}: { children: React.ReactNode }) => {
     const hasToken = !!localStorage.getItem('token');
@@ -36,8 +43,29 @@ const routes = createBrowserRouter([
                 children: [
                     {
                         path: "",
-                        element: <div></div>
-                    },]
+                        element: <BusinessDsDatasource/>
+                    },
+                    {
+                        path: "datasource",
+                        element: <BusinessDsDatasource/>
+                    },
+                    {
+                        path: "database",
+                        element: <BusinessDsDatabase/>
+                    },
+                    {
+                        path: "table-schema",
+                        element: <BusinessDsTableSchema/>
+                    },
+                    {
+                        path: "table-schema/edit",
+                        element: <TableSchemaEdit/>
+                    },
+                    {
+                        path: "table-schema/detail",
+                        element: <TableSchemaDetail/>
+                    },
+                ]
             },
             {
                 path: "metadata",

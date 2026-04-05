@@ -8,6 +8,8 @@
 // ==================== 枚举定义 ====================
 
 import {ApiResponse} from "@/api/Response.ts";
+import {datamanRequest} from "@/api/Request.ts";
+import {AxiosRequestConfig} from "axios";
 
 /**
  * 数据源类型
@@ -163,12 +165,7 @@ export const DSApi = {
      * POST /api/v1/ds
      */
     create: async (data: DsConfigCmd): Promise<ApiResponse<DsConfig>> => {
-        const res = await fetch(BASE_URL, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(data),
-        });
-        return await res.json();
+        return await datamanRequest.post(BASE_URL, data)
     },
 
     /**
@@ -176,12 +173,10 @@ export const DSApi = {
      * GET /api/v1/ds
      */
     list: async (query?: DsConfigListQuery): Promise<ApiResponse<DsConfig[]>> => {
-        const params = new URLSearchParams();
-        if (query?.name) params.append('name', query.name);
-        if (query?.datasourceType) params.append('datasourceType', query.datasourceType);
-        const url = params.toString() ? `${BASE_URL}?${params.toString()}` : BASE_URL;
-        const res = await fetch(url);
-        return await res.json();
+        const config: AxiosRequestConfig = {
+            params: query // GET 请求的参数要放在 params 里
+        };
+        return await datamanRequest.get(BASE_URL, config);
     },
 
     /**
@@ -189,8 +184,7 @@ export const DSApi = {
      * GET /api/v1/ds/{ds}
      */
     findById: async (dsId: string): Promise<ApiResponse<DsConfig>> => {
-        const res = await fetch(`${BASE_URL}/${dsId}`);
-        return await res.json();
+        return datamanRequest.get(`${BASE_URL}/${dsId}`);
     },
 
     /**
@@ -198,12 +192,7 @@ export const DSApi = {
      * PUT /api/v1/ds/{ds}
      */
     update: async (dsId: string, data: DsConfigCmd): Promise<ApiResponse<DsConfig>> => {
-        const res = await fetch(`${BASE_URL}/${dsId}`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(data),
-        });
-        return await res.json();
+        return datamanRequest.put(`${BASE_URL}/${dsId}`, data);
     },
 
     /**
@@ -211,10 +200,7 @@ export const DSApi = {
      * DELETE /api/v1/ds/{ds}
      */
     delete: async (dsId: string): Promise<ApiResponse<void>> => {
-        const res = await fetch(`${BASE_URL}/${dsId}`, {
-            method: 'DELETE',
-        });
-        return await res.json();
+        return datamanRequest.delete(`${BASE_URL}/${dsId}`)
     },
 
     /**
@@ -222,10 +208,7 @@ export const DSApi = {
      * POST /api/v1/ds/{ds}/test
      */
     testConnection: async (dsId: string): Promise<ApiResponse<void>> => {
-        const res = await fetch(`${BASE_URL}/${dsId}/test`, {
-            method: 'POST',
-        });
-        return await res.json();
+        return datamanRequest.post(`${BASE_URL}/${dsId}/test`, {})
     },
 };
 
@@ -238,8 +221,7 @@ export const databaseApi = {
      * GET /api/v1/ds/{ds}/dbs
      */
     list: async (dsId: string): Promise<ApiResponse<Database[]>> => {
-        const res = await fetch(`${BASE_URL}/${dsId}/dbs`);
-        return await res.json();
+        return datamanRequest.get(`${BASE_URL}/${dsId}/dbs`);
     },
 
     /**
@@ -247,12 +229,7 @@ export const databaseApi = {
      * POST /api/v1/ds/{ds}/dbs
      */
     create: async (dsId: string, data: DatabaseCreateCmd): Promise<ApiResponse<void>> => {
-        const res = await fetch(`${BASE_URL}/${dsId}/dbs`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(data),
-        });
-        return await res.json();
+        return datamanRequest.post(`${BASE_URL}/${dsId}/dbs`,data)
     },
 };
 
@@ -265,8 +242,7 @@ export const tableApi = {
      * GET /api/v1/ds/{ds}/dbs/{db}/tables
      */
     list: async (dsId: string, dbName: string): Promise<ApiResponse<string[]>> => {
-        const res = await fetch(`${BASE_URL}/${dsId}/dbs/${dbName}/tables`);
-        return await res.json();
+        return datamanRequest.get(`${BASE_URL}/${dsId}/dbs/${dbName}/tables`);
     },
 
     /**
@@ -274,8 +250,7 @@ export const tableApi = {
      * GET /api/v1/ds/{ds}/dbs/{db}/tables/{tbl}
      */
     getSchema: async (dsId: string, dbName: string, tableName: string): Promise<ApiResponse<TableSchema>> => {
-        const res = await fetch(`${BASE_URL}/${dsId}/dbs/${dbName}/tables/${tableName}`);
-        return await res.json();
+        return datamanRequest.get(`${BASE_URL}/${dsId}/dbs/${dbName}/tables/${tableName}`);
     },
 
     /**
@@ -283,12 +258,8 @@ export const tableApi = {
      * POST /api/v1/ds/{ds}/dbs/{db}/tables
      */
     create: async (dsId: string, dbName: string, data: TableSchemaCmd): Promise<ApiResponse<void>> => {
-        const res = await fetch(`${BASE_URL}/${dsId}/dbs/${dbName}/tables`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(data),
-        });
-        return await res.json();
+
+        return datamanRequest.post(`${BASE_URL}/${dsId}/dbs/${dbName}/tables`,data)
     },
 
     /**
@@ -296,12 +267,7 @@ export const tableApi = {
      * PUT /api/v1/ds/{ds}/dbs/{db}/tables/{tbl}
      */
     update: async (dsId: string, dbName: string, tableName: string, data: TableSchemaCmd): Promise<ApiResponse<void>> => {
-        const res = await fetch(`${BASE_URL}/${dsId}/dbs/${dbName}/tables/${tableName}`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(data),
-        });
-        return await res.json();
+        return datamanRequest.put(`${BASE_URL}/${dsId}/dbs/${dbName}/tables/${tableName}`,data)
     },
 
     /**
@@ -309,10 +275,7 @@ export const tableApi = {
      * DELETE /api/v1/ds/{ds}/dbs/{db}/tables/{tbl}
      */
     drop: async (dsId: string, dbName: string, tableName: string): Promise<ApiResponse<void>> => {
-        const res = await fetch(`${BASE_URL}/${dsId}/dbs/${dbName}/tables/${tableName}`, {
-            method: 'DELETE',
-        });
-        return await res.json();
+        return datamanRequest.delete(`${BASE_URL}/${dsId}/dbs/${dbName}/tables/${tableName}`)
     },
 };
 
