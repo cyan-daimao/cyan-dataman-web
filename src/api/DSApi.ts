@@ -1,293 +1,352 @@
-import {datamanRequest} from './Request';
-import {ApiResponse} from './Response';
+/**
+ * 数据源管理模块 - TypeScript 接口定义
+ *
+ * @author cy.Y
+ * @since 1.0.0
+ */
 
-// ==================== 数据源相关类型 ====================
+// ==================== 枚举定义 ====================
 
-export interface DataSourceDTO {
+import {ApiResponse} from "@/api/Response.ts";
+
+/**
+ * 数据源类型
+ */
+export enum DatasourceType {
+    MYSQL = 'MYSQL',
+    POSTGRESQL = 'POSTGRESQL',
+    ICEBERG = 'ICEBERG',
+}
+
+/**
+ * 字段数据类型
+ */
+export enum ColumnDataType {
+    BOOLEAN = 'BOOLEAN',
+    INTEGER = 'INTEGER',
+    LONG = 'LONG',
+    FLOAT = 'FLOAT',
+    DOUBLE = 'DOUBLE',
+    DECIMAL = 'DECIMAL',
+    STRING = 'STRING',
+    DATE = 'DATE',
+    TIMESTAMP = 'TIMESTAMP',
+    TIMESTAMP_TZ = 'TIMESTAMP_TZ',
+    TIME = 'TIME',
+    BINARY = 'BINARY',
+    UUID = 'UUID',
+}
+
+/**
+ * 秘密等级
+ */
+export enum SecretLevel {
+    L1 = 'L1',
+    L2 = 'L2',
+    L3 = 'L3',
+    L4 = 'L4',
+}
+
+// ==================== 类型定义 ====================
+
+
+/**
+ * 数据源配置
+ */
+export interface DsConfig {
     id: string;
     name: string;
-    type: 'mysql' | 'postgresql' | 'oracle' | 'sqlserver' | 'clickhouse';
-    host: string;
-    port: number;
+    datasourceType: DatasourceType;
+    url: string;
+    username: string;
+    password: string;
+    description: string;
+    createBy: string;
+    updateBy: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+/**
+ * 数据源配置创建/更新参数
+ */
+export interface DsConfigCmd {
+    name: string;
+    datasourceType: DatasourceType;
+    url: string;
     username: string;
     password?: string;
     description?: string;
-    status: 'connected' | 'disconnected' | 'error';
-    createdAt: string;
-    updatedAt: string;
 }
 
-export interface CreateDataSourceCmd {
+/**
+ * 数据源配置列表查询参数
+ */
+export interface DsConfigListQuery {
+    name?: string;
+    datasourceType?: DatasourceType;
+}
+
+/**
+ * 数据库信息
+ */
+export interface Database {
     name: string;
-    type: DataSourceDTO['type'];
-    host: string;
-    port: number;
-    username: string;
-    password: string;
-    description?: string;
+    comment: string;
+    charset: string;
+    collation: string;
 }
 
-export interface UpdateDataSourceCmd extends CreateDataSourceCmd {
-    id: string;
-}
-
-// ==================== 数据库相关类型 ====================
-
-export interface DatabaseDTO {
-    id: string;
-    datasourceId: string;
-    datasourceName: string;
+/**
+ * 创建数据库参数
+ */
+export interface DatabaseCreateCmd {
     name: string;
-    characterSet?: string;
+    charset?: string;
     collation?: string;
-    description?: string;
-    environment: 'test' | 'prod';
-    createdAt: string;
-    updatedAt: string;
 }
 
-export interface CreateDatabaseCmd {
-    datasourceId: string;
+/**
+ * 字段信息
+ */
+export interface Column {
     name: string;
-    characterSet?: string;
-    collation?: string;
-    description?: string;
-}
-
-// ==================== 表结构相关类型 ====================
-
-export interface TableColumnDTO {
-    id: string;
-    name: string;
-    dataType: string;
-    length?: number;
+    type: ColumnDataType;
+    comment: string;
+    nullable: boolean;
+    autoIncrement?: boolean;
+    defaultValue?: string;
+    secretLevel?: SecretLevel;
     precision?: number;
     scale?: number;
-    isPrimaryKey: boolean;
-    isNullable: boolean;
-    defaultValue?: string;
-    comment?: string;
-    ordinalPosition: number;
 }
 
-export interface TableIndexDTO {
-    id: string;
+/**
+ * 索引信息
+ */
+export interface Index {
     name: string;
-    type: 'PRIMARY' | 'UNIQUE' | 'INDEX' | 'FULLTEXT';
-    columns: string[];
-    comment?: string;
+    indexType: string;
+    fieldNames: string[];
 }
 
-export interface TableSchemaDTO {
-    id: string;
-    databaseId: string;
-    databaseName: string;
-    datasourceId: string;
-    datasourceName: string;
-    name: string;
-    engine?: string;
-    characterSet?: string;
-    collation?: string;
-    comment?: string;
-    columns: TableColumnDTO[];
-    indexes: TableIndexDTO[];
-    cdcEnabled: boolean;
-    environmentStatus: 'synced' | 'pending' | 'test_behind' | 'approving' | 'rejected';
-    lastSyncAt?: string;
-    createdAt: string;
-    updatedAt: string;
-}
-
-export interface CreateTableSchemaCmd {
-    databaseId: string;
-    name: string;
-    engine?: string;
-    characterSet?: string;
-    collation?: string;
-    comment?: string;
-    columns: Omit<TableColumnDTO, 'id'>[];
-    indexes: Omit<TableIndexDTO, 'id'>[];
-    cdcEnabled?: boolean;
-}
-
-export interface UpdateTableSchemaCmd extends CreateTableSchemaCmd {
-    id: string;
-}
-
-export interface TableSchemaQuery {
-    databaseId?: string;
-    datasourceId?: string;
-    name?: string;
-    current: number;
-    size: number;
-}
-
-export interface TableSchemaPageResult {
-    data: TableSchemaDTO[];
-    total: number;
-    current: number;
-    size: number;
-}
-
-export interface EnvironmentDiff {
-    fieldName: string;
-    testValue?: string;
-    prodValue?: string;
-    diffType: 'add' | 'delete' | 'modify';
-}
-
-export interface TableEnvironmentCompare {
+/**
+ * 表结构信息
+ */
+export interface TableSchema {
     tableName: string;
-    testEnvironment: Partial<TableSchemaDTO>;
-    prodEnvironment: Partial<TableSchemaDTO>;
-    diffs: EnvironmentDiff[];
+    tableComment: string;
+    columns: Column[];
+    indexes: Index[];
 }
 
-export interface SyncHistoryDTO {
-    id: string;
-    tableId: string;
+/**
+ * 创建/更新表结构参数
+ */
+export interface TableSchemaCmd {
     tableName: string;
-    operation: 'create' | 'alter' | 'drop';
-    ddlStatement: string;
-    status: 'pending' | 'approving' | 'approved' | 'rejected' | 'executed' | 'failed';
-    operator: string;
-    reviewer?: string;
-    rejectReason?: string;
-    createdAt: string;
-    executedAt?: string;
+    tableComment?: string;
+    columns: Column[];
+    indexes?: Index[];
 }
 
-// ==================== 数据源 API ====================
+// ==================== API 函数 ====================
 
-export const listDataSources = async (): Promise<ApiResponse<DataSourceDTO[]>> => {
-    const response = await datamanRequest.get('/api/v1/ds/datasources');
-    return response.data;
+const BASE_URL = '/api/v1/ds';
+
+/**
+ * 数据源管理 API
+ */
+export const DSApi = {
+    /**
+     * 创建数据源配置
+     * POST /api/v1/ds
+     */
+    create: async (data: DsConfigCmd): Promise<ApiResponse<DsConfig>> => {
+        const res = await fetch(BASE_URL, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data),
+        });
+        return await res.json();
+    },
+
+    /**
+     * 获取数据源配置列表
+     * GET /api/v1/ds
+     */
+    list: async (query?: DsConfigListQuery): Promise<ApiResponse<DsConfig[]>> => {
+        const params = new URLSearchParams();
+        if (query?.name) params.append('name', query.name);
+        if (query?.datasourceType) params.append('datasourceType', query.datasourceType);
+        const url = params.toString() ? `${BASE_URL}?${params.toString()}` : BASE_URL;
+        const res = await fetch(url);
+        return await res.json();
+    },
+
+    /**
+     * 获取数据源配置详情
+     * GET /api/v1/ds/{ds}
+     */
+    findById: async (dsId: string): Promise<ApiResponse<DsConfig>> => {
+        const res = await fetch(`${BASE_URL}/${dsId}`);
+        return await res.json();
+    },
+
+    /**
+     * 更新数据源配置
+     * PUT /api/v1/ds/{ds}
+     */
+    update: async (dsId: string, data: DsConfigCmd): Promise<ApiResponse<DsConfig>> => {
+        const res = await fetch(`${BASE_URL}/${dsId}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data),
+        });
+        return await res.json();
+    },
+
+    /**
+     * 删除数据源配置
+     * DELETE /api/v1/ds/{ds}
+     */
+    delete: async (dsId: string): Promise<ApiResponse<void>> => {
+        const res = await fetch(`${BASE_URL}/${dsId}`, {
+            method: 'DELETE',
+        });
+        return await res.json();
+    },
+
+    /**
+     * 测试数据源连接
+     * POST /api/v1/ds/{ds}/test
+     */
+    testConnection: async (dsId: string): Promise<ApiResponse<void>> => {
+        const res = await fetch(`${BASE_URL}/${dsId}/test`, {
+            method: 'POST',
+        });
+        return await res.json();
+    },
 };
 
-export const getDataSource = async (id: string): Promise<ApiResponse<DataSourceDTO>> => {
-    const response = await datamanRequest.get(`/api/v1/ds/datasources/${id}`);
-    return response.data;
+/**
+ * 数据库管理 API
+ */
+export const databaseApi = {
+    /**
+     * 获取数据源下的数据库列表
+     * GET /api/v1/ds/{ds}/dbs
+     */
+    list: async (dsId: string): Promise<ApiResponse<Database[]>> => {
+        const res = await fetch(`${BASE_URL}/${dsId}/dbs`);
+        return await res.json();
+    },
+
+    /**
+     * 创建数据库
+     * POST /api/v1/ds/{ds}/dbs
+     */
+    create: async (dsId: string, data: DatabaseCreateCmd): Promise<ApiResponse<void>> => {
+        const res = await fetch(`${BASE_URL}/${dsId}/dbs`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data),
+        });
+        return await res.json();
+    },
 };
 
-export const createDataSource = async (cmd: CreateDataSourceCmd): Promise<ApiResponse<DataSourceDTO>> => {
-    const response = await datamanRequest.post('/api/v1/ds/datasources', cmd);
-    return response.data;
+/**
+ * 表管理 API
+ */
+export const tableApi = {
+    /**
+     * 获取数据库下的表列表
+     * GET /api/v1/ds/{ds}/dbs/{db}/tables
+     */
+    list: async (dsId: string, dbName: string): Promise<ApiResponse<string[]>> => {
+        const res = await fetch(`${BASE_URL}/${dsId}/dbs/${dbName}/tables`);
+        return await res.json();
+    },
+
+    /**
+     * 获取表结构详情
+     * GET /api/v1/ds/{ds}/dbs/{db}/tables/{tbl}
+     */
+    getSchema: async (dsId: string, dbName: string, tableName: string): Promise<ApiResponse<TableSchema>> => {
+        const res = await fetch(`${BASE_URL}/${dsId}/dbs/${dbName}/tables/${tableName}`);
+        return await res.json();
+    },
+
+    /**
+     * 创建表
+     * POST /api/v1/ds/{ds}/dbs/{db}/tables
+     */
+    create: async (dsId: string, dbName: string, data: TableSchemaCmd): Promise<ApiResponse<void>> => {
+        const res = await fetch(`${BASE_URL}/${dsId}/dbs/${dbName}/tables`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data),
+        });
+        return await res.json();
+    },
+
+    /**
+     * 更新表结构
+     * PUT /api/v1/ds/{ds}/dbs/{db}/tables/{tbl}
+     */
+    update: async (dsId: string, dbName: string, tableName: string, data: TableSchemaCmd): Promise<ApiResponse<void>> => {
+        const res = await fetch(`${BASE_URL}/${dsId}/dbs/${dbName}/tables/${tableName}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data),
+        });
+        return await res.json();
+    },
+
+    /**
+     * 删除表
+     * DELETE /api/v1/ds/{ds}/dbs/{db}/tables/{tbl}
+     */
+    drop: async (dsId: string, dbName: string, tableName: string): Promise<ApiResponse<void>> => {
+        const res = await fetch(`${BASE_URL}/${dsId}/dbs/${dbName}/tables/${tableName}`, {
+            method: 'DELETE',
+        });
+        return await res.json();
+    },
 };
 
-export const updateDataSource = async (cmd: UpdateDataSourceCmd): Promise<ApiResponse<DataSourceDTO>> => {
-    const response = await datamanRequest.put(`/api/v1/ds/datasources/${cmd.id}`, cmd);
-    return response.data;
-};
+// ==================== API 接口汇总表 ====================
 
-export const deleteDataSource = async (id: string): Promise<void> => {
-    await datamanRequest.delete(`/api/v1/ds/datasources/${id}`);
-};
-
-export const testDataSourceConnection = async (id: string): Promise<ApiResponse<any>> => {
-    const response = await datamanRequest.post(
-        `/api/v1/ds/datasources/${id}/test`
-    );
-    return response.data;
-};
-
-// ==================== 数据库 API ====================
-
-export const listDatabases = async (datasourceId?: string): Promise<ApiResponse<DatabaseDTO[]>> => {
-    const params = datasourceId ? {datasourceId} : {};
-    const response = await datamanRequest.get('/api/v1/ds/databases', {params});
-    return response.data;
-};
-
-export const getDatabase = async (id: string): Promise<ApiResponse<DatabaseDTO>> => {
-    const response = await datamanRequest.get(`/api/v1/ds/databases/${id}`);
-    return response.data;
-};
-
-export const createDatabase = async (cmd: CreateDatabaseCmd): Promise<ApiResponse<DatabaseDTO>> => {
-    const response = await datamanRequest.post('/api/v1/ds/databases', cmd);
-    return response.data;
-};
-
-export const deleteDatabase = async (id: string): Promise<ApiResponse<void>> => {
-    return await datamanRequest.delete(`/api/v1/ds/databases/${id}`);
-};
-
-// ==================== 表结构 API ====================
-
-export const pageTableSchemas = async (query: TableSchemaQuery): Promise<ApiResponse<TableSchemaPageResult>> => {
-    const response = await datamanRequest.get('/api/v1/ds/table-schemas', {
-        params: query
-    });
-    return response.data;
-};
-
-export const getTableSchema = async (id: string): Promise<ApiResponse<TableSchemaDTO>> => {
-    const response = await datamanRequest.get(`/api/v1/ds/table-schemas/${id}`);
-    return response.data;
-};
-
-export const createTableSchema = async (cmd: CreateTableSchemaCmd): Promise<ApiResponse<TableSchemaDTO>> => {
-    const response = await datamanRequest.post('/api/v1/ds/table-schemas', cmd);
-    return response.data;
-};
-
-export const updateTableSchema = async (cmd: UpdateTableSchemaCmd): Promise<ApiResponse<TableSchemaDTO>> => {
-    const response = await datamanRequest.put(`/api/v1/ds/table-schemas/${cmd.id}`, cmd);
-    return response.data;
-};
-
-export const deleteTableSchema = async (id: string): Promise<ApiResponse<void>> => {
-    return await datamanRequest.delete(`/api/v1/ds/table-schemas/${id}`);
-};
-
-export const toggleTableCdc = async (id: string, enabled: boolean): Promise<ApiResponse<TableSchemaDTO>> => {
-    const response = await datamanRequest.put(
-        `/api/v1/ds/table-schemas/${id}/cdc`,
-        {enabled}
-    );
-    return response.data;
-};
-
-export const compareTableEnvironment = async (id: string): Promise<ApiResponse<TableEnvironmentCompare>> => {
-    const response = await datamanRequest.get(
-        `/api/v1/ds/table-schemas/${id}/compare`
-    );
-    return response.data;
-};
-
-export const generateDDL = async (id: string): Promise<ApiResponse<string>> => {
-    const response = await datamanRequest.get(
-        `/api/v1/ds/table-schemas/${id}/ddl`
-    );
-    return response.data;
-};
-
-export const previewCreateDDL = async (cmd: CreateTableSchemaCmd): Promise<ApiResponse<string>> => {
-    const response = await datamanRequest.post(
-        '/api/v1/ds/table-schemas/preview-ddl',
-        cmd
-    );
-    return response.data;
-};
-
-export const publishTableSchema = async (id: string): Promise<ApiResponse<any>> => {
-    const response = await datamanRequest.post(
-        `/api/v1/ds/table-schemas/${id}/publish`
-    );
-    return response.data;
-};
-
-export const getTableSyncHistory = async (tableId: string): Promise<ApiResponse<SyncHistoryDTO[]>> => {
-    const response = await datamanRequest.get(
-        `/api/v1/ds/table-schemas/${tableId}/history`
-    );
-    return response.data;
-};
-
-export const saveDraftTableSchema = async (cmd: CreateTableSchemaCmd | UpdateTableSchemaCmd): Promise<ApiResponse<TableSchemaDTO>> => {
-    const response = await datamanRequest.post(
-        '/api/v1/ds/table-schemas/draft',
-        cmd
-    );
-    return response.data;
-};
+/**
+ * ## API 接口文档
+ *
+ * ### 数据源管理
+ * | 方法 | 路径 | 说明 |
+ * |------|------|------|
+ * | POST | /api/v1/ds | 创建数据源配置 |
+ * | GET | /api/v1/ds | 获取数据源配置列表 |
+ * | GET | /api/v1/ds/{ds} | 获取数据源配置详情 |
+ * | PUT | /api/v1/ds/{ds} | 更新数据源配置 |
+ * | DELETE | /api/v1/ds/{ds} | 删除数据源配置 |
+ * | POST | /api/v1/ds/{ds}/test | 测试数据源连接 |
+ *
+ * ### 数据库管理
+ * | 方法 | 路径 | 说明 |
+ * |------|------|------|
+ * | GET | /api/v1/ds/{ds}/dbs | 获取数据库列表 |
+ * | POST | /api/v1/ds/{ds}/dbs | 创建数据库 |
+ *
+ * ### 表管理
+ * | 方法 | 路径 | 说明 |
+ * |------|------|------|
+ * | GET | /api/v1/ds/{ds}/dbs/{db}/tables | 获取表列表 |
+ * | GET | /api/v1/ds/{ds}/dbs/{db}/tables/{tbl} | 获取表结构详情 |
+ * | POST | /api/v1/ds/{ds}/dbs/{db}/tables | 创建表 |
+ * | PUT | /api/v1/ds/{ds}/dbs/{db}/tables/{tbl} | 更新表结构 |
+ * | DELETE | /api/v1/ds/{ds}/dbs/{db}/tables/{tbl} | 删除表 |
+ *
+ * ### 备注
+ * - 创建表时会自动添加 `created_at`、`updated_at`、`deleted_at` 字段
+ * - 所有接口返回统一的 `ApiResponse<T>` 结构
+ */
