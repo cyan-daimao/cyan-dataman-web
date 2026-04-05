@@ -19,7 +19,7 @@ import {
     Tabs,
     Typography
 } from 'antd';
-import {ArrowLeftOutlined, CloudSyncOutlined, DeleteOutlined, PlusOutlined, SaveOutlined} from '@ant-design/icons';
+import {ArrowLeftOutlined, CloudSyncOutlined, DeleteOutlined, PlusOutlined, SaveOutlined, MenuFoldOutlined, MenuUnfoldOutlined} from '@ant-design/icons';
 import {Column, Index, IndexType, MysqlType, tableApi, TableSchemaCmd} from '@/api/DSApi';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {ColumnType} from 'antd/es/table';
@@ -29,9 +29,6 @@ const {Title, Text} = Typography;
 // 生成简单的 UUID
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-// 默认时间字段名称
-const DEFAULT_TIME_COLUMNS = ['created_at', 'updated_at', 'deleted_at'];
-const DEFAULT_INDEX_COLUMNS = ['created_at', 'updated_at'];
 
 // 支持精度的 MySQL 类型
 const TYPES_WITH_PRECISION = new Set([
@@ -146,6 +143,9 @@ const TableSchemaEdit: React.FC = () => {
 
     // CDC 状态
     const [cdcEnabled, setCdcEnabled] = useState(false);
+
+    // 右侧面板折叠状态
+    const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
 
     // 同步模态框
     const [syncModalVisible, setSyncModalVisible] = useState(false);
@@ -653,7 +653,7 @@ const TableSchemaEdit: React.FC = () => {
 
     return (
         <div style={{padding: '24px'}}>
-            <Card>
+            <Card style={{position: 'relative'}}>
                 <Row justify="space-between" align="middle" style={{marginBottom: 16}}>
                     <Col>
                         <Space>
@@ -688,7 +688,7 @@ const TableSchemaEdit: React.FC = () => {
 
                 <Row gutter={24}>
                     {/* 左侧：表结构定义 */}
-                    <Col span={16}>
+                    <Col span={rightPanelCollapsed ? 24 : 16}>
                         <Card title="表结构定义" size="small">
                             <Space direction="vertical" style={{width: '100%'}} size="large">
                                 {/* 基本信息 */}
@@ -779,51 +779,76 @@ const TableSchemaEdit: React.FC = () => {
                     </Col>
 
                     {/* 右侧：预览与操作 */}
-                    <Col span={8}>
-                        <Card title="DDL 预览" size="small">
-                            <Input.TextArea
-                                value={ddlPreview}
-                                rows={15}
-                                readOnly
-                                style={{fontFamily: 'monospace'}}
-                            />
-                        </Card>
+                    {!rightPanelCollapsed && (
+                        <Col span={8}>
+                            <Card title="DDL 预览" size="small">
+                                <Input.TextArea
+                                    value={ddlPreview}
+                                    rows={15}
+                                    readOnly
+                                    style={{fontFamily: 'monospace'}}
+                                />
+                            </Card>
 
-                        <Card title="环境对比" size="small" style={{marginTop: 16}}>
-                            <Tabs
-                                size="small"
-                                items={[
-                                    {
-                                        key: 'test',
-                                        label: '测试环境',
-                                        children: (
-                                            <div style={{padding: 8, background: '#fafafa', borderRadius: 4}}>
-                                                <Text type="secondary">暂无测试环境数据</Text>
-                                            </div>
-                                        ),
-                                    },
-                                    {
-                                        key: 'prod',
-                                        label: '生产环境',
-                                        children: (
-                                            <div style={{padding: 8, background: '#fafafa', borderRadius: 4}}>
-                                                <Text type="secondary">暂无生产环境数据</Text>
-                                            </div>
-                                        ),
-                                    },
-                                    {
-                                        key: 'diff',
-                                        label: '差异对比',
-                                        children: (
-                                            <div style={{padding: 8, background: '#fafafa', borderRadius: 4}}>
-                                                <Text type="secondary">暂无差异</Text>
-                                            </div>
-                                        ),
-                                    },
-                                ]}
-                            />
-                        </Card>
-                    </Col>
+                            <Card title="环境对比" size="small" style={{marginTop: 16}}>
+                                <Tabs
+                                    size="small"
+                                    items={[
+                                        {
+                                            key: 'test',
+                                            label: '测试环境',
+                                            children: (
+                                                <div style={{padding: 8, background: '#fafafa', borderRadius: 4}}>
+                                                    <Text type="secondary">暂无测试环境数据</Text>
+                                                </div>
+                                            ),
+                                        },
+                                        {
+                                            key: 'prod',
+                                            label: '生产环境',
+                                            children: (
+                                                <div style={{padding: 8, background: '#fafafa', borderRadius: 4}}>
+                                                    <Text type="secondary">暂无生产环境数据</Text>
+                                                </div>
+                                            ),
+                                        },
+                                        {
+                                            key: 'diff',
+                                            label: '差异对比',
+                                            children: (
+                                                <div style={{padding: 8, background: '#fafafa', borderRadius: 4}}>
+                                                    <Text type="secondary">暂无差异</Text>
+                                                </div>
+                                            ),
+                                        },
+                                    ]}
+                                />
+                            </Card>
+                        </Col>
+                    )}
+
+                    {/* 折叠按钮 */}
+                    <div
+                        style={{
+                            position: 'absolute',
+                            top: '50%',
+                            right: rightPanelCollapsed ? 0 : 0,
+                            transform: 'translateY(-50%)',
+                            zIndex: 10,
+                        }}
+                    >
+                        <Button
+                            type="text"
+                            icon={rightPanelCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                            onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
+                            style={{
+                                background: '#fff',
+                                border: '1px solid #d9d9d9',
+                                borderRadius: rightPanelCollapsed ? '4px 0 0 4px' : '0 4px 4px 0',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                            }}
+                        />
+                    </div>
                 </Row>
             </Card>
 

@@ -255,7 +255,7 @@ const TableSchemaManagement: React.FC = () => {
             title: '表名',
             dataIndex: 'tableName',
             key: 'tableName',
-            width: 200,
+            width: 120,
             render: (name: string) => (
                 <Space>
                     <TableOutlined/>
@@ -267,6 +267,7 @@ const TableSchemaManagement: React.FC = () => {
             title: '描述',
             dataIndex: 'tableComment',
             key: 'tableComment',
+            width: 150,
             ellipsis: true,
             render: (comment: string) => comment || '-',
         },
