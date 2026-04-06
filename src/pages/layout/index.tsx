@@ -6,8 +6,8 @@ import {Outlet, useLocation, useNavigate} from "react-router-dom";
 const {Header, Content, Footer} = Layout;
 
 const routeKeyMap: Record<string, string> = {
-    '/business-ds': '1',
-    '/metadata': '2',
+    '/metadata': '1',
+    '/warehouse': '2',
     '/metrics': '3',
     '/sql-editor': '4',
     '/data-work': '5',
@@ -15,7 +15,7 @@ const routeKeyMap: Record<string, string> = {
 
 const items: MenuProps['items'] = [
     {
-        label: '业务数据库',
+        label: '元数据平台',
         key: '1',
     },
     {

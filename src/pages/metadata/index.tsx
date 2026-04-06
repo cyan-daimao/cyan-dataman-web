@@ -36,17 +36,17 @@ const items: MenuProps['items'] = [
                 key: 'bd-table-schema',
                 label: <Link to={'/business-ds/table-schema'}>表结构</Link>,
             },
+            {
+                key: 'bd-table-sql',
+                label: <Link to={'/business-ds/sql'}>SQL执行</Link>,
+            },
         ]
     },
     {
-        key: '1',
+        key: 'metadata',
         label: <Link to={'/metadata'}>元数据</Link>,
         icon: <LaptopOutlined />,
         children: [
-            {
-                key:'',
-                label: <Link to=''>业务库管理</Link>,
-            },
             {
                 key:'datasource',
                 label: <Link to='/metadata/datasource'>数据源</Link>,
