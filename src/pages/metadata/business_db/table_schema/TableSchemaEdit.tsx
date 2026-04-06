@@ -19,7 +19,7 @@ import {
     Tabs,
     Typography
 } from 'antd';
-import {ArrowLeftOutlined, CloudSyncOutlined, DeleteOutlined, PlusOutlined, SaveOutlined, MenuFoldOutlined, MenuUnfoldOutlined} from '@ant-design/icons';
+import {ArrowLeftOutlined, CloudSyncOutlined, DeleteOutlined, PlusOutlined, SaveOutlined, MenuFoldOutlined, MenuUnfoldOutlined, UpOutlined, DownOutlined} from '@ant-design/icons';
 import {Column, Index, IndexType, MysqlType, tableApi, TableSchemaCmd} from '@/api/DSApi';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {ColumnType} from 'antd/es/table';
@@ -71,8 +71,25 @@ const supportsUnsigned = (type: string): boolean => {
 const createDefaultTimeColumns = (): EditableColumn[] => [
     {
         _id: generateId(),
+        name: 'create_by',
+        type: 'VARCHAR',
+        precision: 255,
+        comment: '创建人',
+        nullable: false,
+        defaultValue: '',
+    },{
+        _id: generateId(),
+        name: 'update_by',
+        type: 'VARCHAR',
+        precision: 255,
+        comment: '更新人',
+        nullable: false,
+        defaultValue: '',
+    },
+    {
+        _id: generateId(),
         name: 'created_at',
-        type: 'TIMESTAMP',
+        type: 'DATETIME',
         comment: '创建时间',
         nullable: false,
         defaultValue: 'CURRENT_TIMESTAMP',
@@ -80,7 +97,7 @@ const createDefaultTimeColumns = (): EditableColumn[] => [
     {
         _id: generateId(),
         name: 'updated_at',
-        type: 'TIMESTAMP',
+        type: 'DATETIME',
         comment: '更新时间',
         nullable: false,
         defaultValue: 'CURRENT_TIMESTAMP',
@@ -88,7 +105,7 @@ const createDefaultTimeColumns = (): EditableColumn[] => [
     {
         _id: generateId(),
         name: 'deleted_at',
-        type: 'TIMESTAMP',
+        type: 'DATETIME',
         comment: '删除时间',
         nullable: true,
     },
@@ -111,14 +128,10 @@ const createDefaultTimeIndexes = (): EditableIndex[] => [
 ];
 
 // 带有临时 ID 的字段（用于前端编辑）
-interface EditableColumn extends Column {
-    _id: string;
-}
+type EditableColumn = Column & { _id: string };
 
 // 带有临时 ID 的索引
-interface EditableIndex extends Index {
-    _id: string;
-}
+type EditableIndex = Index & { _id: string };
 
 const TableSchemaEdit: React.FC = () => {
     const navigate = useNavigate();
@@ -301,19 +314,31 @@ const TableSchemaEdit: React.FC = () => {
         }
     };
 
-    // 添加字段
+    // 添加字段（在 created_at 上方插入）
     const handleAddColumn = () => {
-        setColumns([
-            ...columns,
-            {
-                _id: generateId(),
-                name: '',
-                type: 'VARCHAR',
-                comment: '',
-                nullable: true,
-                autoIncrement: false,
-            }
-        ]);
+        const newColumn: EditableColumn = {
+            _id: generateId(),
+            name: '',
+            type: 'VARCHAR',
+            comment: '',
+            nullable: false,
+            autoIncrement: false,
+        };
+
+        // 找到 created_at 字段的索引
+        const createdAtIndex = columns.findIndex(
+            col => col.name.toLowerCase() === 'created_at'
+        );
+
+        if (createdAtIndex === -1) {
+            // 如果没有 created_at，添加到列表开头
+            setColumns([newColumn, ...columns]);
+        } else {
+            // 在 created_at 上方插入
+            const newColumns = [...columns];
+            newColumns.splice(createdAtIndex, 0, newColumn);
+            setColumns(newColumns);
+        }
     };
 
     // 更新字段
@@ -326,6 +351,30 @@ const TableSchemaEdit: React.FC = () => {
     // 删除字段
     const handleDeleteColumn = (id: string) => {
         setColumns(columns.filter(col => col._id !== id));
+    };
+
+    // 上移字段
+    const handleMoveColumnUp = (index: number) => {
+        if (index === 0) return;
+        const newColumns = [...columns];
+        [newColumns[index - 1], newColumns[index]] = [newColumns[index], newColumns[index - 1]];
+        setColumns(newColumns);
+    };
+
+    // 下移字段
+    const handleMoveColumnDown = (index: number) => {
+        if (index === columns.length - 1) return;
+        const newColumns = [...columns];
+        [newColumns[index], newColumns[index + 1]] = [newColumns[index + 1], newColumns[index]];
+        setColumns(newColumns);
+    };
+
+    // 判断字段是否在主键索引中
+    const isPrimaryKeyField = (fieldName: string): boolean => {
+        return indexes.some(idx =>
+            idx.indexType.toUpperCase() === 'PRIMARY' &&
+            idx.fieldNames.some(f => f.toLowerCase() === fieldName.toLowerCase())
+        );
     };
 
     // 添加索引
@@ -343,14 +392,64 @@ const TableSchemaEdit: React.FC = () => {
 
     // 更新索引
     const handleUpdateIndex = (id: string, field: keyof EditableIndex, value: unknown) => {
-        setIndexes(indexes.map(idx =>
+        const newIndexes = indexes.map(idx =>
             idx._id === id ? {...idx, [field]: value} : idx
-        ));
+        );
+        setIndexes(newIndexes);
+
+        // 当索引更新时，检查并清理非主键字段的自增属性
+        const primaryKeyFields = new Set(
+            newIndexes
+                .filter(idx => idx.indexType.toUpperCase() === 'PRIMARY')
+                .flatMap(idx => idx.fieldNames.map(f => f.toLowerCase()))
+        );
+
+        setColumns(prevColumns =>
+            prevColumns.map(col => {
+                if (col.autoIncrement && !primaryKeyFields.has(col.name.toLowerCase())) {
+                    return {...col, autoIncrement: false};
+                }
+                return col;
+            })
+        );
     };
 
     // 删除索引
     const handleDeleteIndex = (id: string) => {
-        setIndexes(indexes.filter(idx => idx._id !== id));
+        const newIndexes = indexes.filter(idx => idx._id !== id);
+        setIndexes(newIndexes);
+
+        // 当索引删除时，检查并清理非主键字段的自增属性
+        const primaryKeyFields = new Set(
+            newIndexes
+                .filter(idx => idx.indexType.toUpperCase() === 'PRIMARY')
+                .flatMap(idx => idx.fieldNames.map(f => f.toLowerCase()))
+        );
+
+        setColumns(prevColumns =>
+            prevColumns.map(col => {
+                if (col.autoIncrement && !primaryKeyFields.has(col.name.toLowerCase())) {
+                    return {...col, autoIncrement: false};
+                }
+                return col;
+            })
+        );
+    };
+
+    // 上移索引
+    const handleMoveIndexUp = (index: number) => {
+        if (index === 0) return;
+        const newIndexes = [...indexes];
+        [newIndexes[index - 1], newIndexes[index]] = [newIndexes[index], newIndexes[index - 1]];
+        setIndexes(newIndexes);
+    };
+
+    // 下移索引
+    const handleMoveIndexDown = (index: number) => {
+        if (index === indexes.length - 1) return;
+        const newIndexes = [...indexes];
+        [newIndexes[index], newIndexes[index + 1]] = [newIndexes[index + 1], newIndexes[index]];
+        setIndexes(newIndexes);
     };
 
     // 保存草稿
@@ -529,13 +628,18 @@ const TableSchemaEdit: React.FC = () => {
             dataIndex: 'autoIncrement',
             key: 'autoIncrement',
             width: 50,
-            render: (value: boolean, record: EditableColumn) => (
-                <Switch
-                    size="small"
-                    checked={value}
-                    onChange={v => handleUpdateColumn(record._id, 'autoIncrement', v)}
-                />
-            ),
+            render: (value: boolean, record: EditableColumn) => {
+                const isPrimaryKey = isPrimaryKeyField(record.name);
+                return (
+                    <Switch
+                        size="small"
+                        checked={value}
+                        onChange={v => handleUpdateColumn(record._id, 'autoIncrement', v)}
+                        disabled={!isPrimaryKey}
+                        title={!isPrimaryKey ? '只有主键字段才能设置自增' : ''}
+                    />
+                );
+            },
         },
         {
             title: '默认值',
@@ -566,14 +670,31 @@ const TableSchemaEdit: React.FC = () => {
         {
             title: '',
             key: 'action',
-            width: 50,
-            render: (_: unknown, record: EditableColumn) => (
-                <Button
-                    type="text"
-                    danger
-                    icon={<DeleteOutlined/>}
-                    onClick={() => handleDeleteColumn(record._id)}
-                />
+            width: 100,
+            render: (_: unknown, record: EditableColumn, index: number) => (
+                <Space size={0}>
+                    <Button
+                        type="text"
+                        icon={<UpOutlined/>}
+                        onClick={() => handleMoveColumnUp(index)}
+                        disabled={index === 0}
+                        title="上移"
+                    />
+                    <Button
+                        type="text"
+                        icon={<DownOutlined/>}
+                        onClick={() => handleMoveColumnDown(index)}
+                        disabled={index === columns.length - 1}
+                        title="下移"
+                    />
+                    <Button
+                        type="text"
+                        danger
+                        icon={<DeleteOutlined/>}
+                        onClick={() => handleDeleteColumn(record._id)}
+                        title="删除"
+                    />
+                </Space>
             ),
         },
     ];
@@ -631,14 +752,31 @@ const TableSchemaEdit: React.FC = () => {
         {
             title: '',
             key: 'action',
-            width: 50,
-            render: (_: unknown, record: EditableIndex) => (
-                <Button
-                    type="text"
-                    danger
-                    icon={<DeleteOutlined/>}
-                    onClick={() => handleDeleteIndex(record._id)}
-                />
+            width: 100,
+            render: (_: unknown, record: EditableIndex, index: number) => (
+                <Space size={0}>
+                    <Button
+                        type="text"
+                        icon={<UpOutlined/>}
+                        onClick={() => handleMoveIndexUp(index)}
+                        disabled={index === 0}
+                        title="上移"
+                    />
+                    <Button
+                        type="text"
+                        icon={<DownOutlined/>}
+                        onClick={() => handleMoveIndexDown(index)}
+                        disabled={index === indexes.length - 1}
+                        title="下移"
+                    />
+                    <Button
+                        type="text"
+                        danger
+                        icon={<DeleteOutlined/>}
+                        onClick={() => handleDeleteIndex(record._id)}
+                        title="删除"
+                    />
+                </Space>
             ),
         },
     ];
