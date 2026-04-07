@@ -11,9 +11,9 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         datagateway: "http://cyan-datagateway.cyan.com/"
     },
     "pre": {
-        dataman: "http://cyan-dataman.cyan.com/",
-        employee: "http://cyan-employee.cyan.com/",
-        datagateway: "http://cyan-datagateway.cyan.com/"
+        dataman: "http://cyan-dataman-pre.cyan.com/",
+        employee: "http://cyan-employee-pre.cyan.com/",
+        datagateway: "http://cyan-datagateway-pre.cyan.com/"
     },
     "prod":  {
         dataman: "http://cyan-dataman-prod.cyan.com/",
