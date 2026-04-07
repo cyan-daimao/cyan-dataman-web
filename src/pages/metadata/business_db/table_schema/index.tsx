@@ -213,9 +213,9 @@ const TableSchemaManagement: React.FC = () => {
             const response = await tableApi.list(dsId, dbName);
             if (response.code === 200) {
                 // 转换为 TableInfo 格式
-                const tableInfos: TableInfo[] = (response.data || []).map(name => ({
-                    tableName: name,
-                    tableComment: '',
+                const tableInfos: TableInfo[] = (response.data || []).map(tbl => ({
+                    tableName: tbl.tableName,
+                    tableComment: tbl.tableComment,
                     cdcEnabled: false,
                     envStatus: EnvStatus.SYNCED,
                     updatedAt: new Date().toISOString(),

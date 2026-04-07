@@ -47,7 +47,7 @@ spec:
         }
     }
     parameters {
-        choice(name: 'env',choices: ['prod', 'pre', 'dev', 'local'], description: '选择部署环境')
+        choice(name: 'env',choices: ['pre', 'prod', 'dev', 'local'], description: '选择部署环境')
         string(name: 'BRANCH', defaultValue: '1.0.0', description: 'GIT 分支')
     }
     environment {
@@ -95,7 +95,7 @@ spec:
 
                         properties([
                             parameters([
-                                choice(name: 'env', choices: ['prod','pre','dev','local'], description: '环境'),
+                                choice(name: 'env', choices: ['pre','prod','dev','local'], description: '环境'),
                                 choice(name: 'BRANCH', choices: branchList, description: 'Git分支')
                             ])
                         ])
@@ -271,6 +271,16 @@ EOF
     }
 
     post {
+        always {
+            script {
+                // 核心：生成构建描述，在历史列表中显示参数
+                def buildDesc = """
+                环境:(${params.SPRING_PROFILE})
+                分支:(${params.BRANCH})
+                """.stripIndent().replaceAll('\n', ' ')
+                currentBuild.description = buildDesc
+            }
+        }
         success {
             echo "🎉 Vite + React 项目部署成功！当前环境：${params.env}"
         }

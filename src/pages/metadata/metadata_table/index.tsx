@@ -10,7 +10,7 @@ import {
     SearchOutlined,
     TableOutlined
 } from '@ant-design/icons';
-import {useNavigate} from 'react-router-dom';
+import {useNavigate, useSearchParams} from 'react-router-dom';
 import {treeSubjects} from "@/api/MetadataSubjectAPI.ts";
 import ImportTable from "./ImportTableForm";
 import {deleteMetadataTable, MetadataTableDTO, pageMetadataTables} from "@/api/MetadataTableAPI.ts";
@@ -33,6 +33,7 @@ type TableMeta = MetadataTableDTO;
 
 const MetaDataManagement: React.FC = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     // 状态管理
     const [subjectTreeData, setSubjectTreeData] = useState<SubjectNode[]>([]);
     const [expandedKeys, setExpandedKeys] = useState<string[]>([]); // 展开的节点
@@ -40,7 +41,8 @@ const MetaDataManagement: React.FC = () => {
     const [selectedThemeKey, setSelectedThemeKey] = useState<string>('all'); // 选中的主题key
     const [tableData, setTableData] = useState<TableMeta[]>([]); // 表数据
     const [loading, setLoading] = useState(true); // 加载状态
-    const [searchValue, setSearchValue] = useState(''); // 搜索值
+    // 从 URL 参数初始化搜索值
+    const [searchValue, setSearchValue] = useState(() => searchParams.get('search') || ''); // 搜索值
 
     useEffect(() => {
         fetchTreeSubjects().then()

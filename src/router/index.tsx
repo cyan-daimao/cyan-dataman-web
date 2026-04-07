@@ -11,6 +11,13 @@ const MetadataTable = React.lazy(() => import((`@/pages/metadata/metadata_table/
 const TableEditPage = React.lazy(() => import((`@/pages/metadata/metadata_table/TableEditPage.tsx`)))
 const TableDetailPage = React.lazy(() => import((`@/pages/metadata/metadata_table/TableDetailPage.tsx`)))
 const Metrics = React.lazy(() => import((`@/pages/metrics/index.tsx`)))
+
+// 指标平台子页面
+const MetricsDashboard = React.lazy(() => import((`@/pages/metrics/dashboard/index.tsx`)))
+const MetricsDefinition = React.lazy(() => import((`@/pages/metrics/definition/index.tsx`)))
+const MetricsDictionary = React.lazy(() => import((`@/pages/metrics/dictionary/index.tsx`)))
+const MetricsAnalysis = React.lazy(() => import((`@/pages/metrics/analysis/index.tsx`)))
+const MetricsConfig = React.lazy(() => import((`@/pages/metrics/config/index.tsx`)))
 const SQLEditor = React.lazy(() => import((`@/pages/sql-editor/index.tsx`)))
 const DataWork = React.lazy(() => import((`@/pages/data-work/index.tsx`)))
 
@@ -132,6 +139,32 @@ const routes = createBrowserRouter([
             {
                 path: "metrics",
                 element: <Metrics/>,
+                children: [
+                    {
+                        index: true,
+                        element: <MetricsDashboard/>
+                    },
+                    {
+                        path: "dashboard",
+                        element: <MetricsDashboard/>
+                    },
+                    {
+                        path: "definition",
+                        element: <MetricsDefinition/>
+                    },
+                    {
+                        path: "dictionary",
+                        element: <MetricsDictionary/>
+                    },
+                    {
+                        path: "analysis",
+                        element: <MetricsAnalysis/>
+                    },
+                    {
+                        path: "config",
+                        element: <MetricsConfig/>
+                    },
+                ]
             }, {
                 path: "sql-editor",
                 element: <SQLEditor/>,

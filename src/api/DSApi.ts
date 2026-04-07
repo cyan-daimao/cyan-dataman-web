@@ -379,7 +379,7 @@ export const tableApi = {
      * 获取数据库下的表列表
      * GET /api/v1/ds/{ds}/dbs/{db}/tables
      */
-    list: async (dsId: string, dbName: string): Promise<ApiResponse<string[]>> => {
+    list: async (dsId: string, dbName: string): Promise<ApiResponse<TableSchema[]>> => {
         return datamanRequest.get(`${BASE_URL}/${dsId}/dbs/${dbName}/tables`);
     },
 

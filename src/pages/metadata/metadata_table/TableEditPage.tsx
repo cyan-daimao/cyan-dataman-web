@@ -312,8 +312,12 @@ const TableEditPage: React.FC = () => {
     }, [pageLoading, initialData, subjectTreeData, mode]);
 
     // 返回列表页
-    const handleBack = () => {
-        navigate('/meta/metadata/metadata_table');
+    const handleBack = (tableName?: string) => {
+        if (tableName) {
+            navigate(`/meta/metadata/metadata_table?search=${encodeURIComponent(tableName)}`);
+        } else {
+            navigate('/meta/metadata/metadata_table');
+        }
     };
 
     // 新增字段
@@ -407,14 +411,15 @@ const TableEditPage: React.FC = () => {
             if (mode === 'edit' && tableId) {
                 await updateMetadataTable(tableId, cmd).then(res=>{
                     if (res.code === ErrorCode.SUCCESS){
-                        // 返回列表页
-                        handleBack();
+                        // 返回列表页，带上表名搜索参数
+                        handleBack(tableValObj.name);
                     }
                 });
             } else {
                 await createMetadataTable(cmd).then(res=>{
                     if (res.code === ErrorCode.SUCCESS){
-                        handleBack();
+                        // 返回列表页，带上表名搜索参数
+                        handleBack(tableValObj.name);
                     }
                 });
             }
