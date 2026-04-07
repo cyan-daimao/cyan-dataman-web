@@ -15,6 +15,7 @@ const pathToKeyMap: Record<string, string> = {
     '/meta/business-ds/datasource': 'bd-datasource',
     '/meta/business-ds/database': 'bd-database',
     '/meta/business-ds/table-schema': 'bd-table-schema',
+    '/meta/business-ds/sql': 'bd-table-sql',
     '/meta/metadata/datasource': 'datasource',
     '/meta/metadata/subject': 'subjectManage',
     '/meta/metadata/metadata_table': 'metadataTable',

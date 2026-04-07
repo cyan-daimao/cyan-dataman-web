@@ -20,6 +20,7 @@ const BusinessDsDatabase = React.lazy(() => import((`@/pages/metadata/business_d
 const BusinessDsTableSchema = React.lazy(() => import((`@/pages/metadata/business_db/table_schema/index.tsx`)))
 const TableSchemaEdit = React.lazy(() => import((`@/pages/metadata/business_db/table_schema/TableSchemaEdit.tsx`)))
 const TableSchemaDetail = React.lazy(() => import((`@/pages/metadata/business_db/table_schema/TableSchemaDetail.tsx`)))
+const BusinessDsSql = React.lazy(() => import((`@/pages/metadata/business_db/sql/index.tsx`)))
 
 // 鉴权组件：拦截未登录的访问
 const PrivateRoute = ({children}: { children: React.ReactNode }) => {
@@ -93,6 +94,10 @@ const routes = createBrowserRouter([
                             {
                                 path: "table-schema/detail",
                                 element: <TableSchemaDetail/>
+                            },
+                            {
+                                path: "sql",
+                                element: <BusinessDsSql/>
                             },
                         ]
                     },
