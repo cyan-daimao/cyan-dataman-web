@@ -73,7 +73,7 @@ src/
 │   │           ├── DataPreview.tsx     # 数据预览
 │   │           ├── DataLineage.tsx     # 数据血缘
 │   │           ├── DataQuality.tsx     # 数据质量
-│   │           ├── ScheduleInfo.tsx    # 调度信息
+│   │           ├── AsyncJob.tsx    # 调度信息
 │   │           └── Snapshot.tsx        # 快照
 │   ├── metrics/                  # 指标平台
 │   ├── sql-editor/               # SQL 编辑器

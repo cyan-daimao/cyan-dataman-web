@@ -26,7 +26,7 @@ import BasicInfo from "./detail/BasicInfo";
 import FieldInfo from "./detail/FieldInfo";
 import DataLineage from "./detail/DataLineage";
 import DataQuality from "./detail/DataQuality";
-import ScheduleInfo from "./detail/ScheduleInfo";
+import ScheduleInfo from "./detail/AsyncJob.tsx";
 import DataPreview from "./detail/DataPreview";
 import Snapshot from "./detail/Snapshot";
 
@@ -170,7 +170,7 @@ const TableDetailPage: React.FC = () => {
             label: (
                 <span>
                     <ClockCircleOutlined/>
-                    调度信息
+                    同步任务
                 </span>
             ),
             children: <ScheduleInfo tableId={tableId || ''}/>,

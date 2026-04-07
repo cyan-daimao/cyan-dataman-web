@@ -4,7 +4,7 @@ import {Badge, Card, Table, TableProps, Typography} from "antd";
 const {Text} = Typography;
 
 // 调度信息类型
-interface ScheduleInfo {
+interface AsyncJob {
     id: string;
     taskName: string;
     cron: string;
@@ -14,13 +14,13 @@ interface ScheduleInfo {
     duration: string;
 }
 
-interface ScheduleInfoProps {
+interface AsyncJobProps {
     tableId: string;
 }
 
-const ScheduleInfo: React.FC<ScheduleInfoProps> = ({tableId}) => {
+const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
     const [loading, setLoading] = useState(false);
-    const [scheduleData, setScheduleData] = useState<ScheduleInfo[]>([]);
+    const [scheduleData, setScheduleData] = useState<AsyncJob[]>([]);
 
     useEffect(() => {
         loadScheduleData();
@@ -56,7 +56,7 @@ const ScheduleInfo: React.FC<ScheduleInfoProps> = ({tableId}) => {
     };
 
     // 调度信息列配置
-    const columns: TableProps<ScheduleInfo>["columns"] = [
+    const columns: TableProps<AsyncJob>["columns"] = [
         {
             title: "任务名称",
             dataIndex: "taskName",
