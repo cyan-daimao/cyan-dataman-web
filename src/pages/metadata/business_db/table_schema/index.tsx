@@ -404,12 +404,6 @@ const TableSchemaManagement: React.FC = () => {
             render: (status: EnvStatus) => getEnvStatusTag(status),
         },
         {
-            title: '最后更新时间',
-            dataIndex: 'updatedAt',
-            key: 'updatedAt',
-            width: 180,
-        },
-        {
             title: '操作',
             key: 'action',
             width: 220,
@@ -437,7 +431,7 @@ const TableSchemaManagement: React.FC = () => {
                         icon={<HistoryOutlined/>}
                         onClick={() => handleSyncHistory(record.tableName)}
                     >
-                        同步到数仓
+                        同步表结构到数仓
                     </Button>
                     <Popconfirm
                         title="确定删除该表吗？此操作不可恢复！"

@@ -87,6 +87,8 @@ const App: React.FC = () => {
     const location = useLocation();
 
     const [collapsed, setCollapsed] = useState(false);
+    // 默认展开所有一级菜单
+    const [openKeys, setOpenKeys] = useState<string[]>(['business-ds', 'metadata', 'data']);
 
     // 根据路径计算选中的菜单 key
     const selectedKeys = useMemo(() => {
@@ -94,16 +96,10 @@ const App: React.FC = () => {
         return key ? [key] : ['bd-datasource'];
     }, [location.pathname]);
 
-    // 根据路径计算展开的菜单 key
-    const openKeys = useMemo(() => {
-        if (location.pathname.includes('/business-ds')) {
-            return ['business-ds'];
-        }
-        if (location.pathname.includes('/metadata')) {
-            return ['metadata'];
-        }
-        return ['business-ds'];
-    }, [location.pathname]);
+    // 处理菜单展开/收起
+    const handleOpenChange: MenuProps['onOpenChange'] = (keys) => {
+        setOpenKeys(keys as string[]);
+    };
 
     // 如果是嵌套层，直接渲染 Outlet，不渲染侧边栏
     if (isNestedLayer) {
@@ -166,7 +162,8 @@ const App: React.FC = () => {
                         style={{ height: '100%', borderRight: 0, paddingTop: '16px' }}
                         items={items}
                         selectedKeys={selectedKeys}
-                        defaultOpenKeys={openKeys}
+                        openKeys={openKeys}
+                        onOpenChange={handleOpenChange}
                         inlineCollapsed={collapsed}
                     />
                 </Sider>

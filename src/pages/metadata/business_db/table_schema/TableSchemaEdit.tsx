@@ -807,7 +807,7 @@ const TableSchemaEdit: React.FC = () => {
                     <Col>
                         <Space>
                             <Button icon={<SaveOutlined/>} onClick={handleSaveDraft} loading={saving}>
-                                保存草稿
+                                保存测试环境
                             </Button>
                             {!isNewTable && (
                                 <Button
