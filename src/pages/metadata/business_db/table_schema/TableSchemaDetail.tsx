@@ -61,14 +61,14 @@ const TableSchemaDetail: React.FC = () => {
     const handleBack = () => {
         // 返回列表页，保留数据源和数据库选择
         if (dsId && dbName) {
-            navigate(`/business-ds/table-schema?dsId=${dsId}&dbName=${dbName}`);
+            navigate(`/meta/business-ds/table-schema?dsId=${dsId}&dbName=${dbName}`);
         } else {
-            navigate('/business-ds/table-schema');
+            navigate('/meta/business-ds/table-schema');
         }
     };
 
     const handleEdit = () => {
-        navigate(`/business-ds/table-schema/edit?dsId=${dsId}&dbName=${dbName}&tableName=${tableName}`);
+        navigate(`/meta/business-ds/table-schema/edit?dsId=${dsId}&dbName=${dbName}&tableName=${tableName}`);
     };
 
     // 根据数据类型获取标签颜色

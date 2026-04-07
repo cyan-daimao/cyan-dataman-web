@@ -11,7 +11,6 @@ import {
     Row,
     Select,
     Space,
-    Switch,
     Table,
     Tag,
     Typography
@@ -192,16 +191,16 @@ const TableSchemaManagement: React.FC = () => {
             return;
         }
         // 跳转到编辑页面创建新表，添加 isNew=true 参数区分新建和编辑
-        navigate(`/business-ds/table-schema/edit?dsId=${selectedDsId}&dbName=${selectedDbName}&tableName=${newTableName}&isNew=true`);
+        navigate(`/meta/business-ds/table-schema/edit?dsId=${selectedDsId}&dbName=${selectedDbName}&tableName=${newTableName}&isNew=true`);
         setCreateModalVisible(false);
     };
 
     const handleViewDetail = (tableName: string) => {
-        navigate(`/business-ds/table-schema/detail?dsId=${selectedDsId}&dbName=${selectedDbName}&tableName=${tableName}`);
+        navigate(`/meta/business-ds/table-schema/detail?dsId=${selectedDsId}&dbName=${selectedDbName}&tableName=${tableName}`);
     };
 
     const handleEdit = (tableName: string) => {
-        navigate(`/business-ds/table-schema/edit?dsId=${selectedDsId}&dbName=${selectedDbName}&tableName=${tableName}`);
+        navigate(`/meta/business-ds/table-schema/edit?dsId=${selectedDsId}&dbName=${selectedDbName}&tableName=${tableName}`);
     };
 
     const handleDelete = async (tableName: string) => {
@@ -277,11 +276,7 @@ const TableSchemaManagement: React.FC = () => {
             key: 'cdcEnabled',
             width: 100,
             render: (enabled: boolean) => (
-                <Switch
-                    size="small"
-                    checked={enabled}
-                    disabled
-                />
+                <Tag>{enabled ? '已启用' : '未启用'}</Tag>
             ),
         },
         {
@@ -325,7 +320,7 @@ const TableSchemaManagement: React.FC = () => {
                         icon={<HistoryOutlined/>}
                         onClick={() => handleSyncHistory(record.tableName)}
                     >
-                        同步历史
+                        同步到数仓
                     </Button>
                     <Popconfirm
                         title="确定删除该表吗？此操作不可恢复！"

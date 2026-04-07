@@ -5,7 +5,7 @@ import Sidebar from './components/Sidebar';
 import SQLEditor from '@/pages/sql-editor/components/SQLEditor';
 import ResultPanel from '@/pages/sql-editor/components/ResultPanel';
 import {ExecutionPlan, QueryHistory, QueryResult} from '@/pages/sql-editor/types';
-import {sqlExecuteApi, DSApi, Column} from '@/api/DSApi';
+import {sqlExecuteApi, Column} from '@/api/DSApi';
 import {loader} from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 
@@ -443,7 +443,6 @@ const BusinessDsSqlPage: React.FC = () => {
             <div style={{
                 width: siderWidth,
                 minWidth: 200,
-                maxWidth: 500,
                 background: '#fff',
                 position: 'relative',
                 flexShrink: 0

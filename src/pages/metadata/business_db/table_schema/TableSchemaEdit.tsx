@@ -308,9 +308,9 @@ const TableSchemaEdit: React.FC = () => {
     const handleBack = () => {
         // 返回列表页，保留数据源和数据库选择
         if (dsId && dbName) {
-            navigate(`/business-ds/table-schema?dsId=${dsId}&dbName=${dbName}`);
+            navigate(`/meta/business-ds/table-schema?dsId=${dsId}&dbName=${dbName}`);
         } else {
-            navigate('/business-ds/table-schema');
+            navigate('/meta/business-ds/table-schema');
         }
     };
 
@@ -508,7 +508,7 @@ const TableSchemaEdit: React.FC = () => {
             if (response && response.code === 200) {
                 message.success('保存成功');
                 // 返回列表页，保留数据源和数据库选择
-                navigate(`/business-ds/table-schema?dsId=${dsId}&dbName=${dbName}`);
+                navigate(`/meta/business-ds/table-schema?dsId=${dsId}&dbName=${dbName}`);
             } else {
                 message.error(response?.message || '保存失败');
             }

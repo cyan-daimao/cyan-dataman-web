@@ -11,9 +11,9 @@ import {
     TableOutlined
 } from '@ant-design/icons';
 import {useNavigate} from 'react-router-dom';
-import {treeSubjects} from "../../../api/MetadataSubjectAPI";
+import {treeSubjects} from "@/api/MetadataSubjectAPI.ts";
 import ImportTable from "./ImportTableForm";
-import {deleteMetadataTable, MetadataTableDTO, pageMetadataTables} from "../../../api/MetadataTableAPI";
+import {deleteMetadataTable, MetadataTableDTO, pageMetadataTables} from "@/api/MetadataTableAPI.ts";
 
 const {Header, Sider, Content} = Layout;
 const {Title, Text} = Typography;
@@ -95,7 +95,7 @@ const columns: TableColumnsType<TableMeta> = [
             <Text 
                 strong 
                 style={{cursor: 'pointer', color: '#1890ff'}} 
-                onClick={() => navigate('/metadata/metadata_table/detail', { state: { tableId: record.id } })}
+                onClick={() => navigate('/meta/metadata/metadata_table/detail', { state: { tableId: record.id } })}
             >
                 {text}
             </Text>
@@ -244,7 +244,7 @@ const handleDelete = async (record: TableMeta) => {
 
 // 新增表 - 跳转到创建页面
 const handleAdd = () => {
-    navigate('/metadata/metadata_table/edit', {
+    navigate('/meta/metadata/metadata_table/edit', {
         state: {
             mode: 'create'
         }

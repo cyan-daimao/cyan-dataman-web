@@ -22,10 +22,10 @@ import {
     getMetadataTableById,
     MetadataTableDTO,
     updateMetadataTable
-} from "../../../api/MetadataTableAPI";
+} from "@/api/MetadataTableAPI.ts";
 import {EmployeeDTO as EmployeeAPIDTO, listEmployees} from "../../../api/EmployeeApi";
-import {SubjectDTO, treeSubjects,} from "../../../api/MetadataSubjectAPI";
-import {ErrorCode} from "../../../api/Response";
+import {SubjectDTO, treeSubjects,} from "@/api/MetadataSubjectAPI.ts";
+import {ErrorCode} from "@/api/Response.ts";
 
 // 定义字段结构类型
 export interface TableColumnField {
@@ -312,7 +312,7 @@ const TableEditPage: React.FC = () => {
 
     // 返回列表页
     const handleBack = () => {
-        navigate('/metadata/metadata_table');
+        navigate('/meta/metadata/metadata_table');
     };
 
     // 新增字段

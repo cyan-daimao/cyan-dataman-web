@@ -19,7 +19,7 @@ import {
     TableOutlined
 } from "@ant-design/icons";
 import {useLocation, useNavigate} from "react-router-dom";
-import {getMetadataTableById, MetadataTableDTO} from "../../../api/MetadataTableAPI";
+import {getMetadataTableById, MetadataTableDTO} from "@/api/MetadataTableAPI.ts";
 
 // 导入子组件
 import BasicInfo from "./detail/BasicInfo";
@@ -79,7 +79,7 @@ const TableDetailPage: React.FC = () => {
 
     // 返回列表
     const handleBack = () => {
-        navigate('/metadata/metadata_table');
+        navigate('/meta/metadata/metadata_table');
     };
 
     // Tab 配置

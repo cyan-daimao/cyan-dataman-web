@@ -1,8 +1,8 @@
 import React, {useEffect, useState} from 'react';
 import {Button, Card, Empty, Input, Layout, Modal, Space, Spin, Table, Tree, Typography} from 'antd';
-import {DatabaseOutlined, ReloadOutlined, SearchOutlined, UploadOutlined} from "@ant-design/icons";
-import {getTableInfo, listCatalog, listSchema, listTable, TableVO} from "../../../api/DataSourceApi";
-import {MetadataTableDTO} from "../../../api/MetadataTableAPI";
+import {DatabaseOutlined, ReloadOutlined, SearchOutlined} from "@ant-design/icons";
+import {getTableInfo, listCatalog, listSchema, listTable, TableVO} from "@/api/DataSourceApi.ts";
+import {MetadataTableDTO} from "@/api/MetadataTableAPI.ts";
 import Sider from 'antd/es/layout/Sider';
 import {Content} from "antd/es/layout/layout";
 import {ColumnType} from "antd/es/table";
@@ -104,7 +104,7 @@ const App: React.FC = () => {
                         table: tableVo,
                     };
                     // 跳转到导入页面
-                    navigate('/metadata/metadata_table/edit', {
+                    navigate('/meta/metadata/metadata_table/edit', {
                         state: {
                             mode: 'import',
                             importData: metadataTable
@@ -172,9 +172,6 @@ const App: React.FC = () => {
         }
     }
 
-    const showModal = () => {
-        setIsModalOpen(true);
-    };
 
     const handleOk = () => {
         setIsModalOpen(false);
@@ -186,9 +183,6 @@ const App: React.FC = () => {
 
     return (
         <>
-            <Button onClick={showModal} icon={<UploadOutlined/>}>
-                导入表
-            </Button>
             <Modal
                 maskClosable={false}
                 width={1200}
