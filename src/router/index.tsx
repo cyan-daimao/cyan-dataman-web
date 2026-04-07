@@ -43,10 +43,10 @@ const HomeWelcome: React.FC = () => {
             height: '100%',
             width: '100%',
         }}>
-            <h1 style={{ fontSize: 32, color: '#1890ff', marginBottom: 16 }}>
+            <h1 style={{fontSize: 32, color: '#1890ff', marginBottom: 16}}>
                 欢迎使用数据资产管理平台
             </h1>
-            <p style={{ fontSize: 16, color: '#666', marginBottom: 24 }}>
+            <p style={{fontSize: 16, color: '#666', marginBottom: 24}}>
                 管理企业数据资产、元数据、主题域和指标的综合平台
             </p>
         </div>
@@ -63,61 +63,68 @@ const routes = createBrowserRouter([
                 element: <HomeWelcome/>
             },
             {
-                path: "business-ds",
+                path: "meta",
                 element: <Metadata/>,
                 children: [
                     {
-                        path: "",
-                        element: <BusinessDsDatasource/>
+                        path: "business-ds",
+                        element: <Metadata/>,
+                        children: [
+                            {
+                                path: "",
+                                element: <BusinessDsDatasource/>
+                            },
+                            {
+                                path: "datasource",
+                                element: <BusinessDsDatasource/>
+                            },
+                            {
+                                path: "database",
+                                element: <BusinessDsDatabase/>
+                            },
+                            {
+                                path: "table-schema",
+                                element: <BusinessDsTableSchema/>
+                            },
+                            {
+                                path: "table-schema/edit",
+                                element: <TableSchemaEdit/>
+                            },
+                            {
+                                path: "table-schema/detail",
+                                element: <TableSchemaDetail/>
+                            },
+                        ]
                     },
                     {
-                        path: "datasource",
-                        element: <BusinessDsDatasource/>
-                    },
-                    {
-                        path: "database",
-                        element: <BusinessDsDatabase/>
-                    },
-                    {
-                        path: "table-schema",
-                        element: <BusinessDsTableSchema/>
-                    },
-                    {
-                        path: "table-schema/edit",
-                        element: <TableSchemaEdit/>
-                    },
-                    {
-                        path: "table-schema/detail",
-                        element: <TableSchemaDetail/>
+                        path: "metadata",
+                        element: <Metadata/>,
+                        children: [
+                            {
+                                path: "datasource",
+                                element: <Datasource/>
+                            },
+                            {
+                                path: "subject",
+                                element: <Subject/>
+                            },
+                            {
+                                path: "metadata_table",
+                                element: <MetadataTable/>
+                            },
+                            {
+                                path: "metadata_table/detail",
+                                element: <TableDetailPage/>
+                            },
+                            {
+                                path: "metadata_table/edit",
+                                element: <TableEditPage/>
+                            },
+                        ]
                     },
                 ]
             },
             {
-                path: "metadata",
-                element: <Metadata/>,
-                children: [
-                    {
-                        path: "datasource",
-                        element: <Datasource/>
-                    },
-                    {
-                        path: "subject",
-                        element: <Subject/>
-                    },
-                    {
-                        path: "metadata_table",
-                        element: <MetadataTable/>
-                    },
-                    {
-                        path: "metadata_table/detail",
-                        element: <TableDetailPage/>
-                    },
-                    {
-                        path: "metadata_table/edit",
-                        element: <TableEditPage/>
-                    },
-                ]
-            }, {
                 path: "metrics",
                 element: <Metrics/>,
             }, {

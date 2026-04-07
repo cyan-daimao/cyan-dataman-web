@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, createContext, useContext } from 'react';
 import {LaptopOutlined, UserOutlined, MenuUnfoldOutlined, MenuFoldOutlined, DatabaseOutlined} from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { Layout, Menu, theme } from 'antd';
@@ -6,58 +6,60 @@ import {Link, Outlet, useLocation} from "react-router-dom";
 
 const { Sider } = Layout;
 
+// 用于追踪 Metadata 组件嵌套层级的 Context
+const MetadataLevelContext = createContext(0);
+
 // 路由到菜单 key 的映射
 const pathToKeyMap: Record<string, string> = {
-    '/business-ds': 'bd-datasource',
-    '/business-ds/datasource': 'bd-datasource',
-    '/business-ds/database': 'bd-database',
-    '/business-ds/table-schema': 'bd-table-schema',
-    '/metadata': '',
-    '/metadata/datasource': 'datasource',
-    '/metadata/subject': 'subjectManage',
-    '/metadata/metadata_table': 'metadataTable',
+    '/meta/business-ds': 'bd-datasource',
+    '/meta/business-ds/datasource': 'bd-datasource',
+    '/meta/business-ds/database': 'bd-database',
+    '/meta/business-ds/table-schema': 'bd-table-schema',
+    '/meta/metadata/datasource': 'datasource',
+    '/meta/metadata/subject': 'subjectManage',
+    '/meta/metadata/metadata_table': 'metadataTable',
 };
 
 const items: MenuProps['items'] = [
     {
         key: 'business-ds',
-        label: <Link to={'/business-ds'}>业务数据库</Link>,
+        label: <Link to={'/meta/business-ds'}>业务数据库</Link>,
         icon: <DatabaseOutlined />,
         children: [
             {
                 key:'bd-datasource',
-                label: <Link to='/business-ds/datasource'>数据源</Link>,
+                label: <Link to='/meta/business-ds/datasource'>数据源</Link>,
             },
             {
                 key:'bd-database',
-                label: <Link to='/business-ds/database'>数据库</Link>,
+                label: <Link to='/meta/business-ds/database'>数据库</Link>,
             },
             {
                 key: 'bd-table-schema',
-                label: <Link to={'/business-ds/table-schema'}>表结构</Link>,
+                label: <Link to={'/meta/business-ds/table-schema'}>表结构</Link>,
             },
             {
                 key: 'bd-table-sql',
-                label: <Link to={'/business-ds/sql'}>SQL执行</Link>,
+                label: <Link to={'/meta/business-ds/sql'}>SQL执行</Link>,
             },
         ]
     },
     {
         key: 'metadata',
-        label: <Link to={'/metadata'}>元数据</Link>,
+        label: <Link to={'/meta/metadata/datasource'}>元数据</Link>,
         icon: <LaptopOutlined />,
         children: [
             {
                 key:'datasource',
-                label: <Link to='/metadata/datasource'>数据源</Link>,
+                label: <Link to='/meta/metadata/datasource'>数据源</Link>,
             },
             {
                 key:'subjectManage',
-                label: <Link to='/metadata/subject'>主题管理</Link>,
+                label: <Link to='/meta/metadata/subject'>主题管理</Link>,
             },
             {
                 key: 'metadataTable',
-                label: <Link to={'/metadata/metadata_table'}>元数据表</Link>,
+                label: <Link to={'/meta/metadata/metadata_table'}>元数据表</Link>,
             },
         ]
     },
@@ -75,6 +77,10 @@ const items: MenuProps['items'] = [
 ];
 
 const App: React.FC = () => {
+    // 获取当前嵌套层级（0 表示第一层，1 表示第二层嵌套）
+    const level = useContext(MetadataLevelContext);
+    const isNestedLayer = level > 0;
+    
     // 正确获取 token，避免类型错误
     const { token } = theme.useToken();
     const location = useLocation();
@@ -84,23 +90,35 @@ const App: React.FC = () => {
     // 根据路径计算选中的菜单 key
     const selectedKeys = useMemo(() => {
         const key = pathToKeyMap[location.pathname];
-        return key ? [key] : ['1'];
+        return key ? [key] : ['bd-datasource'];
     }, [location.pathname]);
 
     // 根据路径计算展开的菜单 key
     const openKeys = useMemo(() => {
-        if (location.pathname.startsWith('/business-ds')) {
+        if (location.pathname.includes('/business-ds')) {
             return ['business-ds'];
         }
-        return ['1'];
+        if (location.pathname.includes('/metadata')) {
+            return ['metadata'];
+        }
+        return ['business-ds'];
     }, [location.pathname]);
+
+    // 如果是嵌套层，直接渲染 Outlet，不渲染侧边栏
+    if (isNestedLayer) {
+        return (
+            <MetadataLevelContext.Provider value={level + 1}>
+                <Outlet />
+            </MetadataLevelContext.Provider>
+        );
+    }
 
     return (
         <div style={{ width: '100%', height: '100%' }}>
             <Layout
                 style={{
                     background: token.colorBgContainer,
-                    borderRadius: token.borderRadiusLG,
+                    borderRadius: token.colorBorderRadiusLG,
                     width: '100%',
                     height: '100%'
                 }}
@@ -153,7 +171,9 @@ const App: React.FC = () => {
                 </Sider>
 
                 <Layout.Content style={{ padding: 16, height: '100vh', overflow: 'auto' }}>
-                    <Outlet />
+                    <MetadataLevelContext.Provider value={level + 1}>
+                        <Outlet />
+                    </MetadataLevelContext.Provider>
                 </Layout.Content>
             </Layout>
         </div>

@@ -6,7 +6,7 @@ import {Outlet, useLocation, useNavigate} from "react-router-dom";
 const {Header, Content, Footer} = Layout;
 
 const routeKeyMap: Record<string, string> = {
-    '/metadata': '1',
+    '/meta': '1',
     '/warehouse': '2',
     '/metrics': '3',
     '/sql-editor': '4',
