@@ -47,6 +47,64 @@ interface TableInfo {
     updatedAt: string;
 }
 
+// 字段类型转换：MySQL/PostgreSQL 类型 -> Iceberg 类型
+const convertToIcebergType = (dbType: string, datasourceType: DatasourceType): string => {
+    const upperType = dbType.toUpperCase().split('(')[0].trim(); // 去除括号部分如 VARCHAR(255)
+
+    // 通用类型映射
+    const commonTypeMap: Record<string, string> = {
+        // 字符串类型
+        'CHAR': 'STRING',
+        'VARCHAR': 'STRING',
+        'TEXT': 'STRING',
+        'MEDIUMTEXT': 'STRING',
+        'LONGTEXT': 'STRING',
+        'CLOB': 'STRING',
+        // 整数类型
+        'TINYINT': 'LONG',
+        'SMALLINT': 'LONG',
+        'INT': 'LONG',
+        'INTEGER': 'LONG',
+        'MEDIUMINT': 'LONG',
+        'BIGINT': 'LONG',
+        'SERIAL': 'LONG',
+        'SMALLSERIAL': 'LONG',
+        'BIGSERIAL': 'LONG',
+        // 浮点类型
+        'FLOAT': 'FLOAT',
+        'REAL': 'FLOAT',
+        'DOUBLE': 'DOUBLE',
+        'DOUBLE PRECISION': 'DOUBLE',
+        'DECIMAL': 'DECIMAL',
+        'NUMERIC': 'DECIMAL',
+        // 布尔类型
+        'BOOLEAN': 'BOOLEAN',
+        'BOOL': 'BOOLEAN',
+        // 日期时间类型
+        'DATE': 'DATE',
+        'TIME': 'TIME',
+        'DATETIME': 'TIMESTAMP',
+        'TIMESTAMP': 'TIMESTAMP',
+        'TIMESTAMP WITH TIME ZONE': 'TIMESTAMP_TZ',
+        'TIMESTAMP WITH TIME ZONE': 'TIMESTAMP_TZ',
+        // 二进制类型
+        'BLOB': 'BINARY',
+        'MEDIUMBLOB': 'BINARY',
+        'LONGBLOB': 'BINARY',
+        'BYTEA': 'BINARY',
+        'BINARY': 'BINARY',
+        'VARBINARY': 'BINARY',
+        // 其他类型
+        'UUID': 'UUID',
+        'JSON': 'STRING',
+        'JSONB': 'STRING',
+        'ENUM': 'STRING',
+        'SET': 'STRING',
+    };
+
+    return commonTypeMap[upperType] || 'STRING';
+};
+
 const TableSchemaManagement: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -220,8 +278,67 @@ const TableSchemaManagement: React.FC = () => {
         }
     };
 
-    const handleSyncHistory = (tableName: string) => {
-        message.info('同步历史功能开发中');
+    const handleSyncHistory = async (tableName: string) => {
+        if (!selectedDsId || !selectedDbName) return;
+
+        try {
+            // 获取当前数据源类型
+            const currentDs = datasources.find(ds => ds.id === selectedDsId);
+            const datasourceType = currentDs?.datasourceType || DatasourceType.MYSQL;
+
+            // 获取表结构详情
+            const response = await tableApi.getSchema(selectedDsId, selectedDbName, tableName);
+            if (response.code === 200 && response.data) {
+                const tableSchema = response.data;
+
+                // 转换为 MetadataTableDTO 格式
+                const importData = {
+                    id: '',
+                    name: tableSchema.tableName,
+                    owner: '',
+                    subjectCode: '',
+                    datasourceType: '',
+                    layerCode: 'ODS',
+                    comment: tableSchema.tableComment || '',
+                    accessCount: '',
+                    lastAccessTime: '',
+                    heatLevel: '',
+                    secretLevel: 'L1',
+                    onlineStatus: 'ONLINE',
+                    createdAt: '',
+                    updatedAt: '',
+                    table: {
+                        catalog: selectedDsId,
+                        schema: selectedDbName,
+                        name: tableSchema.tableName,
+                        comment: tableSchema.tableComment || '',
+                        columns: tableSchema.columns.map(col => ({
+                            name: col.name,
+                            type: convertToIcebergType(col.type, datasourceType),
+                            comment: col.comment || '',
+                            nullable: col.nullable ?? true,
+                            autoIncrement: col.autoIncrement ?? false,
+                            defaultValue: col.defaultValue,
+                            secretLevel: col.secretLevel || 'L1',
+                        })),
+                        indexes: tableSchema.indexes || [],
+                    },
+                };
+
+                // 跳转到元数据表编辑页面，传递 importData
+                navigate('/meta/metadata/metadata_table/edit', {
+                    state: {
+                        mode: 'import',
+                        importData: importData,
+                    }
+                });
+            } else {
+                message.error('获取表结构失败');
+            }
+        } catch (error) {
+            console.error('获取表结构失败:', error);
+            message.error('获取表结构失败');
+        }
     };
 
     const getEnvStatusTag = (status: EnvStatus) => {

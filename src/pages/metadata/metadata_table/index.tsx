@@ -214,7 +214,7 @@ const handleReset = () => {
 
 // 编辑表 - 跳转到编辑页面
 const handleEdit = (record: TableMeta) => {
-    navigate('/metadata/metadata_table/edit', {
+    navigate('/meta/metadata/metadata_table/edit', {
         state: {
             mode: 'edit',
             tableId: record.id

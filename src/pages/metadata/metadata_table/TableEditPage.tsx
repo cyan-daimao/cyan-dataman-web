@@ -43,16 +43,17 @@ const {Option} = Select;
 // 常用字段类型
 const FIELD_TYPE_OPTIONS = [
     "STRING",
-    "INT",
-    "BIGINT",
+    "LONG",
     "FLOAT",
     "DOUBLE",
     "BOOLEAN",
     "DATE",
     "TIMESTAMP",
+    "TIMESTAMP_TZ",
+    "TIME",
+    "BINARY",
+    "UUID",
     "DECIMAL",
-    "ARRAY",
-    "MAP",
 ];
 
 // 数据层级选项
