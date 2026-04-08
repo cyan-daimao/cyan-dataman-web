@@ -63,17 +63,6 @@ const items: MenuProps['items'] = [
                 label: <Link to={'/meta/metadata/metadata_table'}>元数据表</Link>,
             },
         ]
-    },
-    {
-        key: 'data',
-        label: '数据监控',
-        icon: <UserOutlined />,
-        children: [
-            {
-                key: 'async',
-                label: '数据同步',
-            }
-        ]
     }
 ];
 
