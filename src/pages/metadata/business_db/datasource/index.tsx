@@ -26,7 +26,7 @@ const DatasourceManagement: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editingName, setEditingName] = useState<string | null>(null);
     const [testLoading, setTestLoading] = useState<string | null>(null);
 
     const [form] = Form.useForm();
@@ -53,14 +53,14 @@ const DatasourceManagement: React.FC = () => {
 
     const handleAdd = () => {
         setIsEditing(false);
-        setEditingId(null);
+        setEditingName(null);
         form.resetFields();
         setModalVisible(true);
     };
 
     const handleEdit = (record: DsConfig) => {
         setIsEditing(true);
-        setEditingId(record.id);
+        setEditingName(record.name);
         form.setFieldsValue({
             name: record.name,
             datasourceType: record.datasourceType,
@@ -71,9 +71,9 @@ const DatasourceManagement: React.FC = () => {
         setModalVisible(true);
     };
 
-    const handleDelete = async (id: string) => {
+    const handleDelete = async (name: string) => {
         try {
-            const response = await DSApi.delete(id);
+            const response = await DSApi.delete(name);
             if (response.code === 200) {
                 message.success('删除成功');
                 fetchDatasources();
@@ -86,10 +86,10 @@ const DatasourceManagement: React.FC = () => {
         }
     };
 
-    const handleTestConnection = async (id: string) => {
-        setTestLoading(id);
+    const handleTestConnection = async (name: string) => {
+        setTestLoading(name);
         try {
-            const response = await DSApi.testConnection(id);
+            const response = await DSApi.testConnection(name);
             if (response.code === 200) {
                 message.success('连接测试成功');
             } else {
@@ -116,8 +116,8 @@ const DatasourceManagement: React.FC = () => {
             };
 
             let response;
-            if (isEditing && editingId) {
-                response = await DSApi.update(editingId, cmd);
+            if (isEditing && editingName) {
+                response = await DSApi.update(editingName, cmd);
             } else {
                 response = await DSApi.create(cmd);
             }
@@ -198,8 +198,8 @@ const DatasourceManagement: React.FC = () => {
                         type="link"
                         size="small"
                         icon={<ApiOutlined />}
-                        loading={testLoading === record.id}
-                        onClick={() => handleTestConnection(record.id)}
+                        loading={testLoading === record.name}
+                        onClick={() => handleTestConnection(record.name)}
                     >
                         测试
                     </Button>
@@ -213,7 +213,7 @@ const DatasourceManagement: React.FC = () => {
                     </Button>
                     <Popconfirm
                         title="确定删除该数据源吗？"
-                        onConfirm={() => handleDelete(record.id)}
+                        onConfirm={() => handleDelete(record.name)}
                         okText="确定"
                         cancelText="取消"
                     >

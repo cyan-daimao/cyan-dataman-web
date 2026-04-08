@@ -110,14 +110,14 @@ const TableSchemaManagement: React.FC = () => {
     const [searchParams] = useSearchParams();
 
     // 从 URL 参数获取预选的数据源和数据库
-    const urlDsId = searchParams.get('dsId');
+    const urlDsName = searchParams.get('dsName');
     const urlDbName = searchParams.get('dbName');
 
     const [datasources, setDatasources] = useState<DsConfig[]>([]);
     const [databases, setDatabases] = useState<Database[]>([]);
     const [tables, setTables] = useState<TableInfo[]>([]);
 
-    const [selectedDsId, setSelectedDsId] = useState<string | null>(urlDsId);
+    const [selectedDsName, setSelectedDsName] = useState<string | null>(urlDsName);
     const [selectedDbName, setSelectedDbName] = useState<string | null>(urlDbName);
 
     const [dsLoading, setDsLoading] = useState(false);
@@ -138,44 +138,44 @@ const TableSchemaManagement: React.FC = () => {
 
     // 数据源列表加载完成后，如果有 URL 参数，自动选择并加载数据库
     useEffect(() => {
-        if (datasources.length > 0 && urlDsId && !initialized) {
-            const dsExists = datasources.some(ds => ds.id === urlDsId);
+        if (datasources.length > 0 && urlDsName && !initialized) {
+            const dsExists = datasources.some(ds => ds.name === urlDsName);
             if (dsExists) {
-                setSelectedDsId(urlDsId);
-                fetchDatabases(urlDsId);
+                setSelectedDsName(urlDsName);
+                fetchDatabases(urlDsName);
             }
             setInitialized(true);
         }
-    }, [datasources, urlDsId, initialized]);
+    }, [datasources, urlDsName, initialized]);
 
     // 数据库列表加载完成后，如果有 URL 参数，自动选择并加载表
     useEffect(() => {
-        if (databases.length > 0 && urlDbName && selectedDsId === urlDsId && !selectedDbName) {
+        if (databases.length > 0 && urlDbName && selectedDsName === urlDsName && !selectedDbName) {
             const dbExists = databases.some(db => db.name === urlDbName);
             if (dbExists) {
                 setSelectedDbName(urlDbName);
             }
         }
-    }, [databases, urlDbName, selectedDsId, selectedDbName]);
+    }, [databases, urlDbName, selectedDsName, selectedDbName]);
 
     // 监听数据源变化，加载对应的数据库列表
     useEffect(() => {
-        if (selectedDsId) {
-            fetchDatabases(selectedDsId);
+        if (selectedDsName) {
+            fetchDatabases(selectedDsName);
             // 如果不是从 URL 参数恢复，则重置数据库和表选择
-            if (selectedDsId !== urlDsId) {
+            if (selectedDsName !== urlDsName) {
                 setSelectedDbName(null);
                 setTables([]);
             }
         }
-    }, [selectedDsId]);
+    }, [selectedDsName]);
 
     // 监听数据库变化，加载对应的表列表
     useEffect(() => {
-        if (selectedDsId && selectedDbName) {
-            fetchTables(selectedDsId, selectedDbName);
+        if (selectedDsName && selectedDbName) {
+            fetchTables(selectedDsName, selectedDbName);
         }
-    }, [selectedDsId, selectedDbName]);
+    }, [selectedDsName, selectedDbName]);
 
     const fetchDatasources = async () => {
         setDsLoading(true);
@@ -192,10 +192,10 @@ const TableSchemaManagement: React.FC = () => {
         }
     };
 
-    const fetchDatabases = async (dsId: string) => {
+    const fetchDatabases = async (dsName: string) => {
         setDbLoading(true);
         try {
-            const response = await databaseApi.list(dsId);
+            const response = await databaseApi.list(dsName);
             if (response.code === 200) {
                 setDatabases(response.data || []);
             }
@@ -207,10 +207,10 @@ const TableSchemaManagement: React.FC = () => {
         }
     };
 
-    const fetchTables = async (dsId: string, dbName: string) => {
+    const fetchTables = async (dsName: string, dbName: string) => {
         setTableLoading(true);
         try {
-            const response = await tableApi.list(dsId, dbName);
+            const response = await tableApi.list(dsName, dbName);
             if (response.code === 200) {
                 // 转换为 TableInfo 格式
                 const tableInfos: TableInfo[] = (response.data || []).map(tbl => ({
@@ -230,8 +230,8 @@ const TableSchemaManagement: React.FC = () => {
         }
     };
 
-    const handleDsChange = (dsId: string) => {
-        setSelectedDsId(dsId);
+    const handleDsChange = (dsName: string) => {
+        setSelectedDsName(dsName);
     };
 
     const handleDbChange = (dbName: string) => {
@@ -249,26 +249,26 @@ const TableSchemaManagement: React.FC = () => {
             return;
         }
         // 跳转到编辑页面创建新表，添加 isNew=true 参数区分新建和编辑
-        navigate(`/meta/business-ds/table-schema/edit?dsId=${selectedDsId}&dbName=${selectedDbName}&tableName=${newTableName}&isNew=true`);
+        navigate(`/meta/business-ds/table-schema/edit?dsName=${selectedDsName}&dbName=${selectedDbName}&tableName=${newTableName}&isNew=true`);
         setCreateModalVisible(false);
     };
 
     const handleViewDetail = (tableName: string) => {
-        navigate(`/meta/business-ds/table-schema/detail?dsId=${selectedDsId}&dbName=${selectedDbName}&tableName=${tableName}`);
+        navigate(`/meta/business-ds/table-schema/detail?dsName=${selectedDsName}&dbName=${selectedDbName}&tableName=${tableName}`);
     };
 
     const handleEdit = (tableName: string) => {
-        navigate(`/meta/business-ds/table-schema/edit?dsId=${selectedDsId}&dbName=${selectedDbName}&tableName=${tableName}`);
+        navigate(`/meta/business-ds/table-schema/edit?dsName=${selectedDsName}&dbName=${selectedDbName}&tableName=${tableName}`);
     };
 
     const handleDelete = async (tableName: string) => {
-        if (!selectedDsId || !selectedDbName) return;
+        if (!selectedDsName || !selectedDbName) return;
 
         try {
-            const response = await tableApi.drop(selectedDsId, selectedDbName, tableName);
+            const response = await tableApi.drop(selectedDsName, selectedDbName, tableName);
             if (response.code === 200) {
                 message.success('删除成功');
-                fetchTables(selectedDsId, selectedDbName);
+                fetchTables(selectedDsName, selectedDbName);
             } else {
                 message.error(response.message || '删除失败');
             }
@@ -279,15 +279,15 @@ const TableSchemaManagement: React.FC = () => {
     };
 
     const handleSyncHistory = async (tableName: string) => {
-        if (!selectedDsId || !selectedDbName) return;
+        if (!selectedDsName || !selectedDbName) return;
 
         try {
             // 获取当前数据源类型
-            const currentDs = datasources.find(ds => ds.id === selectedDsId);
+            const currentDs = datasources.find(ds => ds.name === selectedDsName);
             const datasourceType = currentDs?.datasourceType || DatasourceType.MYSQL;
 
             // 获取表结构详情
-            const response = await tableApi.getSchema(selectedDsId, selectedDbName, tableName);
+            const response = await tableApi.getSchema(selectedDsName, selectedDbName, tableName);
             if (response.code === 200 && response.data) {
                 const tableSchema = response.data;
 
@@ -308,7 +308,7 @@ const TableSchemaManagement: React.FC = () => {
                     createdAt: '',
                     updatedAt: '',
                     table: {
-                        catalog: selectedDsId,
+                        catalog: selectedDsName,
                         schema: selectedDbName,
                         name: tableSchema.tableName,
                         comment: tableSchema.tableComment || '',
@@ -465,14 +465,14 @@ const TableSchemaManagement: React.FC = () => {
                             <Select
                                 style={{width: 240}}
                                 placeholder="请选择数据源"
-                                value={selectedDsId}
+                                value={selectedDsName}
                                 onChange={handleDsChange}
                                 loading={dsLoading}
                                 showSearch
                                 optionFilterProp="label"
                             >
                                 {datasources.map(ds => (
-                                    <Select.Option key={ds.id} value={ds.id} label={ds.name}>
+                                    <Select.Option key={ds.name} value={ds.name} label={ds.name}>
                                         <Space>
                                             {getDatasourceTypeTag(ds.datasourceType)}
                                             {ds.name}
@@ -491,7 +491,7 @@ const TableSchemaManagement: React.FC = () => {
                                 value={selectedDbName}
                                 onChange={handleDbChange}
                                 loading={dbLoading}
-                                disabled={!selectedDsId}
+                                disabled={!selectedDsName}
                                 showSearch
                                 optionFilterProp="children"
                             >
@@ -517,7 +517,7 @@ const TableSchemaManagement: React.FC = () => {
                             type="primary"
                             icon={<PlusOutlined/>}
                             onClick={handleCreateTable}
-                            disabled={!selectedDsId || !selectedDbName}
+                            disabled={!selectedDsName || !selectedDbName}
                         >
                             新建表
                         </Button>
@@ -531,7 +531,7 @@ const TableSchemaManagement: React.FC = () => {
                     loading={tableLoading}
                     bordered
                     pagination={{pageSize: 10}}
-                    locale={{emptyText: selectedDsId && selectedDbName ? '暂无数据' : '请先选择数据源和数据库'}}
+                    locale={{emptyText: selectedDsName && selectedDbName ? '暂无数据' : '请先选择数据源和数据库'}}
                 />
             </Card>
 

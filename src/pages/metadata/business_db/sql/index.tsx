@@ -87,7 +87,7 @@ const BusinessDsSqlPage: React.FC = () => {
     const [editorInitializing, setEditorInitializing] = useState(true);
 
     // 当前选中的数据源和数据库
-    const [selectedDsId, setSelectedDsId] = useState<string | null>(null);
+    const [selectedDsName, setSelectedDsName] = useState<string | null>(null);
     const [selectedDbName, setSelectedDbName] = useState<string | null>(null);
 
     // 预加载 Monaco 编辑器
@@ -227,7 +227,7 @@ const BusinessDsSqlPage: React.FC = () => {
 
     // 执行 SQL
     const handleExecute = useCallback(async (sqlToExecute?: string) => {
-        if (!selectedDsId || !selectedDbName) {
+        if (!selectedDsName || !selectedDbName) {
             message.warning('请先选择数据源和数据库');
             return;
         }
@@ -245,7 +245,7 @@ const BusinessDsSqlPage: React.FC = () => {
         setLoading(true);
 
         try {
-            const resp = await sqlExecuteApi.execute(selectedDsId, selectedDbName, {
+            const resp = await sqlExecuteApi.execute(selectedDsName, selectedDbName, {
                 sql,
                 limit: 1000
             });
@@ -286,11 +286,11 @@ const BusinessDsSqlPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [tabs, selectedDsId, selectedDbName]);
+    }, [tabs, selectedDsName, selectedDbName]);
 
     // 查看执行计划
     const handleExecutePlan = useCallback(async () => {
-        if (!selectedDsId || !selectedDbName) {
+        if (!selectedDsName || !selectedDbName) {
             message.warning('请先选择数据源和数据库');
             return;
         }
@@ -307,7 +307,7 @@ const BusinessDsSqlPage: React.FC = () => {
 
         try {
             const explainSql = `EXPLAIN ${currentTabData.sql}`;
-            const resp = await sqlExecuteApi.execute(selectedDsId, selectedDbName, {
+            const resp = await sqlExecuteApi.execute(selectedDsName, selectedDbName, {
                 sql: explainSql
             });
 
@@ -335,7 +335,7 @@ const BusinessDsSqlPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [tabs, selectedDsId, selectedDbName]);
+    }, [tabs, selectedDsName, selectedDbName]);
 
     // 格式化 SQL
     const handleFormat = useCallback(() => {
@@ -371,15 +371,15 @@ const BusinessDsSqlPage: React.FC = () => {
     };
 
     // 选择数据库
-    const handleDatabaseSelect = useCallback((dsId: string, dbName: string) => {
-        setSelectedDsId(dsId);
+    const handleDatabaseSelect = useCallback((dsName: string, dbName: string) => {
+        setSelectedDsName(dsName);
         setSelectedDbName(dbName);
         message.info(`已选择数据库: ${dbName}`);
     }, []);
 
     // 选择表
-    const handleTableSelect = useCallback((dsId: string, dbName: string, tableName: string, columns?: Column[]) => {
-        setSelectedDsId(dsId);
+    const handleTableSelect = useCallback((dsName: string, dbName: string, tableName: string, columns?: Column[]) => {
+        setSelectedDsName(dsName);
         setSelectedDbName(dbName);
         const selectSQL = `SELECT * FROM ${tableName} LIMIT 100;`;
         handleSQLChange(selectSQL);
@@ -448,7 +448,7 @@ const BusinessDsSqlPage: React.FC = () => {
                 flexShrink: 0
             }}>
                 <Sidebar
-                    selectedDsId={selectedDsId}
+                    selectedDsName={selectedDsName}
                     selectedDbName={selectedDbName}
                     onDatabaseSelect={handleDatabaseSelect}
                     onTableSelect={handleTableSelect}
@@ -498,7 +498,7 @@ const BusinessDsSqlPage: React.FC = () => {
                         tabBarExtraContent={
                             <span style={{color: '#999', fontSize: 12}}>
                                 <DatabaseOutlined style={{marginRight: 4}}/>
-                                {selectedDsId && selectedDbName
+                                {selectedDsName && selectedDbName
                                     ? `当前数据库: ${selectedDbName}`
                                     : '请选择数据源和数据库'}
                             </span>

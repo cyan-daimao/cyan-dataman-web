@@ -23,7 +23,7 @@ const { Title } = Typography;
 const DatabaseManagement: React.FC = () => {
     const [datasources, setDatasources] = useState<DsConfig[]>([]);
     const [databases, setDatabases] = useState<Database[]>([]);
-    const [selectedDsId, setSelectedDsId] = useState<string | null>(null);
+    const [selectedDsName, setSelectedDsName] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [dsLoading, setDsLoading] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
@@ -36,10 +36,10 @@ const DatabaseManagement: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        if (selectedDsId) {
-            fetchDatabases(selectedDsId);
+        if (selectedDsName) {
+            fetchDatabases(selectedDsName);
         }
-    }, [selectedDsId]);
+    }, [selectedDsName]);
 
     const fetchDatasources = async () => {
         setDsLoading(true);
@@ -48,8 +48,8 @@ const DatabaseManagement: React.FC = () => {
             if (response.code === 200) {
                 setDatasources(response.data || []);
                 // 默认选择第一个数据源
-                if (response.data && response.data.length > 0 && !selectedDsId) {
-                    setSelectedDsId(response.data[0].id);
+                if (response.data && response.data.length > 0 && !selectedDsName) {
+                    setSelectedDsName(response.data[0].name);
                 }
             }
         } catch (error) {
@@ -60,10 +60,10 @@ const DatabaseManagement: React.FC = () => {
         }
     };
 
-    const fetchDatabases = async (dsId: string) => {
+    const fetchDatabases = async (dsName: string) => {
         setLoading(true);
         try {
-            const response = await databaseApi.list(dsId);
+            const response = await databaseApi.list(dsName);
             if (response.code === 200) {
                 setDatabases(response.data || []);
             }
@@ -75,8 +75,8 @@ const DatabaseManagement: React.FC = () => {
         }
     };
 
-    const handleDsChange = (dsId: string) => {
-        setSelectedDsId(dsId);
+    const handleDsChange = (dsName: string) => {
+        setSelectedDsName(dsName);
     };
 
     const handleAdd = () => {
@@ -85,7 +85,7 @@ const DatabaseManagement: React.FC = () => {
     };
 
     const handleCreate = async () => {
-        if (!selectedDsId) {
+        if (!selectedDsName) {
             message.warning('请先选择数据源');
             return;
         }
@@ -99,11 +99,11 @@ const DatabaseManagement: React.FC = () => {
             };
 
             setCreateLoading(true);
-            const response = await databaseApi.create(selectedDsId, cmd);
+            const response = await databaseApi.create(selectedDsName, cmd);
             if (response.code === 200) {
                 message.success('创建成功');
                 setModalVisible(false);
-                fetchDatabases(selectedDsId);
+                fetchDatabases(selectedDsName);
             } else {
                 message.error(response.message || '创建失败');
             }
@@ -168,14 +168,14 @@ const DatabaseManagement: React.FC = () => {
                             <Select
                                 style={{ width: 300 }}
                                 placeholder="请选择数据源"
-                                value={selectedDsId}
+                                value={selectedDsName}
                                 onChange={handleDsChange}
                                 loading={dsLoading}
                                 showSearch
                                 optionFilterProp="label"
                             >
                                 {datasources.map(ds => (
-                                    <Select.Option key={ds.id} value={ds.id} label={ds.name}>
+                                    <Select.Option key={ds.name} value={ds.name} label={ds.name}>
                                         <Space>
                                             {getDatasourceTypeTag(ds.datasourceType)}
                                             {ds.name}
@@ -190,7 +190,7 @@ const DatabaseManagement: React.FC = () => {
                             type="primary"
                             icon={<PlusOutlined />}
                             onClick={handleAdd}
-                            disabled={!selectedDsId}
+                            disabled={!selectedDsName}
                         >
                             新建数据库
                         </Button>
@@ -204,7 +204,7 @@ const DatabaseManagement: React.FC = () => {
                     loading={loading}
                     bordered
                     pagination={{ pageSize: 10 }}
-                    locale={{ emptyText: selectedDsId ? '暂无数据' : '请先选择数据源' }}
+                    locale={{ emptyText: selectedDsName ? '暂无数据' : '请先选择数据源' }}
                 />
             </Card>
 

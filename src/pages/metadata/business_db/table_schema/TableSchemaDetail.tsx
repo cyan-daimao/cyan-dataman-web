@@ -26,7 +26,7 @@ const TableSchemaDetail: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
 
-    const dsId = searchParams.get('dsId');
+    const dsName = searchParams.get('dsName');
     const dbName = searchParams.get('dbName');
     const tableName = searchParams.get('tableName');
 
@@ -34,17 +34,17 @@ const TableSchemaDetail: React.FC = () => {
     const [tableSchema, setTableSchema] = useState<TableSchema | null>(null);
 
     useEffect(() => {
-        if (dsId && dbName && tableName) {
+        if (dsName && dbName && tableName) {
             fetchTableSchema().then();
         }
-    }, [dsId, dbName, tableName]);
+    }, [dsName, dbName, tableName]);
 
     const fetchTableSchema = async () => {
-        if (!dsId || !dbName || !tableName) return;
+        if (!dsName || !dbName || !tableName) return;
 
         setLoading(true);
         try {
-            const response = await tableApi.getSchema(dsId, dbName, tableName);
+            const response = await tableApi.getSchema(dsName, dbName, tableName);
             if (response.code === 200) {
                 setTableSchema(response.data);
             } else {
@@ -60,15 +60,15 @@ const TableSchemaDetail: React.FC = () => {
 
     const handleBack = () => {
         // 返回列表页，保留数据源和数据库选择
-        if (dsId && dbName) {
-            navigate(`/meta/business-ds/table-schema?dsId=${dsId}&dbName=${dbName}`);
+        if (dsName && dbName) {
+            navigate(`/meta/business-ds/table-schema?dsName=${dsName}&dbName=${dbName}`);
         } else {
             navigate('/meta/business-ds/table-schema');
         }
     };
 
     const handleEdit = () => {
-        navigate(`/meta/business-ds/table-schema/edit?dsId=${dsId}&dbName=${dbName}&tableName=${tableName}`);
+        navigate(`/meta/business-ds/table-schema/edit?dsName=${dsName}&dbName=${dbName}&tableName=${tableName}`);
     };
 
     // 根据数据类型获取标签颜色
@@ -255,7 +255,7 @@ const TableSchemaDetail: React.FC = () => {
                                 {tableName}
                             </Title>
                             <Text type="secondary">
-                                {dbName} / {dsId}
+                                {dbName} / {dsName}
                             </Text>
                         </Space>
                     </Col>

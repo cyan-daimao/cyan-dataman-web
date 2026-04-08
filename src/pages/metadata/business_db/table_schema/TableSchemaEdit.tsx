@@ -137,7 +137,7 @@ const TableSchemaEdit: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
 
-    const dsId = searchParams.get('dsId');
+    const dsName = searchParams.get('dsName');
     const dbName = searchParams.get('dbName');
     const tableName = searchParams.get('tableName');
     const isNewTable = searchParams.get('isNew') === 'true' || !tableName;
@@ -164,14 +164,14 @@ const TableSchemaEdit: React.FC = () => {
     const [syncModalVisible, setSyncModalVisible] = useState(false);
 
     useEffect(() => {
-        if (dsId && dbName && tableName && !isNewTable) {
+        if (dsName && dbName && tableName && !isNewTable) {
             fetchTableSchema();
         } else if (isNewTable) {
             // 新建表时，初始化默认的时间字段和索引
             setColumns(createDefaultTimeColumns());
             setIndexes(createDefaultTimeIndexes());
         }
-    }, [dsId, dbName, tableName, isNewTable]);
+    }, [dsName, dbName, tableName, isNewTable]);
 
     // 检查并补充缺失的时间字段
     const ensureDefaultTimeColumns = (existingColumns: EditableColumn[]): {
@@ -216,11 +216,11 @@ const TableSchemaEdit: React.FC = () => {
     };
 
     const fetchTableSchema = async () => {
-        if (!dsId || !dbName || !tableName) return;
+        if (!dsName || !dbName || !tableName) return;
 
         setLoading(true);
         try {
-            const response = await tableApi.getSchema(dsId, dbName, tableName);
+            const response = await tableApi.getSchema(dsName, dbName, tableName);
             if (response.code === 200) {
                 const schema = response.data;
                 setTableNameValue(schema.tableName);
@@ -307,8 +307,8 @@ const TableSchemaEdit: React.FC = () => {
 
     const handleBack = () => {
         // 返回列表页，保留数据源和数据库选择
-        if (dsId && dbName) {
-            navigate(`/meta/business-ds/table-schema?dsId=${dsId}&dbName=${dbName}`);
+        if (dsName && dbName) {
+            navigate(`/meta/business-ds/table-schema?dsName=${dsName}&dbName=${dbName}`);
         } else {
             navigate('/meta/business-ds/table-schema');
         }
@@ -484,7 +484,7 @@ const TableSchemaEdit: React.FC = () => {
             return;
         }
 
-        if (!dsId || !dbName) {
+        if (!dsName || !dbName) {
             message.error('缺少数据源或数据库信息');
             return;
         }
@@ -500,15 +500,15 @@ const TableSchemaEdit: React.FC = () => {
 
             let response;
             if (isNewTable) {
-                response = await tableApi.create(dsId, dbName, cmd);
+                response = await tableApi.create(dsName, dbName, cmd);
             } else if (tableName) {
-                response = await tableApi.update(dsId, dbName, tableName, cmd);
+                response = await tableApi.update(dsName, dbName, tableName, cmd);
             }
 
             if (response && response.code === 200) {
                 message.success('保存成功');
                 // 返回列表页，保留数据源和数据库选择
-                navigate(`/meta/business-ds/table-schema?dsId=${dsId}&dbName=${dbName}`);
+                navigate(`/meta/business-ds/table-schema?dsName=${dsName}&dbName=${dbName}`);
             } else {
                 message.error(response?.message || '保存失败');
             }

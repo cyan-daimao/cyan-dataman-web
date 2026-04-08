@@ -321,32 +321,32 @@ export const DSApi = {
      * 获取数据源配置详情
      * GET /api/v1/ds/{ds}
      */
-    findById: async (dsId: string): Promise<ApiResponse<DsConfig>> => {
-        return datamanRequest.get(`${BASE_URL}/${dsId}`);
+    findById: async (dsName: string): Promise<ApiResponse<DsConfig>> => {
+        return datamanRequest.get(`${BASE_URL}/${dsName}`);
     },
 
     /**
      * 更新数据源配置
      * PUT /api/v1/ds/{ds}
      */
-    update: async (dsId: string, data: DsConfigCmd): Promise<ApiResponse<DsConfig>> => {
-        return datamanRequest.put(`${BASE_URL}/${dsId}`, data);
+    update: async (dsName: string, data: DsConfigCmd): Promise<ApiResponse<DsConfig>> => {
+        return datamanRequest.put(`${BASE_URL}/${dsName}`, data);
     },
 
     /**
      * 删除数据源配置
      * DELETE /api/v1/ds/{ds}
      */
-    delete: async (dsId: string): Promise<ApiResponse<void>> => {
-        return datamanRequest.delete(`${BASE_URL}/${dsId}`)
+    delete: async (dsName: string): Promise<ApiResponse<void>> => {
+        return datamanRequest.delete(`${BASE_URL}/${dsName}`)
     },
 
     /**
      * 测试数据源连接
      * POST /api/v1/ds/{ds}/test
      */
-    testConnection: async (dsId: string): Promise<ApiResponse<void>> => {
-        return datamanRequest.post(`${BASE_URL}/${dsId}/test`, {})
+    testConnection: async (dsName: string): Promise<ApiResponse<void>> => {
+        return datamanRequest.post(`${BASE_URL}/${dsName}/test`, {})
     },
 };
 
@@ -358,16 +358,16 @@ export const databaseApi = {
      * 获取数据源下的数据库列表
      * GET /api/v1/ds/{ds}/dbs
      */
-    list: async (dsId: string): Promise<ApiResponse<Database[]>> => {
-        return datamanRequest.get(`${BASE_URL}/${dsId}/dbs`);
+    list: async (dsName: string): Promise<ApiResponse<Database[]>> => {
+        return datamanRequest.get(`${BASE_URL}/${dsName}/dbs`);
     },
 
     /**
      * 创建数据库
      * POST /api/v1/ds/{ds}/dbs
      */
-    create: async (dsId: string, data: DatabaseCreateCmd): Promise<ApiResponse<void>> => {
-        return datamanRequest.post(`${BASE_URL}/${dsId}/dbs`,data)
+    create: async (dsName: string, data: DatabaseCreateCmd): Promise<ApiResponse<void>> => {
+        return datamanRequest.post(`${BASE_URL}/${dsName}/dbs`,data)
     },
 };
 
@@ -379,41 +379,41 @@ export const tableApi = {
      * 获取数据库下的表列表
      * GET /api/v1/ds/{ds}/dbs/{db}/tables
      */
-    list: async (dsId: string, dbName: string): Promise<ApiResponse<TableSchema[]>> => {
-        return datamanRequest.get(`${BASE_URL}/${dsId}/dbs/${dbName}/tables`);
+    list: async (dsName: string, dbName: string): Promise<ApiResponse<TableSchema[]>> => {
+        return datamanRequest.get(`${BASE_URL}/${dsName}/dbs/${dbName}/tables`);
     },
 
     /**
      * 获取表结构详情
      * GET /api/v1/ds/{ds}/dbs/{db}/tables/{tbl}
      */
-    getSchema: async (dsId: string, dbName: string, tableName: string): Promise<ApiResponse<TableSchema>> => {
-        return datamanRequest.get(`${BASE_URL}/${dsId}/dbs/${dbName}/tables/${tableName}`);
+    getSchema: async (dsName: string, dbName: string, tableName: string): Promise<ApiResponse<TableSchema>> => {
+        return datamanRequest.get(`${BASE_URL}/${dsName}/dbs/${dbName}/tables/${tableName}`);
     },
 
     /**
      * 创建表
      * POST /api/v1/ds/{ds}/dbs/{db}/tables
      */
-    create: async (dsId: string, dbName: string, data: TableSchemaCmd): Promise<ApiResponse<void>> => {
+    create: async (dsName: string, dbName: string, data: TableSchemaCmd): Promise<ApiResponse<void>> => {
 
-        return datamanRequest.post(`${BASE_URL}/${dsId}/dbs/${dbName}/tables`,data)
+        return datamanRequest.post(`${BASE_URL}/${dsName}/dbs/${dbName}/tables`,data)
     },
 
     /**
      * 更新表结构
      * PUT /api/v1/ds/{ds}/dbs/{db}/tables/{tbl}
      */
-    update: async (dsId: string, dbName: string, tableName: string, data: TableSchemaCmd): Promise<ApiResponse<void>> => {
-        return datamanRequest.put(`${BASE_URL}/${dsId}/dbs/${dbName}/tables/${tableName}`,data)
+    update: async (dsName: string, dbName: string, tableName: string, data: TableSchemaCmd): Promise<ApiResponse<void>> => {
+        return datamanRequest.put(`${BASE_URL}/${dsName}/dbs/${dbName}/tables/${tableName}`,data)
     },
 
     /**
      * 删除表
      * DELETE /api/v1/ds/{ds}/dbs/{db}/tables/{tbl}
      */
-    drop: async (dsId: string, dbName: string, tableName: string): Promise<ApiResponse<void>> => {
-        return datamanRequest.delete(`${BASE_URL}/${dsId}/dbs/${dbName}/tables/${tableName}`)
+    drop: async (dsName: string, dbName: string, tableName: string): Promise<ApiResponse<void>> => {
+        return datamanRequest.delete(`${BASE_URL}/${dsName}/dbs/${dbName}/tables/${tableName}`)
     },
 };
 
@@ -452,8 +452,8 @@ export const sqlExecuteApi = {
      * 执行 SQL 语句（自动判断 DQL 或 DML）
      * POST /api/v1/ds/{ds}/dbs/{db}/execute
      */
-    execute: async (dsId: string, dbName: string, data: SqlExecuteCmd): Promise<ApiResponse<SqlResult>> => {
-        return datamanRequest.post(`${BASE_URL}/${dsId}/dbs/${dbName}/execute`, data);
+    execute: async (dsName: string, dbName: string, data: SqlExecuteCmd): Promise<ApiResponse<SqlResult>> => {
+        return datamanRequest.post(`${BASE_URL}/${dsName}/dbs/${dbName}/execute`, data);
     },
 };
 
