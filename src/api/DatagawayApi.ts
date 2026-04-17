@@ -13,7 +13,7 @@ export interface SqlResultDTO {
 // 执行SQL
 export const executeSql = async (sql: string): Promise<Response<SqlResultDTO>> => {
     try {
-        return  await datagatewayRequest.post('/api/v1/sql/execute', {
+        return  await datagatewayRequest.post('/api/v1/starrocks/sql/execute', {
             sql: sql
         });
     } catch (e) {

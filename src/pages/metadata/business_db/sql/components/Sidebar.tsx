@@ -31,10 +31,10 @@ const {Text} = Typography;
 const {Search} = Input;
 
 interface SidebarProps {
-    selectedDsId: string | null;
+    selectedDsName: string | null;
     selectedDbName: string | null;
-    onDatabaseSelect: (dsId: string, dbName: string) => void;
-    onTableSelect: (dsId: string, dbName: string, tableName: string, columns?: Column[]) => void;
+    onDatabaseSelect: (dsName: string, dbName: string) => void;
+    onTableSelect: (dsName: string, dbName: string, tableName: string, columns?: Column[]) => void;
     onHistorySelect: (sql: string) => void;
 }
 
@@ -47,14 +47,14 @@ interface TreeNodeData {
     isLeaf?: boolean;
     // 自定义属性
     type: 'datasource' | 'database' | 'table' | 'column';
-    dsId?: string;
+    dsName?: string;
     dbName?: string;
     tableName?: string;
     columns?: Column[];
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
-    selectedDsId,
+    selectedDsName,
     selectedDbName,
     onDatabaseSelect,
     onTableSelect,
@@ -90,18 +90,18 @@ const Sidebar: React.FC<SidebarProps> = ({
             const resp = await DSApi.list();
             if (resp.code === 200) {
                 const dsNodes: TreeNodeData[] = resp.data.map(ds => ({
-                    key: `ds-${ds.id}`,
+                    key: `ds-${ds.name}`,
                     title: (
                         <span>
                             {ds.name}
-                            {selectedDsId === ds.id && (
+                            {selectedDsName === ds.name && (
                                 <CheckCircleOutlined style={{color: '#52c41a', marginLeft: 4}}/>
                             )}
                         </span>
                     ),
                     icon: <DatabaseOutlined style={{color: '#1890ff'}}/>,
                     type: 'datasource' as const,
-                    dsId: ds.id,
+                    dsName: ds.name,
                     isLeaf: false
                 }));
                 setTreeData(dsNodes);
@@ -115,40 +115,40 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
 
     // 加载数据库列表
-    const loadDatabases = async (dsId: string) => {
-        const cacheKey = `ds-${dsId}`;
+    const loadDatabases = async (dsName: string) => {
+        const cacheKey = `ds-${dsName}`;
         if (loadedDatabases[cacheKey]) return;
 
         setLoadingKeys(prev => new Set(prev).add(cacheKey));
         try {
-            const resp = await databaseApi.list(dsId);
+            const resp = await databaseApi.list(dsName);
             if (resp.code === 200) {
                 const dbNodes: TreeNodeData[] = resp.data.map(db => ({
-                    key: `db-${dsId}-${db.name}`,
+                    key: `db-${dsName}-${db.name}`,
                     title: (
                         <span
                             onClick={(e) => {
                                 e.stopPropagation();
-                                onDatabaseSelect(dsId, db.name);
+                                onDatabaseSelect(dsName, db.name);
                             }}
                             style={{cursor: 'pointer'}}
                         >
                             {db.name}
-                            {selectedDbName === db.name && selectedDsId === dsId && (
+                            {selectedDbName === db.name && selectedDsName === dsName && (
                                 <CheckCircleOutlined style={{color: '#52c41a', marginLeft: 4}}/>
                             )}
                         </span>
                     ),
                     icon: <FolderOutlined style={{color: '#faad14'}}/>,
                     type: 'database' as const,
-                    dsId,
+                    dsName,
                     dbName: db.name,
                     isLeaf: false
                 }));
 
                 // 更新树数据
                 setTreeData(prev => prev.map(node => {
-                    if (node.key === `ds-${dsId}`) {
+                    if (node.key === `ds-${dsName}`) {
                         return {...node, children: dbNodes};
                     }
                     return node;
@@ -168,21 +168,21 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
 
     // 加载表列表
-    const loadTables = async (dsId: string, dbName: string) => {
-        const cacheKey = `db-${dsId}-${dbName}`;
+    const loadTables = async (dsName: string, dbName: string) => {
+        const cacheKey = `db-${dsName}-${dbName}`;
         if (loadedTables[cacheKey]) return;
 
         setLoadingKeys(prev => new Set(prev).add(cacheKey));
         try {
-            const resp = await tableApi.list(dsId, dbName);
+            const resp = await tableApi.list(dsName, dbName);
             if (resp.code === 200) {
                 const tableNodes: TreeNodeData[] = resp.data.map(tableName => ({
-                    key: `tbl-${dsId}-${dbName}-${tableName}`,
+                    key: `tbl-${dsName}-${dbName}-${tableName}`,
                     title: (
                         <span
                             onClick={(e) => {
                                 e.stopPropagation();
-                                handleTableClick(dsId, dbName, tableName);
+                                handleTableClick(dsName, dbName, tableName);
                             }}
                             style={{cursor: 'pointer'}}
                         >
@@ -192,7 +192,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     ),
                     icon: null,
                     type: 'table' as const,
-                    dsId,
+                    dsName,
                     dbName,
                     tableName,
                     isLeaf: false
@@ -200,7 +200,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
                 // 更新树数据
                 setTreeData(prev => prev.map(dsNode => {
-                    if (dsNode.dsId === dsId && dsNode.children) {
+                    if (dsNode.dsName === dsName && dsNode.children) {
                         return {
                             ...dsNode,
                             children: dsNode.children.map(dbNode => {
@@ -228,21 +228,21 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
 
     // 加载表结构
-    const loadTableSchema = async (dsId: string, dbName: string, tableName: string) => {
-        const cacheKey = `tbl-${dsId}-${dbName}-${tableName}`;
+    const loadTableSchema = async (dsName: string, dbName: string, tableName: string) => {
+        const cacheKey = `tbl-${dsName}-${dbName}-${tableName}`;
         if (tableSchemaCache[cacheKey]) {
             return tableSchemaCache[cacheKey];
         }
 
         try {
-            const resp = await tableApi.getSchema(dsId, dbName, tableName);
+            const resp = await tableApi.getSchema(dsName, dbName, tableName);
             if (resp.code === 200) {
                 const columns = resp.data.columns || [];
                 setTableSchemaCache(prev => ({...prev, [cacheKey]: columns}));
 
                 // 更新树数据，添加字段子节点
                 setTreeData(prev => prev.map(dsNode => {
-                    if (dsNode.dsId === dsId && dsNode.children) {
+                    if (dsNode.dsName === dsName && dsNode.children) {
                         return {
                             ...dsNode,
                             children: dsNode.children.map(dbNode => {
@@ -252,7 +252,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                         children: dbNode.children.map(tblNode => {
                                             if (tblNode.tableName === tableName) {
                                                 const columnNodes: TreeNodeData[] = columns.map((col, idx) => ({
-                                                    key: `col-${dsId}-${dbName}-${tableName}-${idx}`,
+                                                    key: `col-${dsName}-${dbName}-${tableName}-${idx}`,
                                                     title: (
                                                         <span style={{fontSize: 12}}>
                                                             <ColumnHeightOutlined style={{marginRight: 4, color: '#52c41a'}}/>
@@ -293,9 +293,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
 
     // 处理表点击
-    const handleTableClick = async (dsId: string, dbName: string, tableName: string) => {
-        const columns = await loadTableSchema(dsId, dbName, tableName);
-        onTableSelect(dsId, dbName, tableName, columns);
+    const handleTableClick = async (dsName: string, dbName: string, tableName: string) => {
+        const columns = await loadTableSchema(dsName, dbName, tableName);
+        onTableSelect(dsName, dbName, tableName, columns);
     };
 
     const loadHistory = () => {
@@ -319,13 +319,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         const node = info.node as TreeNodeData;
 
         // 展开数据源时加载数据库
-        if (node.type === 'datasource' && node.dsId) {
-            loadDatabases(node.dsId);
+        if (node.type === 'datasource' && node.dsName) {
+            loadDatabases(node.dsName);
         }
 
         // 展开数据库时加载表
-        if (node.type === 'database' && node.dsId && node.dbName) {
-            loadTables(node.dsId, node.dbName);
+        if (node.type === 'database' && node.dsName && node.dbName) {
+            loadTables(node.dsName, node.dbName);
         }
     };
 
