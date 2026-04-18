@@ -40,7 +40,7 @@ const createRequest = (service = 'dataman') => {
     // 创建 Axios 实例
     const request = axios.create({
         baseURL: getBaseURL(service),
-        timeout: 10000,
+        timeout: 720000,
         headers: {
             'Content-Type': 'application/json;charset=utf-8'
         }

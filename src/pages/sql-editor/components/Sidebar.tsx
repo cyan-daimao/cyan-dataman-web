@@ -21,7 +21,7 @@ import {
     TableOutlined,
     ColumnHeightOutlined
 } from '@ant-design/icons';
-import {getSubjectTableTree, getMetadataTableById, SubjectTableTreeDTO, ColumnVO} from '../../../api/MetadataTableAPI';
+import {getSubjectTableTree, getMetadataTableById, SubjectTableTreeDTO, ColumnVO} from '@/api/MetadataTableAPI.ts';
 import {QueryHistory, FavoriteQuery} from '../types';
 
 const {Text} = Typography;
@@ -310,6 +310,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     const tabItems = [
         {
             key: 'tables',
+            style: {flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden'},
             label: (
                 <span>
                     <DatabaseOutlined/>
@@ -317,31 +318,34 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </span>
             ),
             children: (
-                <div>
+                <div style={{display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0}}>
                     <Search
                         placeholder="搜索表名"
                         allowClear
                         value={searchValue}
                         onChange={(e) => setSearchValue(e.target.value)}
-                        style={{marginBottom: 8}}
+                        style={{marginBottom: 8, flexShrink: 0}}
                         loading={loading}
                     />
-                    <Spin spinning={loading}>
-                        <Tree
-                            treeData={treeDataMemo}
-                            expandedKeys={expandedKeys}
-                            onExpand={(keys) => setExpandedKeys(keys as string[])}
-                            onSelect={onTreeSelect}
-                            showIcon
-                            style={{fontSize: 13}}
-                            height={400}
-                        />
-                    </Spin>
+                    <div style={{flex: 1, minHeight: 0, overflow: 'auto'}}>
+                        <Spin spinning={loading}>
+                            <Tree
+                                treeData={treeDataMemo}
+                                expandedKeys={expandedKeys}
+                                onExpand={(keys) => setExpandedKeys(keys as string[])}
+                                onSelect={onTreeSelect}
+                                showIcon
+                                style={{fontSize: 13}}
+                                height={600}
+                            />
+                        </Spin>
+                    </div>
                 </div>
             )
         },
         {
             key: 'favorites',
+            style: {flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden'},
             label: (
                 <span>
                     <StarOutlined/>
@@ -349,7 +353,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </span>
             ),
             children: (
-                <div style={{height: 450, overflow: 'auto'}}>
+                <div style={{flex: 1, minHeight: 0, overflow: 'auto'}}>
                     {favorites.length > 0 ? (
                         <List
                             size="small"
@@ -385,6 +389,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         },
         {
             key: 'history',
+            style: {flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden'},
             label: (
                 <span>
                     <HistoryOutlined/>
@@ -392,7 +397,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </span>
             ),
             children: (
-                <div style={{height: 450, overflow: 'auto'}}>
+                <div style={{flex: 1, minHeight: 0, overflow: 'auto'}}>
                     {history.length > 0 ? (
                         <List
                             size="small"
@@ -448,14 +453,14 @@ const Sidebar: React.FC<SidebarProps> = ({
     ];
 
     return (
-        <div style={{height: '100%', background: '#fff', borderRight: '1px solid #f0f0f0'}}>
+        <div style={{height: '100%', background: '#fff', borderRight: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column'}}>
             <Tabs
                 activeKey={activeTab}
                 onChange={setActiveTab}
                 items={tabItems}
                 size="small"
-                style={{padding: '0 8px'}}
-                tabBarStyle={{marginBottom: 8, paddingLeft: 8}}
+                style={{padding: '0 8px', flex: 1, display: 'flex', flexDirection: 'column'}}
+                tabBarStyle={{marginBottom: 8, paddingLeft: 8, flexShrink: 0}}
             />
         </div>
     );

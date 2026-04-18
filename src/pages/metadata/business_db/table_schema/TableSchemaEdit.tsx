@@ -227,20 +227,11 @@ const TableSchemaEdit: React.FC = () => {
                 setTableComment(schema.tableComment || '');
 
                 const loadedColumns = (schema.columns || []).map(col => ({...col, _id: generateId()}));
+                setColumns(loadedColumns);
 
-                // 检查并补充缺失的时间字段
-                const {columns: finalColumns, addedCount, addedNames} = ensureDefaultTimeColumns(loadedColumns);
-                setColumns(finalColumns);
-
-                if (addedCount > 0) {
-                    message.info(`已自动添加缺失的时间字段: ${addedNames.join(', ')}`);
-                }
-
-                // 加载索引并补充缺失的时间索引
+                // 加载索引
                 const loadedIndexes = (schema.indexes || []).map(idx => ({...idx, _id: generateId()}));
-                const allColumnNames = finalColumns.map(col => col.name.toLowerCase());
-                const finalIndexes = ensureDefaultTimeIndexes(loadedIndexes, allColumnNames);
-                setIndexes(finalIndexes);
+                setIndexes(loadedIndexes);
             } else {
                 message.error(response.message || '获取表结构失败');
             }
@@ -467,20 +458,32 @@ const TableSchemaEdit: React.FC = () => {
             return;
         }
 
-        // 检查并补充缺失的时间字段
+        // 检查缺失的时间字段
         const {columns: finalColumns, addedCount, addedNames} = ensureDefaultTimeColumns(columns);
 
         if (addedCount > 0) {
-            message.info(`已自动添加缺失的时间字段: ${addedNames.join(', ')}`);
-            setColumns(finalColumns);
-            // 同时补充缺失的索引
-            const allColumnNames = finalColumns.map(col => col.name.toLowerCase());
-            const finalIndexes = ensureDefaultTimeIndexes(indexes, allColumnNames);
-            setIndexes(finalIndexes);
-            return; // 让用户确认后再保存
+            Modal.confirm({
+                title: '自动补全字段',
+                content: `检测到缺失以下字段：${addedNames.join(', ')}，是否自动补全？`,
+                okText: '确认补全并保存',
+                cancelText: '不补全，直接保存',
+                onOk: () => {
+                    const allColumnNames = finalColumns.map(col => col.name.toLowerCase());
+                    const finalIndexes = ensureDefaultTimeIndexes(indexes, allColumnNames);
+                    doSave(finalColumns, finalIndexes);
+                },
+                onCancel: () => {
+                    doSave(columns, indexes);
+                },
+            });
+            return;
         }
 
-        if (columns.length === 0) {
+        doSave(columns, indexes);
+    };
+
+    const doSave = async (saveColumns: EditableColumn[], saveIndexes: EditableIndex[]) => {
+        if (saveColumns.length === 0) {
             message.warning('请至少添加一个字段');
             return;
         }
@@ -495,8 +498,8 @@ const TableSchemaEdit: React.FC = () => {
             const cmd: TableSchemaCmd = {
                 tableName: tableNameValue,
                 tableComment,
-                columns: finalColumns.map(({_id, ...col}) => col),
-                indexes: indexes.map(({_id, ...idx}) => idx),
+                columns: saveColumns.map(({_id, ...col}) => col),
+                indexes: saveIndexes.map(({_id, ...idx}) => idx),
             };
 
             let response;

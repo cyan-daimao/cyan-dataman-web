@@ -69,7 +69,7 @@ const App: React.FC = () => {
     } = theme.useToken();
 
     return (
-        <Layout style={{minHeight: '100vh', display: 'flex', flexDirection: 'column'}}>
+        <Layout style={{height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden'}}>
             <Header style={{display: 'flex', alignItems: 'center', background: "#fff", color: '#333', flexShrink: 0}}>
                 <div style={{background: "#fff"}}>
                     <Logo/>
@@ -83,7 +83,7 @@ const App: React.FC = () => {
                     style={{flex: 1, minWidth: 0, marginLeft: 24}}
                 />
             </Header>
-            <Content style={{flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column'}}>
+            <Content style={{flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0}}>
                 <div
                     style={{
                         background: colorBgContainer,
@@ -92,6 +92,8 @@ const App: React.FC = () => {
                         borderRadius: borderRadiusLG,
                         boxSizing: 'border-box',
                         display: 'flex',
+                        minHeight: 0,
+                        overflow: 'hidden',
                     }}
                 >
                     <Outlet/>
