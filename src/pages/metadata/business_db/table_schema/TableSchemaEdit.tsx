@@ -320,14 +320,15 @@ const TableSchemaEdit: React.FC = () => {
             _id: generateId(),
             name: '',
             type: 'VARCHAR',
+            precision: 255,
             comment: '',
             nullable: false,
             autoIncrement: false,
         };
 
-        // 找到 created_at 字段的索引
+        // 找到 create_by 字段的索引
         const createdAtIndex = columns.findIndex(
-            col => col.name.toLowerCase() === 'created_at'
+            col => col.name.toLowerCase() === 'create_by'
         );
 
         if (createdAtIndex === -1) {
