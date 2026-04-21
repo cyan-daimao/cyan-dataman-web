@@ -20,3 +20,13 @@ export const executeSql = async (sql: string): Promise<Response<SqlResultDTO>> =
         throw new Error(e);
     }
 }
+// 执行SparkSQL
+export const executeSparkSql = async (sql: string): Promise<Response<SqlResultDTO>> => {
+    try {
+        return  await datagatewayRequest.post('/api/v1/spark/sql/execute', {
+            sql: sql
+        });
+    } catch (e) {
+        throw new Error(e);
+    }
+}

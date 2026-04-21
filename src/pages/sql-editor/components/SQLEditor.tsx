@@ -9,7 +9,7 @@ import {
     FormatPainterOutlined,
     FullscreenOutlined,
 } from '@ant-design/icons';
-import {ColumnVO} from '../../../api/MetadataTableAPI';
+import {ColumnVO} from '@/api/MetadataTableAPI.ts';
 
 interface SQLEditorProps {
     value: string;
@@ -18,6 +18,7 @@ interface SQLEditorProps {
     onExecutePlan: () => void;
     onFormat: () => void;
     tableColumnsCache?: Record<string, ColumnVO[]>;
+    theme?: 'light' | 'dark';
 }
 
 // SQL 关键字
@@ -51,8 +52,10 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
     onExecute,
     onExecutePlan,
     onFormat,
-    tableColumnsCache = {}
+    tableColumnsCache = {},
+    theme = 'light'
 }) => {
+    const isDark = theme === 'dark';
     const editorRef = useRef<any>(null);
     const monacoRef = useRef<Monaco | null>(null);
 
@@ -185,8 +188,8 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
             {/* 工具栏 */}
             <div style={{
                 padding: '8px 12px',
-                borderBottom: '1px solid #f0f0f0',
-                background: '#fafafa',
+                borderBottom: `1px solid ${isDark ? '#303030' : '#f0f0f0'}`,
+                background: isDark ? '#1e1e1e' : '#fafafa',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center'
@@ -224,7 +227,7 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
                     value={value}
                     onChange={(val) => onChange(val || '')}
                     onMount={handleEditorDidMount}
-                    theme="vs-light"
+                    theme={isDark ? "vs-dark" : "vs-light"}
                     options={{
                         minimap: {enabled: false},
                         fontSize: 14,
