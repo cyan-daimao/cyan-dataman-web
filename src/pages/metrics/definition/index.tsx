@@ -14,6 +14,7 @@ import {
 } from '@/api/MetricApi';
 import { ModifierApi, ModifierDTO, TimePeriodApi, TimePeriodDTO, DimensionApi, DimensionDTO, DimType, MetadataTableSelectorApi, MetadataColumnDTO } from '@/api/MetricConfigApi';
 import { MetricSubjectApi, MetricSubject } from '@/api/MetricSubjectApi';
+import { executeSql } from '@/api/DatagawayApi';
 import { ApiResponse } from '@/api/Response';
 
 const { Title, Text } = Typography;
@@ -150,16 +151,47 @@ const MetadataTableSelector: React.FC<MetadataTableSelectorProps> = ({ value, on
 
 const SqlPreviewPanel: React.FC<{
     metricType: MetricType;
-    definitionBody: Record<string, unknown>;
-}> = ({ metricType, definitionBody }) => {
+}> = ({ metricType }) => {
+    const form = Form.useFormInstance();
     const [sql, setSql] = useState<string>('');
     const [previewLoading, setPreviewLoading] = useState(false);
     const [trialLoading, setTrialLoading] = useState(false);
-    const [trialResult, setTrialResult] = useState<TrialResult | null>(null);
+    const [sqlResult, setSqlResult] = useState<any>(null);
+
+    const buildDefinitionBody = (): Record<string, unknown> => {
+        const values = form.getFieldsValue();
+        if (metricType === MetricType.ATOMIC) {
+            return {
+                statFunc: values.statFunc,
+                dsName: values.dsSelector?.dsName,
+                dbName: values.dsSelector?.dbName,
+                tblName: values.dsSelector?.tblName,
+                colName: values.dsSelector?.colName,
+                filterCondition: values.filterCondition || [],
+            };
+        }
+        if (metricType === MetricType.DERIVED) {
+            return {
+                atomicMetricId: values.atomicMetricId,
+                timePeriodId: values.timePeriodId,
+                modifierIds: values.modifierIds || [],
+                dimensionIds: values.dimensionIds || [],
+                groupByFields: values.groupByFields || [],
+            };
+        }
+        if (metricType === MetricType.COMPOSITE) {
+            return {
+                formula: values.formula,
+                metricRefs: values.metricRefs || [],
+            };
+        }
+        return {};
+    };
 
     const handlePreview = async () => {
         setPreviewLoading(true);
         try {
+            const definitionBody = buildDefinitionBody();
             const res = await MetricApi.previewSql({ metricType, definitionBody });
             if (res.code === 200 && res.data) {
                 setSql(res.data);
@@ -176,14 +208,28 @@ const SqlPreviewPanel: React.FC<{
     const handleTrial = async () => {
         setTrialLoading(true);
         try {
-            const res = await MetricApi.trial({ metricType, definitionBody, limit: 100 });
+            // 先获取 SQL（如果还没有预览过）
+            let currentSql = sql;
+            if (!currentSql) {
+                const definitionBody = buildDefinitionBody();
+                const previewRes = await MetricApi.previewSql({ metricType, definitionBody });
+                if (previewRes.code === 200 && previewRes.data) {
+                    currentSql = previewRes.data;
+                    setSql(currentSql);
+                } else {
+                    message.error(previewRes.message || 'SQL生成失败');
+                    return;
+                }
+            }
+            // 直接调用 datagateway 执行 SQL
+            const res = await executeSql(currentSql);
             if (res.code === 200 && res.data) {
-                setTrialResult(res.data);
+                setSqlResult(res.data);
             } else {
                 message.error(res.message || '试算失败');
             }
-        } catch {
-            message.error('SQL试算失败');
+        } catch (err: any) {
+            message.error(err?.message || 'SQL试算失败');
         } finally {
             setTrialLoading(false);
         }
@@ -198,19 +244,17 @@ const SqlPreviewPanel: React.FC<{
             {sql && (
                 <pre style={{ background: '#fff', padding: 12, borderRadius: 4, overflow: 'auto' }}>{sql}</pre>
             )}
-            {trialResult && (
+            {sqlResult && (
                 <div style={{ marginTop: 8 }}>
-                    <Text type="secondary">执行耗时: {trialResult.costTime}ms</Text>
+                    <Text type="secondary">执行耗时: {sqlResult.costTimeMs}ms</Text>
                     <Table
                         size="small"
-                        dataSource={trialResult.rows.map((row, idx) => {
-                            const obj: Record<string, unknown> = { key: idx };
-                            trialResult.columns.forEach((col, cidx) => {
-                                obj[col.name] = row[cidx];
-                            });
-                            return obj;
-                        })}
-                        columns={trialResult.columns.map(col => ({ title: col.name, dataIndex: col.name, key: col.name }))}
+                        dataSource={sqlResult.data || []}
+                        columns={sqlResult.data && sqlResult.data.length > 0 ? Object.keys(sqlResult.data[0]).map(key => ({
+                            title: key,
+                            dataIndex: key,
+                            key: key,
+                        })) : []}
                         pagination={false}
                     />
                 </div>
@@ -459,36 +503,6 @@ const MetricsDefinition: React.FC = () => {
         } catch {
             message.error('状态更新失败');
         }
-    };
-
-    const getDefinitionBody = (): Record<string, unknown> => {
-        const values = form.getFieldsValue();
-        if (modalType === MetricType.ATOMIC) {
-            return {
-                statFunc: values.statFunc,
-                dsName: values.dsSelector?.dsName,
-                dbName: values.dsSelector?.dbName,
-                tblName: values.dsSelector?.tblName,
-                colName: values.dsSelector?.colName,
-                filterCondition: values.filterCondition || [],
-            };
-        }
-        if (modalType === MetricType.DERIVED) {
-            return {
-                atomicMetricId: values.atomicMetricId,
-                timePeriodId: values.timePeriodId,
-                modifierIds: values.modifierIds || [],
-                dimensionIds: values.dimensionIds || [],
-                groupByFields: values.groupByFields || [],
-            };
-        }
-        if (modalType === MetricType.COMPOSITE) {
-            return {
-                formula: values.formula,
-                metricRefs: values.metricRefs || [],
-            };
-        }
-        return {};
     };
 
     const columns = [
@@ -745,7 +759,7 @@ const MetricsDefinition: React.FC = () => {
 
                     <Divider />
                     {modalType && (
-                        <SqlPreviewPanel metricType={modalType} definitionBody={getDefinitionBody()} />
+                        <SqlPreviewPanel metricType={modalType} />
                     )}
                 </Form>
             </Modal>
