@@ -143,7 +143,7 @@ const ModifierManager: React.FC = () => {
                 columns={columns}
                 dataSource={data}
                 loading={loading}
-                pagination={{ current: pageNum, pageSize, total, onChange: setPageNum }}
+                pagination={{ current: pageNum, pageSize, total, onChange: setPageNum, showTotal: (t) => `共 ${t} 条` }}
                 locale={{ emptyText: <Empty description="暂无修饰词" /> }}
             />
             <Modal

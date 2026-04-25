@@ -655,7 +655,7 @@ const MetricsDefinition: React.FC = () => {
                 columns={columns}
                 dataSource={data}
                 loading={loading}
-                pagination={{ current: pageNum, pageSize, total, onChange: setPageNum }}
+                pagination={{ current: pageNum, pageSize, total, onChange: setPageNum, showTotal: (t) => `共 ${t} 条` }}
                 scroll={{ x: 1200 }}
                 locale={{ emptyText: <Empty description="暂无指标数据" /> }}
             />

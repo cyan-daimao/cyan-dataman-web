@@ -92,6 +92,12 @@ const MetricsDictionary: React.FC = () => {
         fetchData(1, code, query);
     };
 
+    const handleSelectAllSubjects = () => {
+        setSelectedSubject(undefined);
+        setPageNum(1);
+        fetchData(1, undefined, query);
+    };
+
     const handleSearch = (value: string) => {
         setQuery(value);
         setPageNum(1);
@@ -212,6 +218,14 @@ const MetricsDictionary: React.FC = () => {
                 style={{ width: 260, minWidth: 260, overflow: 'auto' }}
                 bodyStyle={{ padding: '12px' }}
             >
+                <Button
+                    type={selectedSubject === undefined ? 'primary' : 'default'}
+                    block
+                    style={{ marginBottom: 12 }}
+                    onClick={handleSelectAllSubjects}
+                >
+                    全部主题
+                </Button>
                 {subjectLoading ? (
                     <Spin size="small" />
                 ) : (
@@ -219,6 +233,7 @@ const MetricsDictionary: React.FC = () => {
                         treeData={buildTreeData(subjects)}
                         defaultExpandAll
                         onSelect={handleSubjectSelect}
+                        selectedKeys={selectedSubject ? [selectedSubject] : []}
                     />
                 )}
             </Card>
@@ -260,7 +275,7 @@ const MetricsDictionary: React.FC = () => {
                         <List
                             grid={{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 3, xl: 4 }}
                             dataSource={data}
-                            pagination={{ current: pageNum, pageSize, total, onChange: handlePageChange }}
+                            pagination={{ current: pageNum, pageSize, total, onChange: handlePageChange, showTotal: (t) => `共 ${t} 条` }}
                             renderItem={item => (
                                 <List.Item>
                                     <Card
@@ -298,7 +313,7 @@ const MetricsDictionary: React.FC = () => {
                             rowKey="id"
                             columns={listColumns}
                             dataSource={data}
-                            pagination={{ current: pageNum, pageSize, total, onChange: handlePageChange }}
+                            pagination={{ current: pageNum, pageSize, total, onChange: handlePageChange, showTotal: (t) => `共 ${t} 条` }}
                             loading={loading}
                         />
                     )}

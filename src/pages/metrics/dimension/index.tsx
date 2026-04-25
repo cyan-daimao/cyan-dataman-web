@@ -716,7 +716,7 @@ const DimensionPage: React.FC = () => {
                     columns={columns}
                     dataSource={dimensions}
                     loading={dimensionLoading}
-                    pagination={{ current: pageNum, pageSize, total, onChange: setPageNum }}
+                    pagination={{ current: pageNum, pageSize, total, onChange: setPageNum, showTotal: (t) => `共 ${t} 条` }}
                     scroll={{ x: 1000 }}
                     locale={{ emptyText: <Empty description="暂无维度数据" /> }}
                 />
