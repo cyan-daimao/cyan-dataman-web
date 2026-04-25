@@ -1,4 +1,4 @@
-import { datametricRequest } from './Request';
+import { datametricRequest, datamanRequest } from './Request';
 import { ApiResponse } from './Response';
 import { AxiosRequestConfig } from 'axios';
 import { PageResult, PageQuery, PeriodType, RelativeUnit } from './MetricApi';
@@ -51,28 +51,51 @@ export interface TimePeriodCmd {
 
 // ==================== 公共维度 ====================
 
+export enum DimType {
+    ENUM = 'ENUM',
+    STRING = 'STRING',
+    DATE = 'DATE',
+    NUMBER = 'NUMBER',
+    GEO = 'GEO',
+}
+
+export enum DataType {
+    STRING = 'STRING',
+    INT = 'INT',
+    BIGINT = 'BIGINT',
+    DECIMAL = 'DECIMAL',
+    DATE = 'DATE',
+    DATETIME = 'DATETIME',
+}
+
 export interface DimensionDTO {
     id: string;
     dimCode: string;
     dimName: string;
-    dsName: string;
-    dbName: string;
-    tblName: string;
-    colName: string;
-    description: string;
+    dimType: DimType;
+    dataType: DataType;
+    dimValues?: string[];
+    categoryId?: string;
+    categoryName?: string;
+    tableName?: string;
+    columnName?: string;
+    description?: string;
 }
 
 export interface DimensionCmd {
     dimName: string;
-    dsName: string;
-    dbName: string;
-    tblName: string;
-    colName: string;
+    dimType: DimType;
+    dataType: DataType;
+    dimValues?: string[];
+    categoryId?: string;
+    tableName?: string;
+    columnName?: string;
     description?: string;
 }
 
 export interface DimensionPageQuery extends PageQuery {
     dimName?: string;
+    categoryId?: string;
 }
 
 // ==================== API 常量 ====================
@@ -166,6 +189,61 @@ export const TimePeriodApi = {
     delete: async (id: string): Promise<ApiResponse<void>> => {
         return datametricRequest.delete(`${BASE}/time-periods/${id}`);
     },
+};
+
+// ==================== 维表选择 API ====================
+
+export interface MetadataColumnDTO {
+    id: string;
+    col: string;
+    dataType: string;
+    comment?: string;
+}
+
+/**
+ * dataman 分页结构（与 datametric 的 PageResult 不同）
+ */
+export interface DatamanPageResult<T> {
+    data: T[];
+    current: number;
+    size: number;
+    total: number;
+    pageCount: number;
+}
+
+export interface MetadataTableItem {
+    id: string;
+    name: string;
+    subjectName?: string;
+    layerCode?: string;
+    table?: {
+        catalog: string;
+        schema: string;
+        name: string;
+        comment?: string;
+    };
+}
+
+export const MetadataTableSelectorApi = {
+    /**
+     * 获取 dataman 的元数据表列表（用于数仓表选择）
+     * GET /api/v1/metadata/tables
+     *
+     * 注意：dataman 返回分页字段为 data/current/size/total/pageCount，
+     * 与 datametric 的 list/pageNum/pageSize 不同，需单独定义类型。
+     */
+    list: async (query?: { layerCode?: string; keyword?: string }): Promise<ApiResponse<DatamanPageResult<MetadataTableItem>>> => {
+        const config: AxiosRequestConfig = { params: query };
+        return datamanRequest.get('/api/v1/metadata/tables', config);
+    },
+
+    /**
+     * 获取 dataman 的元数据表字段列表
+     * GET /api/v1/metadata/tables/{id}/columns
+     */
+    columns: async (tableId: string): Promise<ApiResponse<MetadataColumnDTO[]>> => {
+        return datamanRequest.get(`/api/v1/metadata/tables/${tableId}/columns`);
+    }
 };
 
 // ==================== 公共维度 API ====================

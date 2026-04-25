@@ -18,6 +18,7 @@ const MetricsDefinition = React.lazy(() => import((`@/pages/metrics/definition/i
 const MetricsDictionary = React.lazy(() => import((`@/pages/metrics/dictionary/index.tsx`)))
 const MetricsAnalysis = React.lazy(() => import((`@/pages/metrics/analysis/index.tsx`)))
 const MetricsConfig = React.lazy(() => import((`@/pages/metrics/config/index.tsx`)))
+const MetricsDimension = React.lazy(() => import((`@/pages/metrics/dimension/index.tsx`)))
 const SQLEditor = React.lazy(() => import((`@/pages/sql-editor/index.tsx`)))
 const DataWork = React.lazy(() => import((`@/pages/data-work/index.tsx`)))
 
@@ -163,6 +164,10 @@ const routes = createBrowserRouter([
                     {
                         path: "config",
                         element: <MetricsConfig/>
+                    },
+                    {
+                        path: "dimension",
+                        element: <MetricsDimension/>
                     },
                 ]
             }, {

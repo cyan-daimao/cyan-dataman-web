@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import {
     Tabs, Table, Button, Space, Modal, Form, Input, Select, InputNumber, message,
-    Empty, Popconfirm, Tag,
+    Empty, Popconfirm, Tag, Tree, TreeSelect, Spin, Typography, Card,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import {
     ModifierApi, ModifierDTO, ModifierCmd,
     TimePeriodApi, TimePeriodDTO, TimePeriodCmd,
-    DimensionApi, DimensionDTO, DimensionCmd,
 } from '@/api/MetricConfigApi';
 import { PeriodType, RelativeUnit } from '@/api/MetricApi';
+import { MetricSubjectApi, MetricSubject, MetricSubjectCmd } from '@/api/MetricSubjectApi';
 
 const { TabPane } = Tabs;
 const { TextArea } = Input;
@@ -360,51 +360,47 @@ const TimePeriodManager: React.FC = () => {
     );
 };
 
-// ==================== 公共维度管理 ====================
+// ==================== 主题域管理 ====================
 
-const DimensionManager: React.FC = () => {
-    const [data, setData] = useState<DimensionDTO[]>([]);
+const { Text } = Typography;
+
+const SubjectDomainManager: React.FC = () => {
+    const [treeData, setTreeData] = useState<MetricSubject[]>([]);
     const [loading, setLoading] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
-    const [editing, setEditing] = useState<DimensionDTO | null>(null);
+    const [editing, setEditing] = useState<MetricSubject | null>(null);
     const [form] = Form.useForm();
-    const [pageNum, setPageNum] = useState(1);
-    const [pageSize] = useState(20);
-    const [total, setTotal] = useState(0);
 
-    const fetchData = async (page = 1) => {
+    const fetchTree = async () => {
         setLoading(true);
         try {
-            const res = await DimensionApi.page({ pageNum: page, pageSize });
-            if (res.code === 200 && res.data) {
-                setData(res.data.list);
-                setTotal(res.data.total);
-            }
+            const data = await MetricSubjectApi.tree();
+            setTreeData(data);
         } catch {
-            message.error('获取维度列表失败');
+            message.error('加载主题域失败');
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        fetchTree();
     }, []);
 
-    const handleSave = async (values: DimensionCmd) => {
+    const handleSave = async (values: MetricSubjectCmd) => {
         try {
+            const payload = { ...values, parentId: values.parentId || '0' };
             if (editing) {
-                await DimensionApi.update(editing.id, values);
+                await MetricSubjectApi.update(editing.id, payload);
                 message.success('更新成功');
             } else {
-                await DimensionApi.create(values);
+                await MetricSubjectApi.create(payload);
                 message.success('创建成功');
             }
             setModalVisible(false);
             form.resetFields();
             setEditing(null);
-            fetchData(pageNum);
+            fetchTree();
         } catch {
             message.error('保存失败');
         }
@@ -412,46 +408,103 @@ const DimensionManager: React.FC = () => {
 
     const handleDelete = async (id: string) => {
         try {
-            await DimensionApi.delete(id);
+            await MetricSubjectApi.deleteById(id);
             message.success('删除成功');
-            fetchData(pageNum);
+            fetchTree();
         } catch {
             message.error('删除失败');
         }
     };
 
-    const columns = [
-        { title: '维度编码', dataIndex: 'dimCode', key: 'dimCode' },
-        { title: '维度名称', dataIndex: 'dimName', key: 'dimName' },
-        { title: '数据源', dataIndex: 'dsName', key: 'dsName' },
-        { title: '数据库', dataIndex: 'dbName', key: 'dbName' },
-        { title: '表', dataIndex: 'tblName', key: 'tblName' },
-        { title: '字段', dataIndex: 'colName', key: 'colName' },
-        { title: '描述', dataIndex: 'description', key: 'description', ellipsis: true },
-        {
-            title: '操作',
-            key: 'action',
-            width: 150,
-            render: (_: unknown, record: DimensionDTO) => (
-                <Space>
-                    <Button
-                        type="link"
-                        icon={<EditOutlined />}
-                        onClick={() => {
-                            setEditing(record);
-                            form.setFieldsValue(record);
-                            setModalVisible(true);
-                        }}
-                    >
-                        编辑
-                    </Button>
-                    <Popconfirm title="确认删除？" onConfirm={() => handleDelete(record.id)}>
-                        <Button type="link" danger icon={<DeleteOutlined />}>删除</Button>
-                    </Popconfirm>
-                </Space>
+    const handleAddRoot = () => {
+        setEditing(null);
+        form.resetFields();
+        form.setFieldsValue({ parentId: '0', sortOrder: 0 });
+        setModalVisible(true);
+    };
+
+    const handleAddChild = (parent: MetricSubject) => {
+        setEditing(null);
+        form.resetFields();
+        form.setFieldsValue({ parentId: parent.id, sortOrder: 0 });
+        setModalVisible(true);
+    };
+
+    const handleEdit = (record: MetricSubject) => {
+        setEditing(record);
+        form.setFieldsValue({
+            subjectCode: record.subjectCode,
+            subjectName: record.subjectName,
+            subjectDesc: record.subjectDesc,
+            parentId: record.parentId === '0' ? undefined : record.parentId,
+            sortOrder: record.sortOrder,
+        });
+        setModalVisible(true);
+    };
+
+    const buildTreeNodes = (list: MetricSubject[]): React.ComponentProps<typeof Tree>['treeData'] => {
+        return list.map(item => ({
+            key: item.id,
+            title: (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                    <span>
+                        <Text strong>{item.subjectName}</Text>
+                        <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
+                            ({item.subjectCode})
+                        </Text>
+                    </span>
+                    <Space size="small">
+                        {item.level < 3 && (
+                            <Button
+                                type="link"
+                                size="small"
+                                onClick={(e) => { e.stopPropagation(); handleAddChild(item); }}
+                            >
+                                新增子级
+                            </Button>
+                        )}
+                        <Button
+                            type="link"
+                            size="small"
+                            onClick={(e) => { e.stopPropagation(); handleEdit(item); }}
+                        >
+                            编辑
+                        </Button>
+                        <Popconfirm
+                            title="确认删除？"
+                            onConfirm={() => handleDelete(item.id)}
+                        >
+                            <Button
+                                type="link"
+                                size="small"
+                                danger
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                删除
+                            </Button>
+                        </Popconfirm>
+                    </Space>
+                </div>
             ),
-        },
-    ];
+            children: item.children ? buildTreeNodes(item.children) : undefined,
+        }));
+    };
+
+    const buildParentTreeData = (
+        list: MetricSubject[],
+        excludeId?: string
+    ): React.ComponentProps<typeof TreeSelect>['treeData'] => {
+        return list
+            .filter(item => item.id !== excludeId)
+            .map(item => ({
+                key: item.id,
+                value: item.id,
+                title: item.subjectName,
+                children: item.children
+                    ? buildParentTreeData(item.children, excludeId)
+                    : undefined,
+            }));
+    };
 
     return (
         <div>
@@ -459,48 +512,51 @@ const DimensionManager: React.FC = () => {
                 <Button
                     type="primary"
                     icon={<PlusOutlined />}
-                    onClick={() => {
-                        setEditing(null);
-                        form.resetFields();
-                        setModalVisible(true);
-                    }}
+                    onClick={handleAddRoot}
                 >
-                    新增维度
+                    新增主题域
                 </Button>
             </div>
-            <Table
-                rowKey="id"
-                columns={columns}
-                dataSource={data}
-                loading={loading}
-                pagination={{ current: pageNum, pageSize, total, onChange: setPageNum }}
-                locale={{ emptyText: <Empty description="暂无维度" /> }}
-            />
+            {loading ? (
+                <div style={{ textAlign: 'center', padding: 40 }}>
+                    <Spin tip="加载中..." />
+                </div>
+            ) : (
+                <Card>
+                    <Tree
+                        treeData={buildTreeNodes(treeData)}
+                        defaultExpandAll
+                        blockNode
+                    />
+                </Card>
+            )}
             <Modal
-                title={editing ? '编辑维度' : '新增维度'}
+                title={editing ? '编辑主题域' : '新增主题域'}
                 open={modalVisible}
                 onOk={() => form.submit()}
                 onCancel={() => { setModalVisible(false); form.resetFields(); setEditing(null); }}
                 destroyOnClose
             >
                 <Form form={form} onFinish={handleSave} layout="vertical">
-                    <Form.Item name="dimName" label="维度名称" rules={[{ required: true }]}>
-                        <Input placeholder="如：日期维度" />
+                    <Form.Item name="subjectCode" label="主题编码" rules={[{ required: true, message: '请输入主题编码' }]}>
+                        <Input placeholder="请输入主题编码" />
                     </Form.Item>
-                    <Form.Item name="dsName" label="数据源" rules={[{ required: true }]}>
-                        <Input placeholder="数据源名称" />
+                    <Form.Item name="subjectName" label="主题名称" rules={[{ required: true, message: '请输入主题名称' }]}>
+                        <Input placeholder="请输入主题名称" />
                     </Form.Item>
-                    <Form.Item name="dbName" label="数据库" rules={[{ required: true }]}>
-                        <Input placeholder="数据库名称" />
+                    <Form.Item name="subjectDesc" label="主题描述">
+                        <Input.TextArea rows={2} placeholder="请输入主题描述" />
                     </Form.Item>
-                    <Form.Item name="tblName" label="表名" rules={[{ required: true }]}>
-                        <Input placeholder="表名" />
+                    <Form.Item name="parentId" label="父主题域">
+                        <TreeSelect
+                            treeData={buildParentTreeData(treeData, editing?.id)}
+                            placeholder="选择父主题域（不选则为根节点）"
+                            allowClear
+                            treeDefaultExpandAll
+                        />
                     </Form.Item>
-                    <Form.Item name="colName" label="字段名" rules={[{ required: true }]}>
-                        <Input placeholder="字段名" />
-                    </Form.Item>
-                    <Form.Item name="description" label="描述">
-                        <TextArea rows={2} placeholder="描述该维度的业务含义" />
+                    <Form.Item name="sortOrder" label="排序号">
+                        <InputNumber style={{ width: '100%' }} placeholder="请输入排序号" min={0} />
                     </Form.Item>
                 </Form>
             </Modal>
@@ -520,8 +576,8 @@ const MetricsConfig: React.FC = () => {
                 <TabPane tab="时间周期管理" key="timePeriod">
                     <TimePeriodManager />
                 </TabPane>
-                <TabPane tab="公共维度管理" key="dimension">
-                    <DimensionManager />
+                <TabPane tab="主题域管理" key="subject">
+                    <SubjectDomainManager />
                 </TabPane>
             </Tabs>
         </div>

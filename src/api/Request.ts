@@ -9,13 +9,14 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         dataman: "http://cyan-dataman.cyan.com/",
         employee: "http://cyan-employee.cyan.com/",
         datagateway: "http://cyan-datagateway.cyan.com/",
-        datametric: "http://cyan-datametric.cyan.com/"
+        datametric: "http://localhost:8082/"
     },
     "pre": {
         dataman: "http://cyan-dataman-pre.cyan.com/",
         employee: "http://cyan-employee-pre.cyan.com/",
         datagateway: "http://cyan-datagateway-pre.cyan.com/",
-        datametric: "http://cyan-datametric-pre.cyan.com/"
+        // datametric: "http://cyan-datametric-pre.cyan.com/"
+        datametric: "http://localhost:8082/"
     },
     "prod":  {
         dataman: "http://cyan-dataman-prod.cyan.com/",

@@ -11,7 +11,7 @@ import {
     MetricDictionaryApi, MetricApi, MetricLineageApi,
     DictionaryMetricDTO, MetricDetail, MetricType, MetricStatus, LineageResult, NodeType,
 } from '@/api/MetricApi';
-import { treeSubjects, SubjectDTO } from '@/api/MetadataSubjectAPI';
+import { MetricSubjectApi, MetricSubject } from '@/api/MetricSubjectApi';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
@@ -29,7 +29,7 @@ const statusTagMap: Record<string, { color: string; label: string }> = {
 };
 
 const MetricsDictionary: React.FC = () => {
-    const [subjects, setSubjects] = useState<SubjectDTO[]>([]);
+    const [subjects, setSubjects] = useState<MetricSubject[]>([]);
     const [subjectLoading, setSubjectLoading] = useState(false);
     const [selectedSubject, setSelectedSubject] = useState<string | undefined>(undefined);
 
@@ -50,7 +50,7 @@ const MetricsDictionary: React.FC = () => {
     const fetchSubjects = async () => {
         setSubjectLoading(true);
         try {
-            const res = await treeSubjects();
+            const res = await MetricSubjectApi.tree();
             setSubjects(res);
         } catch {
             message.error('加载主题域失败');
@@ -146,7 +146,7 @@ const MetricsDictionary: React.FC = () => {
         }
     };
 
-    const buildTreeData = (list: SubjectDTO[]): React.ComponentProps<typeof Tree>['treeData'] => {
+    const buildTreeData = (list: MetricSubject[]): React.ComponentProps<typeof Tree>['treeData'] => {
         return list.map(item => ({
             key: item.id,
             title: item.subjectName,

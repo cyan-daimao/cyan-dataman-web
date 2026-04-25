@@ -6,7 +6,8 @@ import {
     SettingOutlined,
     MenuUnfoldOutlined,
     MenuFoldOutlined,
-    AppstoreOutlined
+    AppstoreOutlined,
+    TagOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { Layout, Menu, theme } from 'antd';
@@ -25,6 +26,7 @@ const pathToKeyMap: Record<string, string> = {
     '/metrics/dictionary': 'metrics-dictionary',
     '/metrics/analysis': 'metrics-analysis',
     '/metrics/config': 'metrics-config',
+    '/metrics/dimension': 'metrics-dimension',
 };
 
 const items: MenuProps['items'] = [
@@ -47,6 +49,11 @@ const items: MenuProps['items'] = [
         key: 'metrics-analysis',
         label: <Link to={'/metrics/analysis'}>指标分析</Link>,
         icon: <LineChartOutlined />,
+    },
+    {
+        key: 'metrics-dimension',
+        label: <Link to={'/metrics/dimension'}>维度管理</Link>,
+        icon: <TagOutlined />,
     },
     {
         key: 'metrics-config',

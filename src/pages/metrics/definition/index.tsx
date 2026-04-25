@@ -12,9 +12,8 @@ import {
     DerivedMetricCmd, CompositeMetricCmd, TrialResult,
     PageResult,
 } from '@/api/MetricApi';
-import { ModifierApi, ModifierDTO, TimePeriodApi, TimePeriodDTO, DimensionApi, DimensionDTO } from '@/api/MetricConfigApi';
-import { DSApi, databaseApi, tableApi } from '@/api/DSApi';
-import { treeSubjects, SubjectDTO } from '@/api/MetadataSubjectAPI';
+import { ModifierApi, ModifierDTO, TimePeriodApi, TimePeriodDTO, DimensionApi, DimensionDTO, DimType, MetadataTableSelectorApi, MetadataColumnDTO } from '@/api/MetricConfigApi';
+import { MetricSubjectApi, MetricSubject } from '@/api/MetricSubjectApi';
 import { ApiResponse } from '@/api/Response';
 
 const { Title, Text } = Typography;
@@ -33,123 +32,116 @@ const statusTagMap: Record<string, { color: string; label: string }> = {
     OFFLINE: { color: 'error', label: '已下线' },
 };
 
-// ==================== 级联数据源选择器 ====================
+// ==================== 数仓表选择器 ====================
 
-interface CascadeDsSelectorProps {
-    value?: { dsName?: string; dbName?: string; tblName?: string; colName?: string };
-    onChange?: (value: { dsName: string; dbName: string; tblName: string; colName: string }) => void;
-    form?: ReturnType<typeof Form.useForm>[0];
+interface MetadataTableSelectorValue {
+    dsName?: string;
+    dbName?: string;
+    tblName?: string;
+    colName?: string;
 }
 
-const CascadeDsSelector: React.FC<CascadeDsSelectorProps> = ({ value, onChange }) => {
-    const [dsList, setDsList] = useState<{ name: string }[]>([]);
-    const [dbList, setDbList] = useState<{ name: string }[]>([]);
-    const [tblList, setTblList] = useState<{ tableName: string }[]>([]);
-    const [colList, setColList] = useState<{ name: string }[]>([]);
-    const [loadingDs, setLoadingDs] = useState(false);
-    const [loadingDb, setLoadingDb] = useState(false);
-    const [loadingTbl, setLoadingTbl] = useState(false);
-    const [loadingCol, setLoadingCol] = useState(false);
+interface MetadataTableSelectorProps {
+    value?: MetadataTableSelectorValue;
+    onChange?: (value: MetadataTableSelectorValue) => void;
+}
+
+const MetadataTableSelector: React.FC<MetadataTableSelectorProps> = ({ value, onChange }) => {
+    const [tableOptions, setTableOptions] = useState<{ id: string; name: string; layerCode?: string; catalog?: string; schema?: string }[]>([]);
+    const [tableLoading, setTableLoading] = useState(false);
+    const [columns, setColumns] = useState<MetadataColumnDTO[]>([]);
+    const [columnsLoading, setColumnsLoading] = useState(false);
 
     const current = value || {};
+    const currentTableName = current.tblName || '';
 
+    // 加载数仓表列表
     useEffect(() => {
-        setLoadingDs(true);
-        DSApi.list()
-            .then(res => { if (res.code === 200 && res.data) setDsList(res.data); })
-            .finally(() => setLoadingDs(false));
+        setTableLoading(true);
+        MetadataTableSelectorApi.list()
+            .then(res => {
+                if (res.code === 200 && res.data) {
+                    setTableOptions((res.data.data || []).map(item => ({
+                        id: item.id,
+                        name: item.name,
+                        layerCode: item.layerCode,
+                        catalog: item.table?.catalog,
+                        schema: item.table?.schema,
+                    })));
+                }
+            })
+            .catch(() => message.error('加载数仓表列表失败'))
+            .finally(() => setTableLoading(false));
     }, []);
 
+    // 根据当前表名加载字段列表
     useEffect(() => {
-        if (current.dsName) {
-            setLoadingDb(true);
-            databaseApi.list(current.dsName)
-                .then(res => { if (res.code === 200 && res.data) setDbList(res.data); })
-                .finally(() => setLoadingDb(false));
-        } else {
-            setDbList([]);
-            setTblList([]);
-            setColList([]);
+        const selected = tableOptions.find(t => t.name === currentTableName);
+        if (!selected) {
+            setColumns([]);
+            return;
         }
-    }, [current.dsName]);
+        setColumnsLoading(true);
+        MetadataTableSelectorApi.columns(selected.id)
+            .then(res => {
+                if (res.code === 200 && res.data) {
+                    setColumns(res.data);
+                } else {
+                    setColumns([]);
+                }
+            })
+            .catch(() => {
+                message.error('加载字段列表失败');
+                setColumns([]);
+            })
+            .finally(() => setColumnsLoading(false));
+    }, [currentTableName, tableOptions]);
 
-    useEffect(() => {
-        if (current.dsName && current.dbName) {
-            setLoadingTbl(true);
-            tableApi.list(current.dsName, current.dbName)
-                .then(res => { if (res.code === 200 && res.data) setTblList(res.data); })
-                .finally(() => setLoadingTbl(false));
-        } else {
-            setTblList([]);
-            setColList([]);
-        }
-    }, [current.dsName, current.dbName]);
+    const handleTableChange = (tableName: string | undefined) => {
+        const selected = tableOptions.find(t => t.name === tableName);
+        onChange?.({
+            dsName: selected?.catalog || '',
+            dbName: selected?.schema || '',
+            tblName: tableName || '',
+            colName: '',
+        });
+    };
 
-    useEffect(() => {
-        if (current.dsName && current.dbName && current.tblName) {
-            setLoadingCol(true);
-            tableApi.getSchema(current.dsName, current.dbName, current.tblName)
-                .then(res => {
-                    if (res.code === 200 && res.data) {
-                        setColList(res.data.columns.map(c => ({ name: c.name })));
-                    }
-                })
-                .finally(() => setLoadingCol(false));
-        } else {
-            setColList([]);
-        }
-    }, [current.dsName, current.dbName, current.tblName]);
-
-    const triggerChange = (changedValue: Partial<{ dsName: string; dbName: string; tblName: string; colName: string }>) => {
-        const next = { dsName: current.dsName || '', dbName: current.dbName || '', tblName: current.tblName || '', colName: current.colName || '', ...changedValue };
-        onChange?.(next);
+    const handleColumnChange = (colName: string | undefined) => {
+        onChange?.({ ...current, colName: colName || '' });
     };
 
     return (
         <Space direction="vertical" style={{ width: '100%' }}>
             <Select
-                placeholder="选择数据源"
-                value={current.dsName}
-                onChange={v => triggerChange({ dsName: v, dbName: '', tblName: '', colName: '' })}
-                loading={loadingDs}
+                showSearch
+                placeholder="选择数仓表"
+                value={currentTableName}
+                onChange={handleTableChange}
+                loading={tableLoading}
                 style={{ width: '100%' }}
                 allowClear
-            >
-                {dsList.map(ds => <Option key={ds.name} value={ds.name}>{ds.name}</Option>)}
-            </Select>
+                optionFilterProp="label"
+                options={tableOptions.map(t => ({
+                    value: t.name,
+                    label: `${t.name}${t.layerCode ? ' [' + t.layerCode + ']' : ''}`,
+                }))}
+            />
             <Select
-                placeholder="选择数据库"
-                value={current.dbName}
-                onChange={v => triggerChange({ dbName: v, tblName: '', colName: '' })}
-                loading={loadingDb}
-                style={{ width: '100%' }}
-                allowClear
-                disabled={!current.dsName}
-            >
-                {dbList.map(db => <Option key={db.name} value={db.name}>{db.name}</Option>)}
-            </Select>
-            <Select
-                placeholder="选择数据表"
-                value={current.tblName}
-                onChange={v => triggerChange({ tblName: v, colName: '' })}
-                loading={loadingTbl}
-                style={{ width: '100%' }}
-                allowClear
-                disabled={!current.dbName}
-            >
-                {tblList.map(t => <Option key={t.tableName} value={t.tableName}>{t.tableName}</Option>)}
-            </Select>
-            <Select
-                placeholder="选择字段"
+                showSearch
+                placeholder={currentTableName ? '选择字段' : '请先选择数仓表'}
                 value={current.colName}
-                onChange={v => triggerChange({ colName: v })}
-                loading={loadingCol}
+                onChange={handleColumnChange}
+                loading={columnsLoading}
                 style={{ width: '100%' }}
                 allowClear
-                disabled={!current.tblName}
-            >
-                {colList.map(c => <Option key={c.name} value={c.name}>{c.name}</Option>)}
-            </Select>
+                disabled={!currentTableName || columnsLoading}
+                optionFilterProp="label"
+                options={columns.map(c => ({
+                    value: c.col,
+                    label: `${c.col}${c.comment ? ' - ' + c.comment : ''}`,
+                }))}
+            />
         </Space>
     );
 };
@@ -237,7 +229,7 @@ const MetricsDefinition: React.FC = () => {
     const [total, setTotal] = useState(0);
 
     const [filters, setFilters] = useState({ metricName: '', metricType: undefined as MetricType | undefined, subjectCode: undefined as string | undefined, status: undefined as MetricStatus | undefined });
-    const [subjects, setSubjects] = useState<SubjectDTO[]>([]);
+    const [subjects, setSubjects] = useState<MetricSubject[]>([]);
 
     const [modalVisible, setModalVisible] = useState(false);
     const [modalType, setModalType] = useState<MetricType | null>(null);
@@ -250,7 +242,6 @@ const MetricsDefinition: React.FC = () => {
     const [modifiers, setModifiers] = useState<ModifierDTO[]>([]);
     const [dimensions, setDimensions] = useState<DimensionDTO[]>([]);
     const [refMetrics, setRefMetrics] = useState<MetricListItem[]>([]);
-    const [dimensionLoadFailed, setDimensionLoadFailed] = useState(false);
 
     const fetchList = useCallback(async (page = 1, query = filters) => {
         setLoading(true);
@@ -273,7 +264,7 @@ const MetricsDefinition: React.FC = () => {
 
     useEffect(() => {
         fetchList(1);
-        treeSubjects().then(res => setSubjects(res)).catch(() => {/**/});
+        MetricSubjectApi.tree().then(res => setSubjects(res)).catch(() => {/**/});
     }, [fetchList]);
 
     const handleFilterChange = (changed: Partial<typeof filters>) => {
@@ -283,11 +274,11 @@ const MetricsDefinition: React.FC = () => {
         fetchList(1, next);
     };
 
-    const buildSubjectTree = (list: SubjectDTO[]): React.ComponentProps<typeof TreeSelect>['treeData'] => {
+    const buildSubjectTree = (list: MetricSubject[]): React.ComponentProps<typeof TreeSelect>['treeData'] => {
         return list.map(item => ({
             title: item.subjectName,
             value: item.subjectCode,
-            key: item.id,
+            key: item.subjectCode,
             children: item.children ? buildSubjectTree(item.children) : undefined,
         }));
     };
@@ -296,7 +287,7 @@ const MetricsDefinition: React.FC = () => {
         setModalType(type);
         setEditingId(null);
         form.resetFields();
-        setDimensionLoadFailed(false);
+        // load dimension list
 
         if (type === MetricType.DERIVED) {
             MetricApi.page({ pageNum: 1, pageSize: 1000, metricType: MetricType.ATOMIC }).then(res => {
@@ -310,9 +301,7 @@ const MetricsDefinition: React.FC = () => {
             }).catch(() => {/**/});
             DimensionApi.page({ pageNum: 1, pageSize: 1000 }).then(res => {
                 if (res.code === 200 && res.data) setDimensions(res.data.list);
-            }).catch(() => {
-                setDimensionLoadFailed(true);
-            });
+            }).catch(() => {/**/});
         }
         if (type === MetricType.COMPOSITE) {
             MetricApi.page({ pageNum: 1, pageSize: 1000 }).then(res => {
@@ -328,7 +317,7 @@ const MetricsDefinition: React.FC = () => {
         setEditingId(record.id);
         form.resetFields();
         setModalVisible(true);
-        setDimensionLoadFailed(false);
+        // load dimension list
 
         // 异步加载详情填充表单
         MetricApi.detail(record.id).then(res => {
@@ -383,9 +372,7 @@ const MetricsDefinition: React.FC = () => {
             }).catch(() => {/**/});
             DimensionApi.page({ pageNum: 1, pageSize: 1000 }).then(res => {
                 if (res.code === 200 && res.data) setDimensions(res.data.list);
-            }).catch(() => {
-                setDimensionLoadFailed(true);
-            });
+            }).catch(() => {/**/});
         }
         if (record.metricType === MetricType.COMPOSITE) {
             MetricApi.page({ pageNum: 1, pageSize: 1000 }).then(res => {
@@ -653,8 +640,8 @@ const MetricsDefinition: React.FC = () => {
                                     {Object.values(StatFunc).map(f => <Option key={f} value={f}>{f}</Option>)}
                                 </Select>
                             </Form.Item>
-                            <Form.Item name="dsSelector" label="数据来源" rules={[{ required: true, validator: (_, val) => val?.dsName && val?.dbName && val?.tblName && val?.colName ? Promise.resolve() : Promise.reject(new Error('请完整选择数据源、数据库、表和字段')) }]}>
-                                <CascadeDsSelector />
+                            <Form.Item name="dsSelector" label="数据来源" rules={[{ required: true, validator: (_, val) => val?.dsName && val?.dbName && val?.tblName && val?.colName ? Promise.resolve() : Promise.reject(new Error('请选择数仓表和字段')) }]}>
+                                <MetadataTableSelector />
                             </Form.Item>
                             <Form.List name="filterCondition">
                                 {(fields, { add, remove }) => (
@@ -712,15 +699,14 @@ const MetricsDefinition: React.FC = () => {
                                 </Select>
                             </Form.Item>
                             <Form.Item name="dimensionIds" label="维度">
-                                {dimensionLoadFailed ? (
-                                    <Select mode="tags" placeholder="维度服务暂不可用，请手动输入维度字段名" allowClear>
-                                        {dimensions.map(d => <Option key={d.id} value={d.id}>{d.dimName}</Option>)}
-                                    </Select>
-                                ) : (
-                                    <Select mode="multiple" placeholder="选择维度">
-                                        {dimensions.map(d => <Option key={d.id} value={d.id}>{d.dimName}</Option>)}
-                                    </Select>
-                                )}
+                                <Select mode="multiple" placeholder="选择维度">
+                                    {dimensions.map(d => (
+                                        <Option key={d.id} value={d.id}>
+                                            <span>{d.dimName}</span>
+                                            <Tag color="blue" style={{ marginLeft: 8, fontSize: 12 }}>{d.dimType === DimType.DATE ? 'DATE' : d.dimType}</Tag>
+                                        </Option>
+                                    ))}
+                                </Select>
                             </Form.Item>
                             <Form.List name="groupByFields">
                                 {(fields, { add, remove }) => (

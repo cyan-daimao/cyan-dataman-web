@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Spin, Empty, Typography, Tag, Select, Space } from 'antd';
 import { MetricAnalysisApi, SubjectDrilldownDTO, MetricType } from '@/api/MetricApi';
-import { treeSubjects, SubjectDTO } from '@/api/MetadataSubjectAPI';
+import { MetricSubjectApi, MetricSubject } from '@/api/MetricSubjectApi';
 
 const { Title } = Typography;
 
@@ -17,13 +17,13 @@ const typeColorMap: Record<string, string> = {
 const MetricsAnalysis: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<SubjectDrilldownDTO[]>([]);
-    const [subjects, setSubjects] = useState<SubjectDTO[]>([]);
+    const [subjects, setSubjects] = useState<MetricSubject[]>([]);
     const [selectedSubject, setSelectedSubject] = useState<string | undefined>(undefined);
     const [error, setError] = useState<string | null>(null);
 
     const fetchSubjects = async () => {
         try {
-            const res = await treeSubjects();
+            const res = await MetricSubjectApi.tree();
             setSubjects(res);
         } catch {
             // ignore
