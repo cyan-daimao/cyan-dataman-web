@@ -171,6 +171,14 @@ export interface MetricStatusCmd {
     status: MetricStatus;
 }
 
+export interface MetricVersionItem {
+    version: number;
+    metricName: string;
+    status: MetricStatus;
+    snapshotTime: string;
+    updateBy: string;
+}
+
 // ==================== 原子指标 Cmd ====================
 
 export interface AtomicMetricCmd {
@@ -401,6 +409,14 @@ export const MetricApi = {
      */
     trial: async (data: TrialCmd): Promise<ApiResponse<TrialResult>> => {
         return datametricRequest.post(`${BASE}/trial`, data);
+    },
+
+    listVersions: async (id: string): Promise<ApiResponse<MetricVersionItem[]>> => {
+        return datametricRequest.get(`${BASE}/${id}/versions`);
+    },
+
+    rollback: async (id: string, version: number): Promise<ApiResponse<MetricDetail>> => {
+        return datametricRequest.post(`${BASE}/${id}/rollback/${version}`, {});
     },
 };
 

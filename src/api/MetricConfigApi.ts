@@ -216,6 +216,7 @@ export interface MetadataTableItem {
     name: string;
     subjectName?: string;
     layerCode?: string;
+    comment?: string;
     table?: {
         catalog: string;
         schema: string;

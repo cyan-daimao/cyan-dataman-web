@@ -1,15 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     Card, Table, Button, Space, Modal, Form, Input, Select, TreeSelect, message,
-    Empty, Tag, Popconfirm, Typography, Divider, Row, Col,
+    Empty, Tag, Popconfirm, Typography, Divider, Row, Col, Drawer,
 } from 'antd';
 import {
     PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, PlayCircleOutlined,
-    RocketOutlined, DownOutlined,
+    RocketOutlined, DownOutlined, HistoryOutlined,
 } from '@ant-design/icons';
 import {
     MetricApi, MetricListItem, MetricType, MetricStatus, StatFunc, AtomicMetricCmd,
-    DerivedMetricCmd, CompositeMetricCmd, TrialResult,
+    DerivedMetricCmd, CompositeMetricCmd, MetricVersionItem,
     PageResult,
 } from '@/api/MetricApi';
 import { ModifierApi, ModifierDTO, TimePeriodApi, TimePeriodDTO, DimensionApi, DimensionDTO, DimType, MetadataTableSelectorApi, MetadataColumnDTO } from '@/api/MetricConfigApi';
@@ -48,7 +48,7 @@ interface MetadataTableSelectorProps {
 }
 
 const MetadataTableSelector: React.FC<MetadataTableSelectorProps> = ({ value, onChange }) => {
-    const [tableOptions, setTableOptions] = useState<{ id: string; name: string; layerCode?: string; catalog?: string; schema?: string }[]>([]);
+    const [tableOptions, setTableOptions] = useState<{ id: string; name: string; layerCode?: string; catalog?: string; schema?: string;comment?: string }[]>([]);
     const [tableLoading, setTableLoading] = useState(false);
     const [columns, setColumns] = useState<MetadataColumnDTO[]>([]);
     const [columnsLoading, setColumnsLoading] = useState(false);
@@ -65,6 +65,7 @@ const MetadataTableSelector: React.FC<MetadataTableSelectorProps> = ({ value, on
                     setTableOptions((res.data.data || []).map(item => ({
                         id: item.id,
                         name: item.name,
+                        comment: item.comment,
                         layerCode: item.layerCode,
                         catalog: item.table?.catalog,
                         schema: item.table?.schema,
@@ -125,7 +126,7 @@ const MetadataTableSelector: React.FC<MetadataTableSelectorProps> = ({ value, on
                 optionFilterProp="label"
                 options={tableOptions.map(t => ({
                     value: t.name,
-                    label: `${t.name}${t.layerCode ? ' [' + t.layerCode + ']' : ''}`,
+                    label: `${t.name} - ${t.comment}`,
                 }))}
             />
             <Select
@@ -279,6 +280,11 @@ const MetricsDefinition: React.FC = () => {
     const [modalType, setModalType] = useState<MetricType | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [form] = Form.useForm();
+
+    const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false);
+    const [historyList, setHistoryList] = useState<MetricVersionItem[]>([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [currentHistoryMetric, setCurrentHistoryMetric] = useState<MetricListItem | null>(null);
 
     // 派生/复合指标依赖数据
     const [atomicMetrics, setAtomicMetrics] = useState<MetricListItem[]>([]);
@@ -505,8 +511,34 @@ const MetricsDefinition: React.FC = () => {
         }
     };
 
+    const openVersionHistory = (record: MetricListItem) => {
+        setCurrentHistoryMetric(record);
+        setHistoryDrawerVisible(true);
+        setHistoryLoading(true);
+        MetricApi.listVersions(record.id)
+            .then(res => {
+                if (res.code === 200 && res.data) {
+                    setHistoryList(res.data);
+                }
+            })
+            .catch(() => message.error('加载版本历史失败'))
+            .finally(() => setHistoryLoading(false));
+    };
+
+    const handleRollback = async (version: number) => {
+        if (!currentHistoryMetric) return;
+        try {
+            await MetricApi.rollback(currentHistoryMetric.id, version);
+            message.success('回退成功');
+            setHistoryDrawerVisible(false);
+            fetchList(pageNum);
+        } catch {
+            message.error('回退失败');
+        }
+    };
+
     const columns = [
-        { title: '指标编码', dataIndex: 'metricCode', key: 'metricCode', width: 160 },
+        { title: '指标编码', dataIndex: 'metricCode', key: 'metricCode', },
         { title: '指标名称', dataIndex: 'metricName', key: 'metricName' },
         {
             title: '类型',
@@ -530,6 +562,13 @@ const MetricsDefinition: React.FC = () => {
             width: 100,
             render: (v: MetricStatus) => <Tag color={statusTagMap[v]?.color}>{statusTagMap[v]?.label}</Tag>,
         },
+        {
+            title: '版本',
+            dataIndex: 'version',
+            key: 'version',
+            width: 80,
+            render: (v: number) => `V${v}`,
+        },
         { title: '更新时间', dataIndex: 'updatedAt', key: 'updatedAt', width: 180 },
         {
             title: '操作',
@@ -539,7 +578,8 @@ const MetricsDefinition: React.FC = () => {
             render: (_: unknown, record: MetricListItem) => (
                 <Space size="small">
                     <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)}>编辑</Button>
-                    {record.status === MetricStatus.DRAFT && (
+                    <Button type="link" size="small" icon={<HistoryOutlined />} onClick={() => openVersionHistory(record)}>版本历史</Button>
+                    {record.status !== MetricStatus.PUBLISHED && (
                         <Button type="link" size="small" icon={<RocketOutlined />} onClick={() => handleStatusChange(record.id, MetricStatus.PUBLISHED)}>发布</Button>
                     )}
                     {record.status === MetricStatus.PUBLISHED && (
@@ -622,7 +662,13 @@ const MetricsDefinition: React.FC = () => {
 
             {/* 新建/编辑弹窗 */}
             <Modal
-                title={editingId ? '编辑指标' : modalType === MetricType.ATOMIC ? '新建原子指标' : modalType === MetricType.DERIVED ? '新建派生指标' : '新建复合指标'}
+                title={editingId ? (() => {
+                    const record = data.find(item => item.id === editingId);
+                    if (record && record.status === 'PUBLISHED') {
+                        return `编辑指标（将生成 V${record.version + 1} 草稿）`;
+                    }
+                    return '编辑指标';
+                })() : modalType === MetricType.ATOMIC ? '新建原子指标' : modalType === MetricType.DERIVED ? '新建派生指标' : '新建复合指标'}
                 open={modalVisible}
                 onOk={handleSave}
                 onCancel={() => { setModalVisible(false); form.resetFields(); setEditingId(null); }}
@@ -763,6 +809,41 @@ const MetricsDefinition: React.FC = () => {
                     )}
                 </Form>
             </Modal>
+
+            <Drawer
+                title={`${currentHistoryMetric?.metricName} - 版本历史`}
+                width={600}
+                open={historyDrawerVisible}
+                onClose={() => setHistoryDrawerVisible(false)}
+            >
+                <Table
+                    rowKey="version"
+                    dataSource={historyList}
+                    loading={historyLoading}
+                    pagination={false}
+                    columns={[
+                        { title: '版本', dataIndex: 'version', render: (v: number) => `V${v}`, width: 80 },
+                        { title: '名称', dataIndex: 'metricName' },
+                        { title: '状态', dataIndex: 'status', render: (v: MetricStatus) => <Tag color={statusTagMap[v]?.color}>{statusTagMap[v]?.label}</Tag> },
+                        { title: '快照时间', dataIndex: 'snapshotTime', width: 180 },
+                        { title: '操作人', dataIndex: 'updateBy', width: 120 },
+                        {
+                            title: '操作',
+                            key: 'action',
+                            width: 120,
+                            render: (_: unknown, record: MetricVersionItem) => (
+                                <Popconfirm
+                                    title={`确认回退到 V${record.version}？`}
+                                    description="回退后将覆盖当前指标状态"
+                                    onConfirm={() => handleRollback(record.version)}
+                                >
+                                    <Button type="link" size="small">回退到此版本</Button>
+                                </Popconfirm>
+                            ),
+                        },
+                    ]}
+                />
+            </Drawer>
         </div>
     );
 };

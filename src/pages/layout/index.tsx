@@ -7,10 +7,10 @@ const {Header, Content, Footer} = Layout;
 
 const routeKeyMap: Record<string, string> = {
     '/meta': '1',
-    '/warehouse': '2',
-    '/metrics': '3',
-    '/sql-editor': '4',
-    '/data-work': '5',
+    '/metrics': '2',
+    '/sql-editor': '3',
+    '/data-work': '4',
+    '/bi': '5',
 };
 
 const items: MenuProps['items'] = [
@@ -19,19 +19,18 @@ const items: MenuProps['items'] = [
         key: '1',
     },
     {
-        label: '数据资产',
+        label: '指标平台',
         key: '2',
     },
     {
-        label: '指标平台',
+        label: 'SQL查询',
         key: '3',
     },
     {
-        label: 'SQL查询',
-        key: '4',
-    },
-    {
         label: '数据加工',
+        key: '4',
+    },{
+        label: 'BI分析',
         key: '5',
     }
 ]
