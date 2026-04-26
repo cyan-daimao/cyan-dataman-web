@@ -341,6 +341,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         if (node.type === 'database' && node.dsName && node.dbName) {
             loadTables(node.dsName, node.dbName);
         }
+
+        // 展开表时加载字段
+        if (node.type === 'table' && node.dsName && node.dbName && node.tableName) {
+            loadTableSchema(node.dsName, node.dbName, node.tableName);
+        }
     };
 
     // 添加收藏
