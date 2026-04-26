@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import {
     Card, Tree, Input, List, Tag, Spin, Empty, Drawer, Tabs, Typography, Button,
-    Space, Segmented, Table, message,
+    Space, Segmented, Table, message, Switch,
 } from 'antd';
 import {
     StarOutlined, StarFilled, FileTextOutlined,
-    BranchesOutlined, AppstoreOutlined,
+    BranchesOutlined, AppstoreOutlined, EyeOutlined, PlayCircleOutlined,
 } from '@ant-design/icons';
 import {
     MetricDictionaryApi, MetricApi, MetricLineageApi,
     DictionaryMetricDTO, MetricDetail, MetricType, MetricStatus, LineageResult, NodeType,
 } from '@/api/MetricApi';
 import { MetricSubjectApi, MetricSubject } from '@/api/MetricSubjectApi';
+import { executeSql } from '@/api/DatagawayApi';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
@@ -46,6 +47,11 @@ const MetricsDictionary: React.FC = () => {
     const [detailLoading, setDetailLoading] = useState(false);
     const [lineage, setLineage] = useState<LineageResult | null>(null);
     const [lineageLoading, setLineageLoading] = useState(false);
+    const [sql, setSql] = useState<string>('');
+    const [sqlLoading, setSqlLoading] = useState(false);
+    const [trialLoading, setTrialLoading] = useState(false);
+    const [sqlResult, setSqlResult] = useState<any>(null);
+    const [showFavoriteOnly, setShowFavoriteOnly] = useState(false);
 
     const fetchSubjects = async () => {
         setSubjectLoading(true);
@@ -59,7 +65,7 @@ const MetricsDictionary: React.FC = () => {
         }
     };
 
-    const fetchData = async (page = 1, subjectCode?: string, search?: string) => {
+    const fetchData = async (page = 1, subjectCode?: string, search?: string, favorite?: boolean) => {
         setLoading(true);
         try {
             const res = await MetricDictionaryApi.page({
@@ -67,6 +73,7 @@ const MetricsDictionary: React.FC = () => {
                 pageSize,
                 subjectCode,
                 metricName: search,
+                favorite,
             });
             if (res.code === 200 && res.data) {
                 setData(res.data.list);
@@ -89,34 +96,117 @@ const MetricsDictionary: React.FC = () => {
         const code = info.node.subjectCode || String(info.node.key);
         setSelectedSubject(code);
         setPageNum(1);
-        fetchData(1, code, query);
+        fetchData(1, code, query, showFavoriteOnly);
     };
 
     const handleSelectAllSubjects = () => {
         setSelectedSubject(undefined);
         setPageNum(1);
-        fetchData(1, undefined, query);
+        fetchData(1, undefined, query, showFavoriteOnly);
+    };
+
+    const handleToggleFavoriteOnly = (checked: boolean) => {
+        setShowFavoriteOnly(checked);
+        setPageNum(1);
+        fetchData(1, selectedSubject, query, checked);
     };
 
     const handleSearch = (value: string) => {
         setQuery(value);
         setPageNum(1);
-        fetchData(1, selectedSubject, value);
+        fetchData(1, selectedSubject, value, showFavoriteOnly);
     };
 
     const handlePageChange = (page: number) => {
         setPageNum(page);
-        fetchData(page, selectedSubject, query);
+        fetchData(page, selectedSubject, query, showFavoriteOnly);
+    };
+
+    const buildDefinitionBody = (d: MetricDetail): Record<string, unknown> => {
+        if (d.metricType === MetricType.ATOMIC && d.atomic) {
+            return {
+                statFunc: d.atomic.statFunc,
+                dsName: d.atomic.dsName,
+                dbName: d.atomic.dbName,
+                tblName: d.atomic.tblName,
+                colName: d.atomic.colName,
+                filterCondition: d.atomic.filterCondition || [],
+            };
+        }
+        if (d.metricType === MetricType.DERIVED && d.derived) {
+            return {
+                atomicMetricId: d.derived.atomicMetricId,
+                timePeriodId: d.derived.timePeriodId,
+                modifierIds: d.derived.modifierIds || [],
+                dimensionIds: d.derived.dimensionIds || [],
+                groupByFields: d.derived.groupByFields || [],
+            };
+        }
+        if (d.metricType === MetricType.COMPOSITE && d.composite) {
+            return {
+                formula: d.composite.formula,
+                metricRefs: d.composite.metricRefs || [],
+            };
+        }
+        return {};
+    };
+
+    const fetchSql = async (d: MetricDetail) => {
+        if (!d.metricType) return;
+        setSqlLoading(true);
+        try {
+            const definitionBody = buildDefinitionBody(d);
+            const res = await MetricApi.previewSql({ metricType: d.metricType, definitionBody });
+            if (res.code === 200 && res.data) {
+                setSql(res.data);
+            }
+        } catch {
+            message.error('SQL生成失败');
+        } finally {
+            setSqlLoading(false);
+        }
+    };
+
+    const handleTrial = async (d: MetricDetail) => {
+        setTrialLoading(true);
+        try {
+            let currentSql = sql;
+            if (!currentSql) {
+                const definitionBody = buildDefinitionBody(d);
+                const previewRes = await MetricApi.previewSql({ metricType: d.metricType, definitionBody });
+                if (previewRes.code === 200 && previewRes.data) {
+                    currentSql = previewRes.data;
+                    setSql(currentSql);
+                } else {
+                    message.error(previewRes.message || 'SQL生成失败');
+                    return;
+                }
+            }
+            const res = await executeSql(currentSql);
+            if (res.code === 200 && res.data) {
+                setSqlResult(res.data);
+            } else {
+                message.error(res.message || '试算失败');
+            }
+        } catch (err: any) {
+            message.error(err?.message || 'SQL试算失败');
+        } finally {
+            setTrialLoading(false);
+        }
     };
 
     const openDetail = async (id: string) => {
         setDrawerVisible(true);
         setDetailLoading(true);
         setLineageLoading(true);
+        setSql('');
+        setSqlResult(null);
         try {
             const res = await MetricApi.detail(id);
             if (res.code === 200 && res.data) {
                 setDetail(res.data);
+                // 自动加载SQL
+                fetchSql(res.data);
             }
         } catch {
             message.error('加载详情失败');
@@ -146,7 +236,7 @@ const MetricsDictionary: React.FC = () => {
                 await MetricDictionaryApi.favorite(item.id);
                 message.success('已收藏');
             }
-            fetchData(pageNum, selectedSubject, query);
+            fetchData(pageNum, selectedSubject, query, showFavoriteOnly);
         } catch {
             message.error('操作失败');
         }
@@ -253,6 +343,12 @@ const MetricsDictionary: React.FC = () => {
                                 allowClear
                                 onSearch={handleSearch}
                                 style={{ width: 240 }}
+                            />
+                            <Switch
+                                checked={showFavoriteOnly}
+                                onChange={handleToggleFavoriteOnly}
+                                checkedChildren="只看收藏"
+                                unCheckedChildren="全部"
                             />
                             <Segmented
                                 value={viewMode}
@@ -400,11 +496,42 @@ const MetricsDictionary: React.FC = () => {
                             </Space>
                         </TabPane>
                         <TabPane tab="计算逻辑" key="sql">
-                            <Paragraph>
-                                <pre style={{ background: '#f6f8fa', padding: 16, borderRadius: 6, overflow: 'auto' }}>
-                                    {detail.techCaliber || '暂无SQL'}
-                                </pre>
-                            </Paragraph>
+                            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                                <div>
+                                    <Text type="secondary">技术口径</Text>
+                                    <Paragraph>
+                                        <pre style={{ background: '#f6f8fa', padding: 16, borderRadius: 6, overflow: 'auto' }}>
+                                            {detail.techCaliber || '暂无技术口径'}
+                                        </pre>
+                                    </Paragraph>
+                                </div>
+                                <div>
+                                    <Space style={{ marginBottom: 8 }}>
+                                        <Text type="secondary">物理SQL</Text>
+                                        <Button icon={<PlayCircleOutlined />} loading={trialLoading} onClick={() => handleTrial(detail)}>试算</Button>
+                                    </Space>
+                                    {sql && (
+                                        <pre style={{ background: '#f6f8fa', padding: 16, borderRadius: 6, overflow: 'auto' }}>
+                                            {sql}
+                                        </pre>
+                                    )}
+                                    {sqlResult && (
+                                        <div style={{ marginTop: 8 }}>
+                                            <Text type="secondary">执行耗时: {sqlResult.costTimeMs}ms</Text>
+                                            <Table
+                                                size="small"
+                                                dataSource={sqlResult.data || []}
+                                                columns={sqlResult.data && sqlResult.data.length > 0 ? Object.keys(sqlResult.data[0]).map(key => ({
+                                                    title: key,
+                                                    dataIndex: key,
+                                                    key: key,
+                                                })) : []}
+                                                pagination={false}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            </Space>
                         </TabPane>
                         <TabPane tab="血缘关系" key="lineage">
                             {lineageLoading ? (

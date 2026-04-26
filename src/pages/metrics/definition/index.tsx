@@ -16,6 +16,7 @@ import { ModifierApi, ModifierDTO, TimePeriodApi, TimePeriodDTO, DimensionApi, D
 import { MetricSubjectApi, MetricSubject } from '@/api/MetricSubjectApi';
 import { executeSql } from '@/api/DatagawayApi';
 import { ApiResponse } from '@/api/Response';
+import { listEmployees, EmployeeDTO, currentEmployee } from '@/api/EmployeeApi';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -292,6 +293,18 @@ const MetricsDefinition: React.FC = () => {
     const [modifiers, setModifiers] = useState<ModifierDTO[]>([]);
     const [dimensions, setDimensions] = useState<DimensionDTO[]>([]);
     const [refMetrics, setRefMetrics] = useState<MetricListItem[]>([]);
+    const [employees, setEmployees] = useState<EmployeeDTO[]>([]);
+    const [currentUser, setCurrentUser] = useState<string>('');
+
+    // 加载员工列表和当前用户
+    useEffect(() => {
+        listEmployees().then(res => {
+            if (res.code === 200 && res.data) setEmployees(res.data);
+        }).catch(() => {/**/});
+        currentEmployee().then(res => {
+            if (res.code === 200 && res.data) setCurrentUser(res.data.passport);
+        }).catch(() => {/**/});
+    }, []);
 
     const fetchList = useCallback(async (page = 1, query = filters) => {
         setLoading(true);
@@ -337,6 +350,8 @@ const MetricsDefinition: React.FC = () => {
         setModalType(type);
         setEditingId(null);
         form.resetFields();
+        // 新建时默认负责人为当前用户
+        form.setFieldsValue({ owner: currentUser });
         // load dimension list
 
         if (type === MetricType.DERIVED) {
@@ -378,6 +393,7 @@ const MetricsDefinition: React.FC = () => {
                     bizCaliber: detail.bizCaliber,
                     techCaliber: detail.techCaliber,
                     subjectCode: detail.subjectCode,
+                    owner: detail.owner,
                 };
                 if (detail.metricType === MetricType.ATOMIC && detail.atomic) {
                     form.setFieldsValue({
@@ -439,6 +455,7 @@ const MetricsDefinition: React.FC = () => {
                 bizCaliber: values.bizCaliber,
                 techCaliber: values.techCaliber,
                 subjectCode: values.subjectCode,
+                owner: values.owner,
             };
             if (modalType === MetricType.ATOMIC) {
                 const cmd: AtomicMetricCmd = {
@@ -538,8 +555,8 @@ const MetricsDefinition: React.FC = () => {
     };
 
     const columns = [
-        { title: '指标编码', dataIndex: 'metricCode', key: 'metricCode', },
-        { title: '指标名称', dataIndex: 'metricName', key: 'metricName' },
+        { title: '指标编码', dataIndex: 'metricCode', key: 'metricCode', width: 150},
+        { title: '指标名称', dataIndex: 'metricName', key: 'metricName', width: 150 },
         {
             title: '类型',
             dataIndex: 'metricType',
@@ -548,13 +565,13 @@ const MetricsDefinition: React.FC = () => {
             render: (v: MetricType) => <Tag color={typeTagMap[v]?.color}>{typeTagMap[v]?.label}</Tag>,
         },
         { title: '主题域', dataIndex: 'subjectName', key: 'subjectName', width: 120 },
-        {
-            title: '统计函数',
-            dataIndex: 'statFunc',
-            key: 'statFunc',
-            width: 100,
-            render: (v: StatFunc | undefined) => v || '-',
-        },
+        // {
+        //     title: '统计函数',
+        //     dataIndex: 'statFunc',
+        //     key: 'statFunc',
+        //     width: 100,
+        //     render: (v: StatFunc | undefined) => v || '-',
+        // },
         {
             title: '状态',
             dataIndex: 'status',
@@ -569,7 +586,7 @@ const MetricsDefinition: React.FC = () => {
             width: 80,
             render: (v: number) => `V${v}`,
         },
-        { title: '更新时间', dataIndex: 'updatedAt', key: 'updatedAt', width: 180 },
+        { title: '负责人', dataIndex: 'owner', key: 'owner', width: 120 },
         {
             title: '操作',
             key: 'action',
@@ -691,6 +708,15 @@ const MetricsDefinition: React.FC = () => {
                             placeholder="选择主题域"
                             treeDefaultExpandAll
                         />
+                    </Form.Item>
+                    <Form.Item name="owner" label="负责人" rules={[{ required: true }]}>
+                        <Select placeholder="选择负责人" showSearch optionFilterProp="children">
+                            {employees.map(emp => (
+                                <Option key={emp.passport} value={emp.passport}>
+                                    {emp.cnName} ({emp.passport})
+                                </Option>
+                            ))}
+                        </Select>
                     </Form.Item>
 
                     {modalType === MetricType.ATOMIC && (

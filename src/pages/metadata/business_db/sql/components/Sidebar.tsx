@@ -176,25 +176,25 @@ const Sidebar: React.FC<SidebarProps> = ({
         try {
             const resp = await tableApi.list(dsName, dbName);
             if (resp.code === 200) {
-                const tableNodes: TreeNodeData[] = resp.data.map(tableName => ({
-                    key: `tbl-${dsName}-${dbName}-${tableName}`,
+                const tableNodes: TreeNodeData[] = resp.data.map(tableSchema => ({
+                    key: `tbl-${dsName}-${dbName}-${tableSchema.tableName}`,
                     title: (
                         <span
                             onClick={(e) => {
                                 e.stopPropagation();
-                                handleTableClick(dsName, dbName, tableName);
+                                handleTableClick(dsName, dbName, tableSchema.tableName);
                             }}
                             style={{cursor: 'pointer'}}
                         >
                             <TableOutlined style={{color: '#1890ff', marginRight: 4}}/>
-                            {tableName}
+                            {tableSchema.tableName}
                         </span>
                     ),
                     icon: null,
                     type: 'table' as const,
                     dsName,
                     dbName,
-                    tableName,
+                    tableName: tableSchema.tableName,
                     isLeaf: false
                 }));
 
@@ -251,26 +251,40 @@ const Sidebar: React.FC<SidebarProps> = ({
                                         ...dbNode,
                                         children: dbNode.children.map(tblNode => {
                                             if (tblNode.tableName === tableName) {
-                                                const columnNodes: TreeNodeData[] = columns.map((col, idx) => ({
-                                                    key: `col-${dsName}-${dbName}-${tableName}-${idx}`,
-                                                    title: (
-                                                        <span style={{fontSize: 12}}>
-                                                            <ColumnHeightOutlined style={{marginRight: 4, color: '#52c41a'}}/>
-                                                            <Text>{col.name}</Text>
-                                                            <Text type="secondary" style={{marginLeft: 4, fontSize: 10}}>
-                                                                {col.type}
-                                                            </Text>
-                                                            {col.comment && (
-                                                                <Text type="secondary" style={{marginLeft: 4, fontSize: 10}}>
-                                                                    {col.comment}
+                                                const columnNodes: TreeNodeData[] = columns.map((col, idx) => {
+                                                    const displayText = `${col.name} ${col.type}${col.comment ? ` ${col.comment}` : ''}`;
+                                                    return {
+                                                        key: `col-${dsName}-${dbName}-${tableName}-${idx}`,
+                                                        title: (
+                                                            <div
+                                                                style={{
+                                                                    fontSize: 12,
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    whiteSpace: 'nowrap',
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis',
+                                                                    maxWidth: 200
+                                                                }}
+                                                                title={displayText}
+                                                            >
+                                                                <ColumnHeightOutlined style={{marginRight: 4, color: '#52c41a', flexShrink: 0}}/>
+                                                                <Text style={{flexShrink: 0}}>{col.name}</Text>
+                                                                <Text type="secondary" style={{marginLeft: 4, fontSize: 10, flexShrink: 0}}>
+                                                                    {col.type}
                                                                 </Text>
-                                                            )}
-                                                        </span>
-                                                    ),
-                                                    icon: null,
-                                                    type: 'column' as const,
-                                                    isLeaf: true
-                                                }));
+                                                                {col.comment && (
+                                                                    <Text type="secondary" style={{marginLeft: 4, fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis'}}>
+                                                                        {col.comment}
+                                                                    </Text>
+                                                                )}
+                                                            </div>
+                                                        ),
+                                                        icon: null,
+                                                        type: 'column' as const,
+                                                        isLeaf: true
+                                                    };
+                                                });
                                                 return {...tblNode, children: columnNodes, columns};
                                             }
                                             return tblNode;

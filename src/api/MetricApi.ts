@@ -165,6 +165,7 @@ export interface MetricPageQuery extends PageQuery {
     metricType?: MetricType;
     subjectCode?: string;
     status?: MetricStatus;
+    favorite?: boolean;
 }
 
 export interface MetricStatusCmd {
@@ -192,6 +193,7 @@ export interface AtomicMetricCmd {
     colName: string;
     filterCondition?: FilterCondition[];
     subjectCode: string;
+    owner?: string;
 }
 
 // ==================== 派生指标 Cmd ====================
@@ -206,6 +208,7 @@ export interface DerivedMetricCmd {
     dimensionIds?: string[];
     groupByFields?: GroupByField[];
     subjectCode: string;
+    owner?: string;
 }
 
 // ==================== 复合指标 Cmd ====================
@@ -217,6 +220,7 @@ export interface CompositeMetricCmd {
     formula: string;
     metricRefs: string[];
     subjectCode: string;
+    owner?: string;
 }
 
 // ==================== SQL 预览与试算 ====================
