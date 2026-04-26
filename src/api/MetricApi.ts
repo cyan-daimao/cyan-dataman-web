@@ -407,13 +407,6 @@ export const MetricApi = {
         return datametricRequest.post(`${BASE}/preview-sql`, data);
     },
 
-    /**
-     * SQL 试算
-     * POST /api/v1/metrics/trial
-     */
-    trial: async (data: TrialCmd): Promise<ApiResponse<TrialResult>> => {
-        return datametricRequest.post(`${BASE}/trial`, data);
-    },
 
     listVersions: async (id: string): Promise<ApiResponse<MetricVersionItem[]>> => {
         return datametricRequest.get(`${BASE}/${id}/versions`);

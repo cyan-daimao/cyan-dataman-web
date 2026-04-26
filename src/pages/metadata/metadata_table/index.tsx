@@ -42,7 +42,10 @@ const MetaDataManagement: React.FC = () => {
     const [tableData, setTableData] = useState<TableMeta[]>([]); // 表数据
     const [loading, setLoading] = useState(true); // 加载状态
     // 从 URL 参数初始化搜索值
-    const [searchValue, setSearchValue] = useState(() => searchParams.get('search') || ''); // 搜索值
+    const [searchValue, setSearchValue] = useState(() => {
+        const search = searchParams.get('search');
+        return (search && typeof search === 'string') ? search : '';
+    }); // 搜索值
 
     useEffect(() => {
         fetchTreeSubjects().then()
@@ -267,7 +270,7 @@ return (
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%'}}>
                 <Title level={4} style={{margin: 0}}>
                     <DatabaseOutlined style={{marginRight: 8}}/>
-                    元数据表管理平台
+                    元数据管理平台
                 </Title>
                 <Space>
                     <ImportTable/>

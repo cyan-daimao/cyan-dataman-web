@@ -313,7 +313,7 @@ const TableEditPage: React.FC = () => {
 
     // 返回列表页
     const handleBack = (tableName?: string) => {
-        if (tableName) {
+        if (tableName && typeof tableName === 'string') {
             navigate(`/meta/metadata/metadata_table?search=${encodeURIComponent(tableName)}`);
         } else {
             navigate('/meta/metadata/metadata_table');
