@@ -12,11 +12,12 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         datametric: "http://localhost:8082/"
     },
     "pre": {
-        dataman: "http://cyan-dataman-pre.cyan.com/",
+        // dataman: "http://cyan-dataman-pre.cyan.com/",
+        dataman: "http://localhost:8080/",
         employee: "http://cyan-employee-pre.cyan.com/",
         datagateway: "http://cyan-datagateway-pre.cyan.com/",
-        // datametric: "http://cyan-datametric-pre.cyan.com/"
-        datametric: "http://localhost:8080/"
+        datametric: "http://cyan-datametric-pre.cyan.com/"
+        // datametric: "http://localhost:8080/"
     },
     "prod":  {
         dataman: "http://cyan-dataman-prod.cyan.com/",

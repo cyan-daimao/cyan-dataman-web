@@ -17,7 +17,8 @@ import {
     Upload,
     message,
     Modal,
-    Divider
+    Divider,
+    Tooltip
 } from "antd";
 import {
     PlusOutlined,
@@ -29,7 +30,7 @@ import {
     DatabaseOutlined,
     CloudUploadOutlined
 } from "@ant-design/icons";
-import type {UploadProps} from "antd";
+import { ManualUploadApi, ManualUploadRecordDTO } from '@/api/ManualUploadApi';
 
 const {Text} = Typography;
 
@@ -77,7 +78,7 @@ interface ManualUploadRecord {
     fileType: 'excel' | 'csv';
     uploadMode: 'overwrite' | 'append';
     rowCount: number;
-    uploader: string;
+    uploader?: string;
     uploaderName: string;
     uploadedAt: string;
     status: 'success' | 'failed';
@@ -101,10 +102,23 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
     const [uploadRecords, setUploadRecords] = useState<ManualUploadRecord[]>([]);
     const [uploadModalVisible, setUploadModalVisible] = useState(false);
     const [uploadMode, setUploadMode] = useState<'overwrite' | 'append'>('append');
+    const [uploadLoading, setUploadLoading] = useState(false);
+    const [confirmLoading, setConfirmLoading] = useState(false);
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [uploadPageNum, setUploadPageNum] = useState(1);
+    const [uploadPageSize] = useState(10);
+    const [uploadTotal, setUploadTotal] = useState(0);
 
     useEffect(() => {
         loadData();
     }, [tableId]);
+
+    useEffect(() => {
+        if (activeTab === 'manual') {
+            loadUploadRecords(1);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab]);
 
     const loadData = async () => {
         setLoading(true);
@@ -145,34 +159,38 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
                 }
             ]);
 
-            setUploadRecords([
-                {
-                    id: '1',
-                    fileName: '用户数据导入_20240120.xlsx',
-                    fileType: 'excel',
-                    uploadMode: 'append',
-                    rowCount: 5000,
-                    uploader: 'lisi',
-                    uploaderName: '李四',
-                    uploadedAt: '2024-01-20 15:30:00',
-                    status: 'success'
-                },
-                {
-                    id: '2',
-                    fileName: '历史数据修复_20240119.csv',
-                    fileType: 'csv',
-                    uploadMode: 'overwrite',
-                    rowCount: 12000,
-                    uploader: 'wangwu',
-                    uploaderName: '王五',
-                    uploadedAt: '2024-01-19 10:15:00',
-                    status: 'success'
-                }
-            ]);
+
         } catch (error) {
             console.error('加载数据失败:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadUploadRecords = async (page = 1) => {
+        setUploadLoading(true);
+        try {
+            const res = await ManualUploadApi.listRecords(tableId, { pageNum: page, pageSize: uploadPageSize });
+            if (res.code === 200 && res.data) {
+                const list = res.data.data.map((item: ManualUploadRecordDTO): ManualUploadRecord => ({
+                    id: String(item.id),
+                    fileName: item.fileName,
+                    fileType: item.fileType,
+                    uploadMode: item.uploadMode,
+                    rowCount: item.rowCount,
+                    uploaderName: item.uploaderName,
+                    uploadedAt: item.createdAt,
+                    status: item.status,
+                    errorMessage: item.errorMessage
+                }));
+                setUploadRecords(list);
+                setUploadTotal(res.data.total);
+                setUploadPageNum(res.data.current);
+            }
+        } catch {
+            message.error('加载上传记录失败');
+        } finally {
+            setUploadLoading(false);
         }
     };
 
@@ -233,36 +251,50 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
     };
 
     // 手动上传相关操作
-    const uploadProps: UploadProps = {
-        name: 'file',
-        accept: '.xlsx,.xls,.csv',
-        beforeUpload: (file) => {
-            const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
-            const isCsv = file.name.endsWith('.csv');
-            if (!isExcel && !isCsv) {
-                message.error('只能上传 Excel 或 CSV 文件！');
-                return false;
-            }
-
-            // 模拟上传
-            const newRecord: ManualUploadRecord = {
-                id: Date.now().toString(),
-                fileName: file.name,
-                fileType: isExcel ? 'excel' : 'csv',
-                uploadMode: uploadMode,
-                rowCount: Math.floor(Math.random() * 10000),
-                uploader: 'current_user',
-                uploaderName: '当前用户',
-                uploadedAt: new Date().toLocaleString(),
-                status: 'success'
-            };
-
-            setUploadRecords(prev => [newRecord, ...prev]);
-            message.success('上传成功');
-            setUploadModalVisible(false);
+    const handleBeforeUpload = (file: File) => {
+        const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+        const isCsv = file.name.endsWith('.csv');
+        if (!isExcel && !isCsv) {
+            message.error('只能上传 Excel 或 CSV 文件！');
             return false;
-        },
-        showUploadList: false
+        }
+        setSelectedFiles(prev => [...prev, file]);
+        return false; // 阻止自动上传
+    };
+
+    const handleRemoveFile = (index: number) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleConfirmUpload = async () => {
+        if (selectedFiles.length === 0) {
+            message.warning('请先选择文件');
+            return;
+        }
+        setConfirmLoading(true);
+        try {
+            // 逐个上传文件（当前 API 只支持单文件）
+            const file = selectedFiles[0];
+            const res = await ManualUploadApi.upload(tableId, file, uploadMode);
+            if (res.code === 200 && res.data) {
+                message.success('上传成功');
+                setUploadModalVisible(false);
+                setSelectedFiles([]);
+                loadUploadRecords(1);
+            } else {
+                message.error(res.message || '上传失败');
+            }
+        } catch (err: unknown) {
+            const errorMsg = err instanceof Error ? err.message : '上传失败';
+            message.error(errorMsg);
+        } finally {
+            setConfirmLoading(false);
+        }
+    };
+
+    const handleCloseModal = () => {
+        setUploadModalVisible(false);
+        setSelectedFiles([]);
     };
 
     // CDC 表格列定义
@@ -479,7 +511,7 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
             dataIndex: 'uploaderName',
             key: 'uploaderName',
             width: 100,
-            render: (name, record) => `${name} (${record.uploader})`
+            render: (name, record) => record.uploader ? `${name} (${record.uploader})` : name
         },
         {
             title: '上传时间',
@@ -492,11 +524,21 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
             dataIndex: 'status',
             key: 'status',
             width: 80,
-            render: (status) => (
-                <Tag color={status === 'success' ? 'success' : 'error'}>
-                    {status === 'success' ? '成功' : '失败'}
-                </Tag>
-            )
+            render: (status, record: ManualUploadRecord) => {
+                const tag = (
+                    <Tag color={status === 'success' ? 'success' : 'error'}>
+                        {status === 'success' ? '成功' : '失败'}
+                    </Tag>
+                );
+                if (status === 'failed' && record.errorMessage) {
+                    return (
+                        <Tooltip title={record.errorMessage}>
+                            {tag}
+                        </Tooltip>
+                    );
+                }
+                return tag;
+            }
         }
     ];
 
@@ -588,10 +630,13 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
                         dataSource={uploadRecords}
                         rowKey="id"
                         size="small"
+                        loading={uploadLoading}
                         pagination={{
-                            pageSize: 10,
-                            showSizeChanger: true,
-                            showTotal: (total) => `共 ${total} 条记录`
+                            current: uploadPageNum,
+                            pageSize: uploadPageSize,
+                            total: uploadTotal,
+                            onChange: (page) => loadUploadRecords(page),
+                            showTotal: (t) => `共 ${t} 条`,
                         }}
                     />
                 </div>
@@ -665,8 +710,11 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
             <Modal
                 title="上传文件"
                 open={uploadModalVisible}
-                onCancel={() => setUploadModalVisible(false)}
-                footer={null}
+                onCancel={handleCloseModal}
+                confirmLoading={confirmLoading}
+                onOk={handleConfirmUpload}
+                okText="确定"
+                cancelText="取消"
                 width={500}
             >
                 <div style={{marginTop: 16}}>
@@ -693,15 +741,53 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
 
                     <Divider/>
 
-                    <Upload.Dragger {...uploadProps}>
+                    <Upload.Dragger
+                        accept=".xlsx,.xls,.csv"
+                        beforeUpload={handleBeforeUpload}
+                        showUploadList={false}
+                        multiple
+                    >
                         <p className="ant-upload-drag-icon">
                             <CloudUploadOutlined/>
                         </p>
-                        <p className="ant-upload-text">点击或拖拽文件到此区域上传</p>
+                        <p className="ant-upload-text">点击或拖拽文件到此区域</p>
                         <p className="ant-upload-hint">
                             支持 .xlsx, .xls, .csv 格式文件
                         </p>
                     </Upload.Dragger>
+
+                    {selectedFiles.length > 0 && (
+                        <div style={{marginTop: 16}}>
+                            <Text type="secondary" style={{display: 'block', marginBottom: 8}}>
+                                已选择 {selectedFiles.length} 个文件：
+                            </Text>
+                            <Space direction="vertical" style={{width: '100%'}}>
+                                {selectedFiles.map((file, index) => (
+                                    <Card
+                                        key={index}
+                                        size="small"
+                                        bodyStyle={{padding: '8px 12px'}}
+                                    >
+                                        <Space style={{width: '100%', justifyContent: 'space-between'}}>
+                                            <Space>
+                                                <FileTextOutlined style={{color: file.name.endsWith('.csv') ? '#1890ff' : '#52c41a'}}/>
+                                                <Text>{file.name}</Text>
+                                                <Text type="secondary">({(file.size / 1024).toFixed(1)} KB)</Text>
+                                            </Space>
+                                            <Button
+                                                type="link"
+                                                danger
+                                                size="small"
+                                                onClick={() => handleRemoveFile(index)}
+                                            >
+                                                移除
+                                            </Button>
+                                        </Space>
+                                    </Card>
+                                ))}
+                            </Space>
+                        </div>
+                    )}
                 </div>
             </Modal>
         </Card>
