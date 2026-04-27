@@ -46,9 +46,10 @@ interface MetadataTableSelectorValue {
 interface MetadataTableSelectorProps {
     value?: MetadataTableSelectorValue;
     onChange?: (value: MetadataTableSelectorValue) => void;
+    onColumnsChange?: (columns: MetadataColumnDTO[]) => void;
 }
 
-const MetadataTableSelector: React.FC<MetadataTableSelectorProps> = ({ value, onChange }) => {
+const MetadataTableSelector: React.FC<MetadataTableSelectorProps> = ({ value, onChange, onColumnsChange }) => {
     const [tableOptions, setTableOptions] = useState<{ id: string; name: string; layerCode?: string; catalog?: string; schema?: string;comment?: string }[]>([]);
     const [tableLoading, setTableLoading] = useState(false);
     const [columns, setColumns] = useState<MetadataColumnDTO[]>([]);
@@ -82,6 +83,7 @@ const MetadataTableSelector: React.FC<MetadataTableSelectorProps> = ({ value, on
         const selected = tableOptions.find(t => t.name === currentTableName);
         if (!selected) {
             setColumns([]);
+            onColumnsChange?.([]);
             return;
         }
         setColumnsLoading(true);
@@ -89,16 +91,19 @@ const MetadataTableSelector: React.FC<MetadataTableSelectorProps> = ({ value, on
             .then(res => {
                 if (res.code === 200 && res.data) {
                     setColumns(res.data);
+                    onColumnsChange?.(res.data);
                 } else {
                     setColumns([]);
+                    onColumnsChange?.([]);
                 }
             })
             .catch(() => {
                 message.error('加载字段列表失败');
                 setColumns([]);
+                onColumnsChange?.([]);
             })
             .finally(() => setColumnsLoading(false));
-    }, [currentTableName, tableOptions]);
+    }, [currentTableName, tableOptions, onColumnsChange]);
 
     const handleTableChange = (tableName: string | undefined) => {
         const selected = tableOptions.find(t => t.name === tableName);
@@ -159,6 +164,10 @@ const SqlPreviewPanel: React.FC<{
     const [previewLoading, setPreviewLoading] = useState(false);
     const [trialLoading, setTrialLoading] = useState(false);
     const [sqlResult, setSqlResult] = useState<any>(null);
+    const [previewedFingerprint, setPreviewedFingerprint] = useState<string>('');
+
+    // 监听所有表单值变化，确保修改过滤条件等字段后组件重新渲染，试算按钮正确置灰
+    Form.useWatch([], form);
 
     const buildDefinitionBody = (): Record<string, unknown> => {
         const values = form.getFieldsValue();
@@ -190,13 +199,20 @@ const SqlPreviewPanel: React.FC<{
         return {};
     };
 
+    const currentFingerprint = JSON.stringify(buildDefinitionBody());
+    // 只有当 SQL 存在且当前表单参数与预览时的参数一致时，才能试算
+    const canTrial = !!sql && currentFingerprint === previewedFingerprint;
+
     const handlePreview = async () => {
         setPreviewLoading(true);
         try {
             const definitionBody = buildDefinitionBody();
+            const fp = JSON.stringify(definitionBody);
             const res = await MetricApi.previewSql({ metricType, definitionBody });
             if (res.code === 200 && res.data) {
                 setSql(res.data);
+                setPreviewedFingerprint(fp);
+                setSqlResult(null);
             } else {
                 message.error(res.message || '预览失败');
             }
@@ -208,23 +224,10 @@ const SqlPreviewPanel: React.FC<{
     };
 
     const handleTrial = async () => {
+        if (!sql) return;
         setTrialLoading(true);
         try {
-            // 先获取 SQL（如果还没有预览过）
-            let currentSql = sql;
-            if (!currentSql) {
-                const definitionBody = buildDefinitionBody();
-                const previewRes = await MetricApi.previewSql({ metricType, definitionBody });
-                if (previewRes.code === 200 && previewRes.data) {
-                    currentSql = previewRes.data;
-                    setSql(currentSql);
-                } else {
-                    message.error(previewRes.message || 'SQL生成失败');
-                    return;
-                }
-            }
-            // 直接调用 datagateway 执行 SQL
-            const res = await executeSql(currentSql);
+            const res = await executeSql(sql);
             if (res.code === 200 && res.data) {
                 setSqlResult(res.data);
             } else {
@@ -241,7 +244,7 @@ const SqlPreviewPanel: React.FC<{
         <div style={{ marginTop: 16, padding: 16, background: '#f6f8fa', borderRadius: 6 }}>
             <Space style={{ marginBottom: 8 }}>
                 <Button icon={<EyeOutlined />} loading={previewLoading} onClick={handlePreview}>SQL预览</Button>
-                <Button icon={<PlayCircleOutlined />} loading={trialLoading} onClick={handleTrial}>试算</Button>
+                <Button icon={<PlayCircleOutlined />} loading={trialLoading} onClick={handleTrial} disabled={!canTrial} title={!sql ? '请先点击SQL预览' : '当前参数已变更，请重新点击SQL预览'}>试算</Button>
             </Space>
             {sql && (
                 <pre style={{ background: '#fff', padding: 12, borderRadius: 4, overflow: 'auto' }}>{sql}</pre>
@@ -295,6 +298,7 @@ const MetricsDefinition: React.FC = () => {
     const [refMetrics, setRefMetrics] = useState<MetricListItem[]>([]);
     const [employees, setEmployees] = useState<EmployeeDTO[]>([]);
     const [currentUser, setCurrentUser] = useState<string>('');
+    const [sourceColumns, setSourceColumns] = useState<MetadataColumnDTO[]>([]);
 
     // 加载员工列表和当前用户
     useEffect(() => {
@@ -727,7 +731,7 @@ const MetricsDefinition: React.FC = () => {
                                 </Select>
                             </Form.Item>
                             <Form.Item name="dsSelector" label="数据来源" rules={[{ required: true, validator: (_, val) => val?.dsName && val?.dbName && val?.tblName && val?.colName ? Promise.resolve() : Promise.reject(new Error('请选择数仓表和字段')) }]}>
-                                <MetadataTableSelector />
+                                <MetadataTableSelector onColumnsChange={setSourceColumns} />
                             </Form.Item>
                             <Form.List name="filterCondition">
                                 {(fields, { add, remove }) => (
@@ -736,7 +740,7 @@ const MetricsDefinition: React.FC = () => {
                                             <Row key={key} gutter={8} align="middle">
                                                 <Col span={7}>
                                                     <Form.Item {...restField} name={[name, 'field']} rules={[{ required: true }]}>
-                                                        <Input placeholder="字段" />
+                                                        <Select placeholder="选择字段" showSearch optionFilterProp="label" options={sourceColumns.map(c => ({ value: c.col, label: c.col + (c.comment ? ` - ${c.comment}` : '') }))} />
                                                     </Form.Item>
                                                 </Col>
                                                 <Col span={5}>
