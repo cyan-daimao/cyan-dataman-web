@@ -79,10 +79,12 @@ export interface DimensionDTO {
     categoryName?: string;
     tableName?: string;
     columnName?: string;
+    displayColumn?: string;
     description?: string;
 }
 
 export interface DimensionCmd {
+    dimCode?: string;
     dimName: string;
     dimType: DimType;
     dataType: DataType;
@@ -90,6 +92,7 @@ export interface DimensionCmd {
     categoryId?: string;
     tableName?: string;
     columnName?: string;
+    displayColumn?: string;
     description?: string;
 }
 
@@ -244,7 +247,15 @@ export const MetadataTableSelectorApi = {
      */
     columns: async (tableId: string): Promise<ApiResponse<MetadataColumnDTO[]>> => {
         return datamanRequest.get(`/api/v1/metadata/tables/${tableId}/columns`);
-    }
+    },
+
+    /**
+     * 根据表名获取元数据表详情（含 catalog/schema/name）
+     * GET /api/v1/metadata/tables/by-name/{name}
+     */
+    getByName: async (name: string): Promise<ApiResponse<MetadataTableDTO>> => {
+        return datamanRequest.get(`/api/v1/metadata/tables/by-name/${name}`);
+    },
 };
 
 // ==================== 公共维度 API ====================

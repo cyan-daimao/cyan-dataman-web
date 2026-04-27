@@ -1,16 +1,17 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
     Tree, Button, Table, Modal, Form, Input, Select, TreeSelect, message,
-    Empty, Popconfirm, Tag, Space, Dropdown, Typography, Card,
+    Empty, Popconfirm, Tag, Space, Dropdown, Typography, Card, Row, Col,
 } from 'antd';
 import {
-    PlusOutlined, EditOutlined, DeleteOutlined,
+    PlusOutlined, EditOutlined, DeleteOutlined, MoreOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import {
     DimensionApi, DimensionDTO, DimensionCmd, DimType, DataType, DimensionPageQuery,
     MetadataTableSelectorApi, MetadataColumnDTO,
 } from '@/api/MetricConfigApi';
+import { executeSparkSql } from '@/api/DatagawayApi';
 import {
     DimensionCategoryApi, DimensionCategory, DimensionCategoryCmd,
 } from '@/api/DimensionCategoryApi';
@@ -66,43 +67,64 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
     onEdit,
     onDelete,
 }) => {
+    const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+
     const buildTreeNodes = (list: DimensionCategory[]): React.ComponentProps<typeof Tree>['treeData'] => {
         return list.map(item => ({
             key: item.id,
             title: (
-                <Dropdown
-                    trigger={['contextMenu']}
-                    menu={{
-                        items: [
-                            {
-                                key: 'addChild',
-                                label: '新增子分类',
-                                onClick: () => onAddChild(item),
-                            },
-                            {
-                                key: 'edit',
-                                label: '编辑',
-                                onClick: () => onEdit(item),
-                            },
-                            {
-                                key: 'delete',
-                                label: '删除',
-                                danger: true,
-                                onClick: () => {
-                                    Modal.confirm({
-                                        title: '确认删除？',
-                                        content: `确定删除分类「${item.name}」吗？`,
-                                        onOk: () => onDelete(item.id),
-                                    });
-                                },
-                            },
-                        ] as MenuProps['items'],
-                    }}
+                <div
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}
+                    onMouseEnter={() => setHoveredKey(item.id)}
+                    onMouseLeave={() => setHoveredKey(null)}
                 >
-                    <span style={{ display: 'inline-block', width: '100%' }}>
-                        <Text strong={item.level === 1}>{item.name}</Text>
-                    </span>
-                </Dropdown>
+                    <Text strong={item.level === 1}>{item.name}</Text>
+                    <Dropdown
+                        trigger={['click']}
+                        menu={{
+                            items: [
+                                {
+                                    key: 'addChild',
+                                    label: '新增子分类',
+                                    onClick: () => onAddChild(item),
+                                },
+                                {
+                                    key: 'edit',
+                                    label: '编辑',
+                                    onClick: () => onEdit(item),
+                                },
+                                {
+                                    key: 'delete',
+                                    label: '删除',
+                                    danger: true,
+                                    onClick: () => {
+                                        const hasChildren = item.children && item.children.length > 0;
+                                        Modal.confirm({
+                                            title: hasChildren ? '确认删除（含子分类）？' : '确认删除？',
+                                            content: hasChildren
+                                                ? `分类「${item.name}」下包含 ${item.children!.length} 个子分类，删除后将一并移除，确定继续吗？`
+                                                : `确定删除分类「${item.name}」吗？`,
+                                            okButtonProps: { danger: true },
+                                            onOk: () => onDelete(item.id),
+                                        });
+                                    },
+                                },
+                            ] as MenuProps['items'],
+                        }}
+                    >
+                        <Button
+                            type="text"
+                            size="small"
+                            icon={<MoreOutlined />}
+                            style={{
+                                opacity: hoveredKey === item.id ? 1 : 0,
+                                transition: 'opacity 0.2s',
+                                marginLeft: 8,
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    </Dropdown>
+                </div>
             ),
             children: item.children ? buildTreeNodes(item.children) : undefined,
         }));
@@ -159,12 +181,13 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
 interface CategoryModalProps {
     open: boolean;
     editing: DimensionCategory | null;
+    defaultParentId?: string;
     treeData: DimensionCategory[];
     onCancel: () => void;
     onSave: (values: DimensionCategoryCmd) => void;
 }
 
-const CategoryModal: React.FC<CategoryModalProps> = ({ open, editing, treeData, onCancel, onSave }) => {
+const CategoryModal: React.FC<CategoryModalProps> = ({ open, editing, defaultParentId, treeData, onCancel, onSave }) => {
     const [form] = Form.useForm();
 
     useEffect(() => {
@@ -177,22 +200,48 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ open, editing, treeData, 
                 });
             } else {
                 form.resetFields();
+                if (defaultParentId) {
+                    form.setFieldsValue({ parentId: defaultParentId });
+                }
             }
         }
-    }, [open, editing, form]);
+    }, [open, editing, defaultParentId, form]);
+
+    const collectDescendantIds = (list: DimensionCategory[], id: string): Set<string> => {
+        const result = new Set<string>();
+        const findNode = (nodes: DimensionCategory[]): DimensionCategory | null => {
+            for (const node of nodes) {
+                if (node.id === id) return node;
+                if (node.children) {
+                    const found = findNode(node.children);
+                    if (found) return found;
+                }
+            }
+            return null;
+        };
+        const collect = (node: DimensionCategory) => {
+            result.add(node.id);
+            if (node.children) {
+                node.children.forEach(collect);
+            }
+        };
+        const target = findNode(list);
+        if (target) collect(target);
+        return result;
+    };
 
     const buildParentTreeData = (
         list: DimensionCategory[],
-        excludeId?: string
+        excludeIds?: Set<string>
     ): React.ComponentProps<typeof TreeSelect>['treeData'] => {
         return list
-            .filter(item => item.id !== excludeId)
+            .filter(item => !excludeIds?.has(item.id))
             .map(item => ({
                 key: item.id,
                 value: item.id,
                 title: item.name,
                 children: item.children
-                    ? buildParentTreeData(item.children, excludeId)
+                    ? buildParentTreeData(item.children, excludeIds)
                     : undefined,
             }));
     };
@@ -211,7 +260,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ open, editing, treeData, 
                 </Form.Item>
                 <Form.Item name="parentId" label="父分类">
                     <TreeSelect
-                        treeData={buildParentTreeData(treeData, editing?.id)}
+                        treeData={buildParentTreeData(treeData, editing ? collectDescendantIds(treeData, editing.id) : undefined)}
                         placeholder="选择父分类（不选则为一级分类）"
                         allowClear
                         treeDefaultExpandAll
@@ -239,10 +288,13 @@ const DimensionModal: React.FC<DimensionModalProps> = ({ open, editing, treeData
     const [form] = Form.useForm();
     const dimType = Form.useWatch('dimType', form);
     const tableName = Form.useWatch('tableName', form);
-    const [dimTableOptions, setDimTableOptions] = useState<{ id: string; name: string; subjectName?: string; comment: string }[]>([]);
+    const [dimTableOptions, setDimTableOptions] = useState<{ id: string; name: string; schema?: string; catalog?: string; comment: string }[]>([]);
     const [dimTableLoading, setDimTableLoading] = useState(false);
     const [tableColumns, setTableColumns] = useState<MetadataColumnDTO[]>([]);
     const [tableColumnsLoading, setTableColumnsLoading] = useState(false);
+    const [dimValueList, setDimValueList] = useState<Array<{ code: string; name?: string }>>([]);
+    const [dimValueLoading, setDimValueLoading] = useState(false);
+    const [dimValueKeyword, setDimValueKeyword] = useState('');
 
     // 根据 tableName 查找对应的 tableId
     const findTableIdByName = useCallback((name: string | undefined): string | undefined => {
@@ -284,12 +336,14 @@ const DimensionModal: React.FC<DimensionModalProps> = ({ open, editing, treeData
         if (open) {
             if (editing) {
                 form.setFieldsValue({
+                    dimCode: editing.dimCode,
                     dimName: editing.dimName,
                     dimType: editing.dimType,
                     dataType: editing.dataType,
                     categoryId: editing.categoryId,
                     tableName: editing.tableName,
                     columnName: editing.columnName,
+                    displayColumn: editing.displayColumn,
                     dimValues: editing.dimValues,
                     description: editing.description,
                 });
@@ -301,7 +355,14 @@ const DimensionModal: React.FC<DimensionModalProps> = ({ open, editing, treeData
             MetadataTableSelectorApi.list({ layerCode: 'DIM' })
                 .then(res => {
                     if (res.code === 200 && res.data) {
-                        setDimTableOptions(res.data.data || []);
+                        const list = (res.data.data || []).map((item: any) => ({
+                            id: item.id,
+                            name: item.name,
+                            schema: item.table?.schema,
+                            catalog: item.table?.catalog,
+                            comment: item.comment,
+                        }));
+                        setDimTableOptions(list);
                     }
                 })
                 .catch(() => {
@@ -339,6 +400,54 @@ const DimensionModal: React.FC<DimensionModalProps> = ({ open, editing, treeData
         message.info('同步枚举值功能即将上线，敬请期待');
     };
 
+    const loadDimensionValues = async () => {
+        const columnName = form.getFieldValue('columnName');
+        const displayColumn = form.getFieldValue('displayColumn');
+        if (!tableName || !columnName) {
+            message.warning('请先选择关联维表和关联字段');
+            return;
+        }
+        const tableInfo = dimTableOptions.find(opt => opt.name === tableName);
+        if (!tableInfo || !tableInfo.schema) {
+            message.warning('未找到维表的 schema 信息');
+            return;
+        }
+        setDimValueLoading(true);
+        try {
+            const parts = tableInfo.catalog
+                ? [tableInfo.catalog, tableInfo.schema, tableInfo.name]
+                : [tableInfo.schema, tableInfo.name];
+            const tableRef = parts.map(p => `\`${p}\``).join('.');
+
+            const cols = [`\`${columnName}\``];
+            if (displayColumn) cols.push(`\`${displayColumn}\``);
+
+            let sql = `SELECT DISTINCT ${cols.join(', ')} FROM ${tableRef}`;
+            if (dimValueKeyword && displayColumn) {
+                sql += ` WHERE \`${displayColumn}\` LIKE '%${dimValueKeyword.replace(/'/g, "''")}%' `;
+            }
+            sql += ' LIMIT 100';
+
+            const res = await executeSparkSql(sql);
+            if (res.code === 200 && res.data) {
+                const rows = res.data.data || [];
+                const list = rows.map((row: any) => ({
+                    code: String(row[columnName] ?? row[Object.keys(row)[0]] ?? ''),
+                    name: displayColumn ? String(row[displayColumn] ?? row[Object.keys(row)[1]] ?? '') : undefined,
+                }));
+                setDimValueList(list);
+            } else {
+                message.error(res.data?.errorMessage || res.message || '查询失败');
+                setDimValueList([]);
+            }
+        } catch (e: any) {
+            message.error(e.message || '加载维度值失败');
+            setDimValueList([]);
+        } finally {
+            setDimValueLoading(false);
+        }
+    };
+
     return (
         <Modal
             title={editing ? '编辑维度' : '新增维度'}
@@ -346,86 +455,149 @@ const DimensionModal: React.FC<DimensionModalProps> = ({ open, editing, treeData
             onOk={() => form.submit()}
             onCancel={onCancel}
             destroyOnClose
-            width={560}
+            width={960}
         >
-            <Form form={form} onFinish={onSave} layout="vertical">
-                <Form.Item name="dimName" label="维度名称" rules={[{ required: true, message: '请输入维度名称' }]}>
-                    <Input placeholder="如：日期维度" />
-                </Form.Item>
-                <Form.Item name="dimType" label="维度类型" rules={[{ required: true, message: '请选择维度类型' }]}>
-                    <Select placeholder="选择维度类型">
-                        {Object.values(DimType).map(t => (
-                            <Select.Option key={t} value={t}>{dimTypeMap[t] || t}</Select.Option>
-                        ))}
-                    </Select>
-                </Form.Item>
-                <Form.Item name="dataType" label="数据类型" rules={[{ required: true, message: '请选择数据类型' }]}>
-                    <Select placeholder="选择数据类型">
-                        {Object.values(DataType).map(t => (
-                            <Select.Option key={t} value={t}>{dataTypeMap[t] || t}</Select.Option>
-                        ))}
-                    </Select>
-                </Form.Item>
-                <Form.Item name="categoryId" label="所属分类">
-                    <TreeSelect
-                        treeData={buildCategoryTreeData(treeData)}
-                        placeholder="选择所属分类"
-                        allowClear
-                        treeDefaultExpandAll
-                    />
-                </Form.Item>
-                <Form.Item name="tableName" label="关联维表">
-                    <Select
-                        showSearch
-                        placeholder="选择关联维表"
-                        allowClear
-                        loading={dimTableLoading}
-                        optionFilterProp="label"
-                        options={dimTableOptions.map(item => ({
-                            value: item.name,
-                            label: `${item.name} - ${item.comment} `,
-                        }))}
-                    />
-                </Form.Item>
-                <Form.Item name="columnName" label="关联字段">
-                    <Select
-                        showSearch
-                        placeholder={tableName ? '选择关联字段' : '请先选择关联维表'}
-                        allowClear
-                        disabled={!tableName || tableColumnsLoading}
-                        loading={tableColumnsLoading}
-                        optionFilterProp="label"
-                        options={tableColumns.map(col => ({
-                            value: col.col,
-                            label: `${col.col}${col.comment ? ' - ' + col.comment : ''}`,
-                        }))}
-                    />
-                </Form.Item>
-                {dimType === DimType.ENUM && (
-                    <Form.Item label="维度可选值">
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <Form.Item name="dimValues" noStyle>
-                                <Select
-                                    mode="tags"
-                                    placeholder="输入可选值后按回车确认"
-                                    allowClear
-                                    tokenSeparators={[',']}
-                                    style={{ flex: 1 }}
-                                />
+            <Row gutter={24} style={{ minHeight: 560 }}>
+                <Col span={14}>
+                    <Form form={form} onFinish={onSave} layout="vertical">
+                        <Form.Item name="dimCode" label="维度编码">
+                            <Input placeholder={editing ? undefined : '不填则系统自动生成'} disabled={!!editing} />
+                        </Form.Item>
+                        <Form.Item name="dimName" label="维度名称" rules={[{ required: true, message: '请输入维度名称' }]}>
+                            <Input placeholder="如：日期维度" />
+                        </Form.Item>
+                        <Form.Item name="dimType" label="维度类型" rules={[{ required: true, message: '请选择维度类型' }]}>
+                            <Select placeholder="选择维度类型">
+                                {Object.values(DimType).map(t => (
+                                    <Select.Option key={t} value={t}>{dimTypeMap[t] || t}</Select.Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
+                        <Form.Item name="dataType" label="数据类型" rules={[{ required: true, message: '请选择数据类型' }]}>
+                            <Select placeholder="选择数据类型">
+                                {Object.values(DataType).map(t => (
+                                    <Select.Option key={t} value={t}>{dataTypeMap[t] || t}</Select.Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
+                        <Form.Item name="categoryId" label="所属分类">
+                            <TreeSelect
+                                treeData={buildCategoryTreeData(treeData)}
+                                placeholder="选择所属分类"
+                                allowClear
+                                treeDefaultExpandAll
+                            />
+                        </Form.Item>
+                        <Form.Item name="tableName" label="关联维表">
+                            <Select
+                                showSearch
+                                placeholder="选择关联维表"
+                                allowClear
+                                loading={dimTableLoading}
+                                optionFilterProp="label"
+                                options={dimTableOptions.map(item => ({
+                                    value: item.name,
+                                    label: `${item.name} - ${item.comment} `,
+                                }))}
+                            />
+                        </Form.Item>
+                        <Form.Item name="columnName" label="关联字段">
+                            <Select
+                                showSearch
+                                placeholder={tableName ? '选择关联字段（如 code / id）' : '请先选择关联维表'}
+                                allowClear
+                                disabled={!tableName || tableColumnsLoading}
+                                loading={tableColumnsLoading}
+                                optionFilterProp="label"
+                                options={tableColumns.map(col => ({
+                                    value: col.col,
+                                    label: `${col.col}${col.comment ? ' - ' + col.comment : ''}`,
+                                }))}
+                            />
+                        </Form.Item>
+                        <Form.Item name="displayColumn" label="显示字段">
+                            <Select
+                                showSearch
+                                placeholder={tableName ? '选择 BI 展示时用的名称字段（如 name）' : '请先选择关联维表'}
+                                allowClear
+                                disabled={!tableName || tableColumnsLoading}
+                                loading={tableColumnsLoading}
+                                optionFilterProp="label"
+                                options={tableColumns.map(col => ({
+                                    value: col.col,
+                                    label: `${col.col}${col.comment ? ' - ' + col.comment : ''}`,
+                                }))}
+                            />
+                        </Form.Item>
+                        {dimType === DimType.ENUM && (
+                            <Form.Item label="维度可选值">
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <Form.Item name="dimValues" noStyle>
+                                        <Select
+                                            mode="tags"
+                                            placeholder="输入可选值后按回车确认"
+                                            allowClear
+                                            tokenSeparators={[',']}
+                                            style={{ flex: 1 }}
+                                        />
+                                    </Form.Item>
+                                    <Button
+                                        disabled={!tableName}
+                                        onClick={handleSyncEnums}
+                                    >
+                                        同步枚举值
+                                    </Button>
+                                </div>
                             </Form.Item>
+                        )}
+                        <Form.Item name="description" label="描述">
+                            <TextArea rows={2} placeholder="描述该维度的业务含义" />
+                        </Form.Item>
+                    </Form>
+                </Col>
+                <Col span={10}>
+                    <Card
+                        title="维度值预览"
+                        size="small"
+                        // style={{ height: 580 }}
+                        extra={
                             <Button
+                                type="primary"
+                                size="small"
+                                onClick={loadDimensionValues}
+                                loading={dimValueLoading}
                                 disabled={!tableName}
-                                onClick={handleSyncEnums}
                             >
-                                同步枚举值
+                                加载维度值
                             </Button>
+                        }
+                    >
+                        <Input.Search
+                            placeholder="搜索维度值名称"
+                            allowClear
+                            size="small"
+                            value={dimValueKeyword}
+                            onChange={(e) => setDimValueKeyword(e.target.value)}
+                            onSearch={loadDimensionValues}
+                            style={{ marginBottom: 12 }}
+                        />
+                        <div style={{ height: 680, overflow: 'auto' }}>
+                            <Table
+                                size="small"
+                                loading={dimValueLoading}
+                                dataSource={dimValueList}
+                                rowKey="code"
+                                pagination={false}
+                                columns={[
+                                    { title: '编码', dataIndex: 'code', key: 'code', ellipsis: true },
+                                    { title: '名称', dataIndex: 'name', key: 'name', ellipsis: true },
+                                ]}
+                                locale={{ emptyText: '点击「加载维度值」获取数据' }}
+                            />
                         </div>
-                    </Form.Item>
-                )}
-                <Form.Item name="description" label="描述">
-                    <TextArea rows={2} placeholder="描述该维度的业务含义" />
-                </Form.Item>
-            </Form>
+                    </Card>
+                </Col>
+            </Row>
         </Modal>
     );
 };
@@ -440,6 +612,7 @@ const DimensionPage: React.FC = () => {
     const [searchKeyword, setSearchKeyword] = useState('');
     const [categoryModalOpen, setCategoryModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<DimensionCategory | null>(null);
+    const [defaultParentId, setDefaultParentId] = useState<string | undefined>(undefined);
 
     // 维度列表状态
     const [dimensions, setDimensions] = useState<DimensionDTO[]>([]);
@@ -555,16 +728,19 @@ const DimensionPage: React.FC = () => {
 
     const handleAddRootCategory = () => {
         setEditingCategory(null);
+        setDefaultParentId(undefined);
         setCategoryModalOpen(true);
     };
 
-    const handleAddChildCategory = () => {
+    const handleAddChildCategory = (parent: DimensionCategory) => {
         setEditingCategory(null);
+        setDefaultParentId(parent.id);
         setCategoryModalOpen(true);
     };
 
     const handleEditCategory = (category: DimensionCategory) => {
         setEditingCategory(category);
+        setDefaultParentId(undefined);
         setCategoryModalOpen(true);
     };
 
@@ -725,8 +901,9 @@ const DimensionPage: React.FC = () => {
             <CategoryModal
                 open={categoryModalOpen}
                 editing={editingCategory}
+                defaultParentId={defaultParentId}
                 treeData={categoryTree}
-                onCancel={() => { setCategoryModalOpen(false); setEditingCategory(null); }}
+                onCancel={() => { setCategoryModalOpen(false); setEditingCategory(null); setDefaultParentId(undefined); }}
                 onSave={handleSaveCategory}
             />
 
