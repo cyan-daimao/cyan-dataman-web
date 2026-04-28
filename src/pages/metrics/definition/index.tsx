@@ -693,150 +693,156 @@ const MetricsDefinition: React.FC = () => {
                 open={modalVisible}
                 onOk={handleSave}
                 onCancel={() => { setModalVisible(false); form.resetFields(); setEditingId(null); }}
-                width={800}
+                width={1200}
                 destroyOnClose
             >
                 <Form form={form} layout="vertical">
-                    <Form.Item name="metricName" label="指标名称" rules={[{ required: true }]}>
-                        <Input placeholder="请输入指标名称" />
-                    </Form.Item>
-                    <Form.Item name="bizCaliber" label="业务口径" rules={[{ required: true }]}>
-                        <TextArea rows={2} placeholder="请输入业务口径" />
-                    </Form.Item>
-                    <Form.Item name="techCaliber" label="技术口径">
-                        <TextArea rows={2} placeholder="请输入技术口径（选填）" />
-                    </Form.Item>
-                    <Form.Item name="subjectCode" label="所属主题域" rules={[{ required: true }]}>
-                        <TreeSelect
-                            treeData={buildSubjectTree(subjects)}
-                            placeholder="选择主题域"
-                            treeDefaultExpandAll
-                        />
-                    </Form.Item>
-                    <Form.Item name="owner" label="负责人" rules={[{ required: true }]}>
-                        <Select placeholder="选择负责人" showSearch optionFilterProp="children">
-                            {employees.map(emp => (
-                                <Option key={emp.passport} value={emp.passport}>
-                                    {emp.cnName} ({emp.passport})
-                                </Option>
-                            ))}
-                        </Select>
-                    </Form.Item>
-
-                    {modalType === MetricType.ATOMIC && (
-                        <>
-                            <Form.Item name="statFunc" label="统计函数" rules={[{ required: true }]}>
-                                <Select placeholder="选择统计函数">
-                                    {Object.values(StatFunc).map(f => <Option key={f} value={f}>{f}</Option>)}
-                                </Select>
+                    <Row gutter={24}>
+                        <Col span={14}>
+                            <Form.Item name="metricName" label="指标名称" rules={[{ required: true }]}>
+                                <Input placeholder="请输入指标名称" />
                             </Form.Item>
-                            <Form.Item name="dsSelector" label="数据来源" rules={[{ required: true, validator: (_, val) => val?.dsName && val?.dbName && val?.tblName && val?.colName ? Promise.resolve() : Promise.reject(new Error('请选择数仓表和字段')) }]}>
-                                <MetadataTableSelector onColumnsChange={setSourceColumns} />
+                            <Form.Item name="bizCaliber" label="业务口径" rules={[{ required: true }]}>
+                                <TextArea rows={2} placeholder="请输入业务口径" />
                             </Form.Item>
-                            <Form.List name="filterCondition">
-                                {(fields, { add, remove }) => (
-                                    <>
-                                        {fields.map(({ key, name, ...restField }) => (
-                                            <Row key={key} gutter={8} align="middle">
-                                                <Col span={7}>
-                                                    <Form.Item {...restField} name={[name, 'field']} rules={[{ required: true }]}>
-                                                        <Select placeholder="选择字段" showSearch optionFilterProp="label" options={sourceColumns.map(c => ({ value: c.col, label: c.col + (c.comment ? ` - ${c.comment}` : '') }))} />
-                                                    </Form.Item>
-                                                </Col>
-                                                <Col span={5}>
-                                                    <Form.Item {...restField} name={[name, 'op']} rules={[{ required: true }]}>
-                                                        <Select placeholder="运算符">
-                                                            <Option value="=">=</Option>
-                                                            <Option value="!=">!=</Option>
-                                                            <Option value=">">&gt;</Option>
-                                                            <Option value="<">&lt;</Option>
-                                                            <Option value="IN">IN</Option>
-                                                        </Select>
-                                                    </Form.Item>
-                                                </Col>
-                                                <Col span={9}>
-                                                    <Form.Item {...restField} name={[name, 'value']} rules={[{ required: true }]}>
-                                                        <Input placeholder="值" />
-                                                    </Form.Item>
-                                                </Col>
-                                                <Col span={3}>
-                                                    <Button type="link" danger onClick={() => remove(name)}>删除</Button>
-                                                </Col>
-                                            </Row>
-                                        ))}
-                                        <Button type="dashed" onClick={() => add()} block>添加过滤条件</Button>
-                                    </>
-                                )}
-                            </Form.List>
-                        </>
-                    )}
-
-                    {modalType === MetricType.DERIVED && (
-                        <>
-                            <Form.Item name="atomicMetricId" label="原子指标" rules={[{ required: true }]}>
-                                <Select placeholder="选择原子指标" showSearch optionFilterProp="children">
-                                    {atomicMetrics.map(m => <Option key={m.id} value={m.id}>{m.metricName} ({m.metricCode})</Option>)}
-                                </Select>
+                            <Form.Item name="techCaliber" label="技术口径">
+                                <TextArea rows={2} placeholder="请输入技术口径（选填）" />
                             </Form.Item>
-                            <Form.Item name="timePeriodId" label="时间周期" rules={[{ required: true }]}>
-                                <Select placeholder="选择时间周期">
-                                    {timePeriods.map(t => <Option key={t.id} value={t.id}>{t.periodName}</Option>)}
-                                </Select>
+                            <Form.Item name="subjectCode" label="所属主题域" rules={[{ required: true }]}>
+                                <TreeSelect
+                                    treeData={buildSubjectTree(subjects)}
+                                    placeholder="选择主题域"
+                                    treeDefaultExpandAll
+                                />
                             </Form.Item>
-                            <Form.Item name="modifierIds" label="修饰词">
-                                <Select mode="multiple" placeholder="选择修饰词">
-                                    {modifiers.map(m => <Option key={m.id} value={m.id}>{m.modifierName}</Option>)}
-                                </Select>
-                            </Form.Item>
-                            <Form.Item name="dimensionIds" label="维度">
-                                <Select mode="multiple" placeholder="选择维度">
-                                    {dimensions.map(d => (
-                                        <Option key={d.id} value={d.id}>
-                                            <span>{d.dimName}</span>
-                                            <Tag color="blue" style={{ marginLeft: 8, fontSize: 12 }}>{d.dimType === DimType.DATE ? 'DATE' : d.dimType}</Tag>
+                            <Form.Item name="owner" label="负责人" rules={[{ required: true }]}>
+                                <Select placeholder="选择负责人" showSearch optionFilterProp="children">
+                                    {employees.map(emp => (
+                                        <Option key={emp.passport} value={emp.passport}>
+                                            {emp.cnName} ({emp.passport})
                                         </Option>
                                     ))}
                                 </Select>
                             </Form.Item>
-                            <Form.List name="groupByFields">
-                                {(fields, { add, remove }) => (
-                                    <>
-                                        {fields.map(({ key, name, ...restField }) => (
-                                            <Row key={key} gutter={8} align="middle">
-                                                <Col span={20}>
-                                                    <Form.Item {...restField} name={[name, 'col']} rules={[{ required: true }]}>
-                                                        <Input placeholder="分组字段" />
-                                                    </Form.Item>
-                                                </Col>
-                                                <Col span={4}>
-                                                    <Button type="link" danger onClick={() => remove(name)}>删除</Button>
-                                                </Col>
-                                            </Row>
-                                        ))}
-                                        <Button type="dashed" onClick={() => add()} block>添加分组字段</Button>
-                                    </>
+
+                            {modalType === MetricType.ATOMIC && (
+                                <>
+                                    <Form.Item name="statFunc" label="统计函数" rules={[{ required: true }]}>
+                                        <Select placeholder="选择统计函数">
+                                            {Object.values(StatFunc).map(f => <Option key={f} value={f}>{f}</Option>)}
+                                        </Select>
+                                    </Form.Item>
+                                    <Form.Item name="dsSelector" label="数据来源" rules={[{ required: true, validator: (_, val) => val?.dsName && val?.dbName && val?.tblName && val?.colName ? Promise.resolve() : Promise.reject(new Error('请选择数仓表和字段')) }]}>
+                                        <MetadataTableSelector onColumnsChange={setSourceColumns} />
+                                    </Form.Item>
+                                    <Form.List name="filterCondition">
+                                        {(fields, { add, remove }) => (
+                                            <>
+                                                {fields.map(({ key, name, ...restField }) => (
+                                                    <Row key={key} gutter={8} align="middle">
+                                                        <Col span={7}>
+                                                            <Form.Item {...restField} name={[name, 'field']} rules={[{ required: true }]}>
+                                                                <Select placeholder="选择字段" showSearch optionFilterProp="label" options={sourceColumns.map(c => ({ value: c.col, label: c.col + (c.comment ? ` - ${c.comment}` : '') }))} />
+                                                            </Form.Item>
+                                                        </Col>
+                                                        <Col span={5}>
+                                                            <Form.Item {...restField} name={[name, 'op']} rules={[{ required: true }]}>
+                                                                <Select placeholder="运算符">
+                                                                    <Option value="=">=</Option>
+                                                                    <Option value="!=">!=</Option>
+                                                                    <Option value=">">&gt;</Option>
+                                                                    <Option value="<">&lt;</Option>
+                                                                    <Option value="IN">IN</Option>
+                                                                </Select>
+                                                            </Form.Item>
+                                                        </Col>
+                                                        <Col span={9}>
+                                                            <Form.Item {...restField} name={[name, 'value']} rules={[{ required: true }]}>
+                                                                <Input placeholder="值" />
+                                                            </Form.Item>
+                                                        </Col>
+                                                        <Col span={3}>
+                                                            <Button type="link" danger onClick={() => remove(name)}>删除</Button>
+                                                        </Col>
+                                                    </Row>
+                                                ))}
+                                                <Button type="dashed" onClick={() => add()} block>添加过滤条件</Button>
+                                            </>
+                                        )}
+                                    </Form.List>
+                                </>
+                            )}
+
+                            {modalType === MetricType.DERIVED && (
+                                <>
+                                    <Form.Item name="atomicMetricId" label="原子指标" rules={[{ required: true }]}>
+                                        <Select placeholder="选择原子指标" showSearch optionFilterProp="children">
+                                            {atomicMetrics.map(m => <Option key={m.id} value={m.id}>{m.metricName} ({m.metricCode})</Option>)}
+                                        </Select>
+                                    </Form.Item>
+                                    <Form.Item name="timePeriodId" label="时间周期" rules={[{ required: true }]}>
+                                        <Select placeholder="选择时间周期">
+                                            {timePeriods.map(t => <Option key={t.id} value={t.id}>{t.periodName}</Option>)}
+                                        </Select>
+                                    </Form.Item>
+                                    <Form.Item name="modifierIds" label="修饰词">
+                                        <Select mode="multiple" placeholder="选择修饰词">
+                                            {modifiers.map(m => <Option key={m.id} value={m.id}>{m.modifierName}</Option>)}
+                                        </Select>
+                                    </Form.Item>
+                                    <Form.Item name="dimensionIds" label="维度">
+                                        <Select mode="multiple" placeholder="选择维度">
+                                            {dimensions.map(d => (
+                                                <Option key={d.id} value={d.id}>
+                                                    <span>{d.dimName}</span>
+                                                    <Tag color="blue" style={{ marginLeft: 8, fontSize: 12 }}>{d.dimType === DimType.DATE ? 'DATE' : d.dimType}</Tag>
+                                                </Option>
+                                            ))}
+                                        </Select>
+                                    </Form.Item>
+                                    <Form.List name="groupByFields">
+                                        {(fields, { add, remove }) => (
+                                            <>
+                                                {fields.map(({ key, name, ...restField }) => (
+                                                    <Row key={key} gutter={8} align="middle">
+                                                        <Col span={20}>
+                                                            <Form.Item {...restField} name={[name, 'col']} rules={[{ required: true }]}>
+                                                                <Input placeholder="分组字段" />
+                                                            </Form.Item>
+                                                        </Col>
+                                                        <Col span={4}>
+                                                            <Button type="link" danger onClick={() => remove(name)}>删除</Button>
+                                                        </Col>
+                                                    </Row>
+                                                ))}
+                                                <Button type="dashed" onClick={() => add()} block>添加分组字段</Button>
+                                            </>
+                                        )}
+                                    </Form.List>
+                                </>
+                            )}
+
+                            {modalType === MetricType.COMPOSITE && (
+                                <>
+                                    <Form.Item name="formula" label="计算公式" rules={[{ required: true }]}>
+                                        <Input placeholder="如：${M001} / ${M002} * 100" />
+                                    </Form.Item>
+                                    <Form.Item name="metricRefs" label="引用指标" rules={[{ required: true }]}>
+                                        <Select mode="multiple" placeholder="选择引用的指标">
+                                            {refMetrics.map(m => <Option key={m.id} value={m.id}>{m.metricName} ({m.metricCode})</Option>)}
+                                        </Select>
+                                    </Form.Item>
+                                </>
+                            )}
+                        </Col>
+                        <Col span={10}>
+                            <div style={{ position: 'sticky', top: 0 }}>
+                                {modalType && (
+                                    <SqlPreviewPanel metricType={modalType} />
                                 )}
-                            </Form.List>
-                        </>
-                    )}
-
-                    {modalType === MetricType.COMPOSITE && (
-                        <>
-                            <Form.Item name="formula" label="计算公式" rules={[{ required: true }]}>
-                                <Input placeholder="如：${M001} / ${M002} * 100" />
-                            </Form.Item>
-                            <Form.Item name="metricRefs" label="引用指标" rules={[{ required: true }]}>
-                                <Select mode="multiple" placeholder="选择引用的指标">
-                                    {refMetrics.map(m => <Option key={m.id} value={m.id}>{m.metricName} ({m.metricCode})</Option>)}
-                                </Select>
-                            </Form.Item>
-                        </>
-                    )}
-
-                    <Divider />
-                    {modalType && (
-                        <SqlPreviewPanel metricType={modalType} />
-                    )}
+                            </div>
+                        </Col>
+                    </Row>
                 </Form>
             </Modal>
 
