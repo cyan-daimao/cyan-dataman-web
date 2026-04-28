@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     Card, Tree, Input, List, Tag, Spin, Empty, Drawer, Tabs, Typography, Button,
-    Space, Segmented, Table, message, Switch,
+    Space, Segmented, Table, message, Switch, Row, Col, Pagination,
 } from 'antd';
 import {
     StarOutlined, StarFilled, FileTextOutlined,
@@ -368,42 +368,45 @@ const MetricsDictionary: React.FC = () => {
                     ) : data.length === 0 ? (
                         <Empty description="暂无指标数据" />
                     ) : viewMode === 'card' ? (
-                        <List
-                            grid={{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 3, xl: 4 }}
-                            dataSource={data}
-                            pagination={{ current: pageNum, pageSize, total, onChange: handlePageChange, showTotal: (t) => `共 ${t} 条` }}
-                            renderItem={item => (
-                                <List.Item>
-                                    <Card
-                                        hoverable
-                                        size="small"
-                                        onClick={() => openDetail(item.id)}
-                                        title={
-                                            <Space>
-                                                <Text strong ellipsis style={{ maxWidth: 140 }}>{item.metricName}</Text>
-                                                <Tag color={typeTagMap[item.metricType]?.color}>{typeTagMap[item.metricType]?.label}</Tag>
+                        <>
+                            <Row gutter={[16, 16]}>
+                                {data.map(item => (
+                                    <Col key={item.id} xs={24} sm={12} md={8} lg={8} xl={6}>
+                                        <Card
+                                            hoverable
+                                            size="small"
+                                            onClick={() => openDetail(item.id)}
+                                            style={{ height: 170 }}
+                                            title={
+                                                <Space>
+                                                    <Text strong ellipsis style={{ maxWidth: 140 }}>{item.metricName}</Text>
+                                                    <Tag color={typeTagMap[item.metricType]?.color}>{typeTagMap[item.metricType]?.label}</Tag>
+                                                </Space>
+                                            }
+                                            extra={
+                                                <Button
+                                                    type="text"
+                                                    size="small"
+                                                    icon={item.isFavorite ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />}
+                                                    onClick={(e) => toggleFavorite(item, e)}
+                                                />
+                                            }
+                                        >
+                                            <Paragraph ellipsis={{ rows: 2 }} type="secondary" style={{ marginBottom: 8, height: 40 }}>
+                                                {item.bizCaliber || '暂无业务口径'}
+                                            </Paragraph>
+                                            <Space size="small">
+                                                <Tag color={statusTagMap[item.status]?.color}>{statusTagMap[item.status]?.label}</Tag>
+                                                <Text type="secondary" style={{ fontSize: 12 }}>{item.subjectName}</Text>
                                             </Space>
-                                        }
-                                        extra={
-                                            <Button
-                                                type="text"
-                                                size="small"
-                                                icon={item.isFavorite ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />}
-                                                onClick={(e) => toggleFavorite(item, e)}
-                                            />
-                                        }
-                                    >
-                                        <Paragraph ellipsis={{ rows: 2 }} type="secondary" style={{ marginBottom: 8, minHeight: 40 }}>
-                                            {item.bizCaliber || '暂无业务口径'}
-                                        </Paragraph>
-                                        <Space size="small">
-                                            <Tag color={statusTagMap[item.status]?.color}>{statusTagMap[item.status]?.label}</Tag>
-                                            <Text type="secondary" style={{ fontSize: 12 }}>{item.subjectName}</Text>
-                                        </Space>
-                                    </Card>
-                                </List.Item>
-                            )}
-                        />
+                                        </Card>
+                                    </Col>
+                                ))}
+                            </Row>
+                            <div style={{ marginTop: 16, textAlign: 'right' }}>
+                                <Pagination current={pageNum} pageSize={pageSize} total={total} onChange={handlePageChange} showTotal={(t) => `共 ${t} 条`} />
+                            </div>
+                        </>
                     ) : (
                         <Table
                             rowKey="id"

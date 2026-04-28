@@ -782,13 +782,12 @@ const DimensionPage: React.FC = () => {
     };
 
     const columns = [
-        { title: '维度编码', dataIndex: 'dimCode', key: 'dimCode', width: 140 },
+        { title: '维度编码', dataIndex: 'dimCode', key: 'dimCode'},
         { title: '维度名称', dataIndex: 'dimName', key: 'dimName' },
         {
             title: '维度类型',
             dataIndex: 'dimType',
             key: 'dimType',
-            width: 100,
             render: (v: DimType) => (
                 <Tag color={dimTypeColorMap[v]}>{dimTypeMap[v] || v}</Tag>
             ),
@@ -797,23 +796,11 @@ const DimensionPage: React.FC = () => {
             title: '数据类型',
             dataIndex: 'dataType',
             key: 'dataType',
-            width: 100,
             render: (v: DataType) => dataTypeMap[v] || v,
-        },
-        {
-            title: '可选值',
-            dataIndex: 'dimValues',
-            key: 'dimValues',
-            render: (vals: string[] | undefined) => (
-                <Space size="small" wrap>
-                    {vals?.map(v => <Tag key={v}>{v}</Tag>)}
-                </Space>
-            ),
         },
         {
             title: '关联维表',
             key: 'tableRef',
-            width: 180,
             render: (_: unknown, record: DimensionDTO) => {
                 if (!record.tableName) return '-';
                 return record.columnName
@@ -825,7 +812,6 @@ const DimensionPage: React.FC = () => {
         {
             title: '操作',
             key: 'action',
-            width: 150,
             fixed: 'right',
             render: (_: unknown, record: DimensionDTO) => (
                 <Space>

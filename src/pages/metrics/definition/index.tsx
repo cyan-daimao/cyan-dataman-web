@@ -247,7 +247,7 @@ const SqlPreviewPanel: React.FC<{
                 <Button icon={<PlayCircleOutlined />} loading={trialLoading} onClick={handleTrial} disabled={!canTrial} title={!sql ? '请先点击SQL预览' : '当前参数已变更，请重新点击SQL预览'}>试算</Button>
             </Space>
             {sql && (
-                <pre style={{ background: '#fff', padding: 12, borderRadius: 4, overflow: 'auto' }}>{sql}</pre>
+                <pre style={{ background: '#fff', padding: 12, borderRadius: 4, overflowX: 'auto', overflowY: 'auto', whiteSpace: 'pre', wordBreak: 'keep-all', maxWidth: '100%' }}>{sql}</pre>
             )}
             {sqlResult && (
                 <div style={{ marginTop: 8 }}>
@@ -394,6 +394,7 @@ const MetricsDefinition: React.FC = () => {
                 const detail = res.data;
                 const base = {
                     metricName: detail.metricName,
+                    metricCode: detail.metricCode,
                     bizCaliber: detail.bizCaliber,
                     techCaliber: detail.techCaliber,
                     subjectCode: detail.subjectCode,
@@ -456,6 +457,7 @@ const MetricsDefinition: React.FC = () => {
             const values = await form.validateFields();
             const base = {
                 metricName: values.metricName,
+                metricCode: values.metricCode,
                 bizCaliber: values.bizCaliber,
                 techCaliber: values.techCaliber,
                 subjectCode: values.subjectCode,
@@ -507,8 +509,9 @@ const MetricsDefinition: React.FC = () => {
             form.resetFields();
             setEditingId(null);
             fetchList(pageNum);
-        } catch {
-            // validation or api error
+        } catch (error) {
+            // validation or api error: keep modal open by re-throwing
+            throw error;
         }
     };
 
@@ -699,6 +702,9 @@ const MetricsDefinition: React.FC = () => {
                 <Form form={form} layout="vertical">
                     <Row gutter={24}>
                         <Col span={14}>
+                            <Form.Item name="metricCode" label="指标编码">
+                                <Input placeholder={editingId ? undefined : '不填则系统自动生成'} disabled={!!editingId} />
+                            </Form.Item>
                             <Form.Item name="metricName" label="指标名称" rules={[{ required: true }]}>
                                 <Input placeholder="请输入指标名称" />
                             </Form.Item>

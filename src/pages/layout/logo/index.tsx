@@ -5,7 +5,7 @@ const Index:React.FC = () => {
   return (
     <div className="sidebar-logo-container">
       <img src={logo} className="sidebar-logo" alt="logo" />
-      <h1 className="sidebar-title">Infra-System</h1>
+      <h1 className="sidebar-title">Dataman-System</h1>
     </div>
   );
 };

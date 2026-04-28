@@ -184,6 +184,7 @@ export interface MetricVersionItem {
 
 export interface AtomicMetricCmd {
     metricName: string;
+    metricCode?: string;
     bizCaliber: string;
     techCaliber?: string;
     statFunc: StatFunc;
@@ -200,6 +201,7 @@ export interface AtomicMetricCmd {
 
 export interface DerivedMetricCmd {
     metricName: string;
+    metricCode?: string;
     bizCaliber: string;
     techCaliber?: string;
     atomicMetricId: string;
@@ -215,6 +217,7 @@ export interface DerivedMetricCmd {
 
 export interface CompositeMetricCmd {
     metricName: string;
+    metricCode?: string;
     bizCaliber: string;
     techCaliber?: string;
     formula: string;

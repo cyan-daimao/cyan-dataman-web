@@ -9,28 +9,28 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         dataman: "http://cyan-dataman.cyan.com/",
         employee: "http://cyan-employee.cyan.com/",
         datagateway: "http://cyan-datagateway.cyan.com/",
-        datametric: "http://localhost:8082/"
+        datametric: "http://localhost:8080/",
     },
     "pre": {
-        // dataman: "http://cyan-dataman-pre.cyan.com/",
-        dataman: "http://localhost:8080/",
+        dataman: "http://cyan-dataman-pre.cyan.com/",
+        // dataman: "http://localhost:8080/",
         employee: "http://cyan-employee-pre.cyan.com/",
         datagateway: "http://cyan-datagateway-pre.cyan.com/",
-        datametric: "http://cyan-datametric-pre.cyan.com/"
-        // datametric: "http://localhost:8080/"
+        // datametric: "http://cyan-datametric-pre.cyan.com/",
+        datametric: "http://localhost:8080/",
     },
     "prod":  {
         dataman: "http://cyan-dataman-prod.cyan.com/",
         employee: "http://cyan-employee-prod.cyan.com/",
         datagateway: "http://cyan-datagateway-prod.cyan.com/",
-        datametric: "http://cyan-datametric-prod.cyan.com/"
+        datametric: "http://cyan-datametric-prod.cyan.com/",
     },
     // vite preview 默认使用 production mode
     "production":  {
         dataman: "http://cyan-dataman-prod.cyan.com/",
         employee: "http://cyan-employee-prod.cyan.com/",
         datagateway: "http://cyan-datagateway-prod.cyan.com/",
-        datametric: "http://cyan-datametric-prod.cyan.com/"
+        datametric: "http://cyan-datametric-prod.cyan.com/",
     },
 };
 

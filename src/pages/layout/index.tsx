@@ -39,7 +39,7 @@ const App: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const keyToRoute = Object.fromEntries(Object.entries(routeKeyMap).map(([k, v]) => [v, k]));
-    
+
     // 获取当前选中的菜单 key（支持子路径匹配）
     const getSelectedKey = () => {
         const pathname = location.pathname;
@@ -55,7 +55,7 @@ const App: React.FC = () => {
         }
         return '1';
     };
-    
+
     const handleMenuClick: MenuProps['onClick'] = (e) => {
         const route = keyToRoute[e.key];
         if (route) {
@@ -99,7 +99,7 @@ const App: React.FC = () => {
                 </div>
             </Content>
             <Footer style={{textAlign: 'center', flexShrink: 0, padding: '8px 16px',}}>
-                Infra-System ©{new Date().getFullYear()} Created by cyan
+                Dataman-System ©{new Date().getFullYear()} Created by cyan
             </Footer>
 
         </Layout>
