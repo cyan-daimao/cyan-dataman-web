@@ -18,7 +18,7 @@ interface SQLEditorProps {
     onExecutePlan: () => void;
     onFormat: () => void;
     tableColumnsCache?: Record<string, ColumnVO[]>;
-    availableTables?: string[];
+    availableTables?: Array<{name: string; title: string}>;
     theme?: 'light' | 'dark';
 }
 
@@ -167,15 +167,15 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
                     }
 
                     // 否则作为 schema，提示该 schema 下的表
-                    const schemaTables = tables.filter(t => t.startsWith(`${prefix}.`));
+                    const schemaTables = tables.filter(t => t.name.startsWith(`${prefix}.`));
                     if (schemaTables.length > 0) {
                         schemaTables.forEach(t => {
                             suggestions.push({
-                                label: t,
+                                label: t.name,
                                 kind: monaco.languages.CompletionItemKind.Class,
-                                insertText: t,
+                                insertText: t.name,
                                 range,
-                                detail: '数据表'
+                                detail: t.title
                             });
                         });
                         return {suggestions};
@@ -188,13 +188,13 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
 
                 // 表名上下文优先提供表名
                 if (isTableContext) {
-                    tables.forEach(tableName => {
+                    tables.forEach(t => {
                         suggestions.push({
-                            label: tableName,
+                            label: t.name,
                             kind: monaco.languages.CompletionItemKind.Class,
-                            insertText: tableName,
+                            insertText: t.name,
                             range,
-                            detail: '数据表'
+                            detail: t.title
                         });
                     });
                 }
@@ -253,13 +253,13 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
 
                 // 非表名上下文也提供表名（供用户随时输入）
                 if (!isTableContext) {
-                    tables.forEach(tableName => {
+                    tables.forEach(t => {
                         suggestions.push({
-                            label: tableName,
+                            label: t.name,
                             kind: monaco.languages.CompletionItemKind.Class,
-                            insertText: tableName,
+                            insertText: t.name,
                             range,
-                            detail: '数据表'
+                            detail: t.title
                         });
                     });
                 }

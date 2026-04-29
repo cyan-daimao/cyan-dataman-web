@@ -42,7 +42,7 @@ interface SidebarProps {
     onTableSelect: (table: TableInfoWithColumns, shouldAppend: boolean) => void;
     onHistorySelect: (sql: string) => void;
     onFavoriteSelect: (sql: string) => void;
-    onTableListLoaded?: (tables: string[]) => void;
+    onTableListLoaded?: (tables: Array<{name: string; title: string}>) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -125,16 +125,16 @@ const Sidebar: React.FC<SidebarProps> = ({
         return keys;
     };
 
-    // 收集所有表名（含 schema 前缀）
-    const collectAllTables = (nodes: SubjectTableTreeDTO[]): string[] => {
-        const tables: string[] = [];
+    // 收集所有表名（含 schema 前缀）及标题
+    const collectAllTables = (nodes: SubjectTableTreeDTO[]): Array<{name: string; title: string}> => {
+        const tables: Array<{name: string; title: string}> = [];
         const traverse = (items: SubjectTableTreeDTO[]) => {
             items.forEach(item => {
                 if (item.type === 'table' && item.tableName) {
                     const displayName = item.schema
                         ? `${item.schema}.${item.tableName}`
                         : item.tableName;
-                    tables.push(displayName);
+                    tables.push({name: displayName, title: item.title || item.tableName});
                 }
                 if (item.children) traverse(item.children);
             });
@@ -270,7 +270,17 @@ const Sidebar: React.FC<SidebarProps> = ({
                 const columnChildren = cachedColumns ? cachedColumns.map((col, index) => ({
                     key: `${node.key}_col_${index}`,
                     title: (
-                        <span style={{fontSize: 12}}>
+                        <span
+                            style={{
+                                fontSize: 12,
+                                display: 'block',
+                                padding: '2px 0',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                            }}
+                            title={`${col.name} ${col.type} ${col.comment || ''}`}
+                        >
                             <ColumnHeightOutlined style={{marginRight: 4, color: '#52c41a'}}/>
                             <Text>{col.name}</Text>
                             <Text type="secondary" style={{marginLeft: 4, fontSize: 10}}>
@@ -362,7 +372,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 onSelect={onTreeSelect}
                                 showIcon
                                 style={{fontSize: 13}}
-                                height={600}
                             />
                         </Spin>
                     </div>

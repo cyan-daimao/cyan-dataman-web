@@ -120,7 +120,7 @@ const DataWorkPage: React.FC = () => {
             });
     }, []);
     const [tableColumnsCache, setTableColumnsCache] = useState<TableColumnsCache>({});
-    const [availableTables, setAvailableTables] = useState<string[]>([]);
+    const [availableTables, setAvailableTables] = useState<Array<{name: string; title: string}>>([]);
     const [resultActiveTab, setResultActiveTab] = useState('result');
 
     // 重命名相关状态
