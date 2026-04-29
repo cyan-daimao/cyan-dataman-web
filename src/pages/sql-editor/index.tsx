@@ -92,6 +92,7 @@ const SQLEditorPage: React.FC = () => {
             });
     }, []);
     const [tableColumnsCache, setTableColumnsCache] = useState<TableColumnsCache>({});
+    const [availableTables, setAvailableTables] = useState<string[]>([]);
     const [resultActiveTab, setResultActiveTab] = useState('result');
     
     // 重命名相关状态
@@ -258,8 +259,8 @@ const SQLEditorPage: React.FC = () => {
             saveHistory(sql, 'success', result.costTimeMs, result.data.length);
             setResultActiveTab('result');
             message.success(`执行成功，返回 ${result.data.length} 行数据，耗时 ${result.costTimeMs}ms`);
-        } catch (error: any) {
-            const errorMessage = error.message || 'SQL执行失败';
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'SQL执行失败';
             
             setTabs(prev => prev.map(t => 
                 t.id === currentActiveTab 
@@ -291,6 +292,7 @@ const SQLEditorPage: React.FC = () => {
             const resp = await executeSql(explainSql);
             const result = resp.data;
             
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const plan: ExecutionPlan[] = result.data.map((row: any, index: number) => ({
                 id: String(index + 1),
                 operation: row.operation || row.Operation || row.id || '',
@@ -307,8 +309,8 @@ const SQLEditorPage: React.FC = () => {
             
             setResultActiveTab('plan');
             message.success(`执行计划生成成功，耗时 ${result.costTimeMs}ms`);
-        } catch (error: any) {
-            const errorMessage = error.message || '获取执行计划失败';
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : '获取执行计划失败';
             
             setTabs(prev => prev.map(t => 
                 t.id === currentActiveTab 
@@ -327,7 +329,7 @@ const SQLEditorPage: React.FC = () => {
         const currentTabData = tabs.find(t => t.id === activeTabRef.current);
         if (!currentTabData?.sql) return;
         
-        let formatted = currentTabData.sql
+        const formatted = currentTabData.sql
             .replace(/\s+/g, ' ')
             .replace(/\s*,\s*/g, ',\n    ')
             .replace(/\s+(SELECT|FROM|WHERE|JOIN|LEFT JOIN|RIGHT JOIN|INNER JOIN|GROUP BY|HAVING|ORDER BY|LIMIT|UNION|WITH)/gi, '\n$1')
@@ -437,13 +439,15 @@ const SQLEditorPage: React.FC = () => {
                 maxWidth: 500,
                 background: '#fff',
                 position: 'relative',
-                flexShrink: 0
+                flexShrink: 0,
+                height: '100%'
             }}>
                 <Sidebar
                     currentSql={currentTab?.sql || ''}
                     onTableSelect={handleTableSelect}
                     onHistorySelect={handleHistorySelect}
                     onFavoriteSelect={handleFavoriteSelect}
+                    onTableListLoaded={setAvailableTables}
                 />
                 {/* 左侧拖拽条 */}
                 <div
@@ -512,6 +516,7 @@ const SQLEditorPage: React.FC = () => {
                                     onExecutePlan={handleExecutePlan}
                                     onFormat={handleFormat}
                                     tableColumnsCache={tableColumnsCache}
+                                    availableTables={availableTables}
                                 />
                             </div>
                             {/* 水平拖拽条 */}

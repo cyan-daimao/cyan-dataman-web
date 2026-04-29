@@ -1,4 +1,4 @@
-import {useRef, useCallback, memo} from 'react';
+import {useRef, useCallback, useEffect} from 'react';
 import Editor, {Monaco} from '@monaco-editor/react';
 import {Button, message, Space, Tooltip} from 'antd';
 import {
@@ -18,6 +18,7 @@ interface SQLEditorProps {
     onExecutePlan: () => void;
     onFormat: () => void;
     tableColumnsCache?: Record<string, ColumnVO[]>;
+    availableTables?: string[];
     theme?: 'light' | 'dark';
 }
 
@@ -53,11 +54,28 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
     onExecutePlan,
     onFormat,
     tableColumnsCache = {},
+    availableTables = [],
     theme = 'light'
 }) => {
     const isDark = theme === 'dark';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const editorRef = useRef<any>(null);
     const monacoRef = useRef<Monaco | null>(null);
+
+    // 用 ref 保存最新的补全数据，避免闭包问题
+    const completionDataRef = useRef({tableColumnsCache, availableTables});
+    useEffect(() => {
+        completionDataRef.current = {tableColumnsCache, availableTables};
+    }, [tableColumnsCache, availableTables]);
+
+    // 当外部 value 变化时（如点击左侧表、格式化、切换标签页），同步到编辑器
+    // 使用 defaultValue 避免受控模式导致的光标跳动
+    useEffect(() => {
+        const editor = editorRef.current;
+        if (editor && value !== editor.getValue()) {
+            editor.setValue(value);
+        }
+    }, [value]);
 
     // 获取要执行的 SQL（优先选中内容）
     const getExecuteSQL = useCallback((): string => {
@@ -78,13 +96,15 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
     }, [getExecuteSQL, onExecute]);
 
     // 编辑器挂载
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleEditorDidMount = useCallback((editor: any, monaco: Monaco) => {
         editorRef.current = editor;
         monacoRef.current = monaco;
 
         // 注册 SQL 补全
         monaco.languages.registerCompletionItemProvider('sql', {
-            triggerCharacters: ['.'],
+            triggerCharacters: ['.', ' '],
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             provideCompletionItems: (model: any, position: any) => {
                 const word = model.getWordUntilPosition(position);
                 const range = {
@@ -96,15 +116,18 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
 
                 const lineContent = model.getLineContent(position.lineNumber);
                 const textBefore = lineContent.substring(0, position.column - 1);
-                
+                const {tableColumnsCache: colCache, availableTables: tables} = completionDataRef.current;
+
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const suggestions: any[] = [];
 
-                // 检测 表名. 或 别名.
-                const dotMatch = textBefore.match(/(\w+)\.\s*$/);
-                if (dotMatch) {
-                    const prefix = dotMatch[1];
-                    // 查找表字段
-                    const columns = tableColumnsCache[prefix];
+                // 1. 检测 schema.table.  -> 提示字段
+                const doubleDotMatch = textBefore.match(/(\w+)\.(\w+)\.\s*$/);
+                if (doubleDotMatch) {
+                    const schema = doubleDotMatch[1];
+                    const table = doubleDotMatch[2];
+                    const fullName = `${schema}.${table}`;
+                    const columns = colCache[fullName] || colCache[table];
                     if (columns) {
                         columns.forEach(col => {
                             suggestions.push({
@@ -112,14 +135,92 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
                                 kind: monaco.languages.CompletionItemKind.Field,
                                 insertText: col.name,
                                 range,
-                                detail: `${col.type}`
+                                detail: `${col.type} ${col.comment || ''}`
                             });
                         });
                         return {suggestions};
                     }
                 }
 
-                // 关键字
+                // 2. 检测 xxx.  -> 表字段 或 schema 下的表
+                const dotMatch = textBefore.match(/(\w+)\.\s*$/);
+                if (dotMatch) {
+                    const prefix = dotMatch[1];
+
+                    // 先尝试作为表名/别名获取字段
+                    const columns = colCache[prefix];
+                    const fullKey = Object.keys(colCache).find(k => k === prefix || k.endsWith(`.${prefix}`));
+                    const columnsByFull = fullKey ? colCache[fullKey] : undefined;
+
+                    if (columns || columnsByFull) {
+                        const cols = columns || columnsByFull!;
+                        cols.forEach(col => {
+                            suggestions.push({
+                                label: col.name,
+                                kind: monaco.languages.CompletionItemKind.Field,
+                                insertText: col.name,
+                                range,
+                                detail: `${col.type} ${col.comment || ''}`
+                            });
+                        });
+                        return {suggestions};
+                    }
+
+                    // 否则作为 schema，提示该 schema 下的表
+                    const schemaTables = tables.filter(t => t.startsWith(`${prefix}.`));
+                    if (schemaTables.length > 0) {
+                        schemaTables.forEach(t => {
+                            suggestions.push({
+                                label: t,
+                                kind: monaco.languages.CompletionItemKind.Class,
+                                insertText: t,
+                                range,
+                                detail: '数据表'
+                            });
+                        });
+                        return {suggestions};
+                    }
+                }
+
+                // 3. 判断上下文
+                const isTableContext = /(FROM|JOIN|INTO|UPDATE|TABLE|DESCRIBE)\s+[\w.]*$/i.test(textBefore);
+                const isColumnContext = /(SELECT|WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|SET|ON|AND|OR|,)\s+[\w\s,.]*$/i.test(textBefore);
+
+                // 表名上下文优先提供表名
+                if (isTableContext) {
+                    tables.forEach(tableName => {
+                        suggestions.push({
+                            label: tableName,
+                            kind: monaco.languages.CompletionItemKind.Class,
+                            insertText: tableName,
+                            range,
+                            detail: '数据表'
+                        });
+                    });
+                }
+
+                // 列名上下文提供字段
+                if (isColumnContext) {
+                    const allColumns = new Map<string, string>();
+                    Object.values(colCache).forEach(cols => {
+                        cols.forEach(col => {
+                            if (!allColumns.has(col.name)) {
+                                allColumns.set(col.name, `${col.type} ${col.comment || ''}`);
+                            }
+                        });
+                    });
+                    allColumns.forEach((detail, colName) => {
+                        suggestions.push({
+                            label: colName,
+                            kind: monaco.languages.CompletionItemKind.Field,
+                            insertText: colName,
+                            range,
+                            detail
+                        });
+                    });
+                }
+
+                // SQL 关键字
                 SQL_KEYWORDS.forEach(kw => {
                     suggestions.push({
                         label: kw,
@@ -150,16 +251,18 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
                     });
                 });
 
-                // 表名
-                Object.keys(tableColumnsCache).forEach(tableName => {
-                    suggestions.push({
-                        label: tableName,
-                        kind: monaco.languages.CompletionItemKind.Class,
-                        insertText: tableName,
-                        range,
-                        detail: '数据表'
+                // 非表名上下文也提供表名（供用户随时输入）
+                if (!isTableContext) {
+                    tables.forEach(tableName => {
+                        suggestions.push({
+                            label: tableName,
+                            kind: monaco.languages.CompletionItemKind.Class,
+                            insertText: tableName,
+                            range,
+                            detail: '数据表'
+                        });
                     });
-                });
+                }
 
                 return {suggestions};
             }
@@ -168,7 +271,7 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
         // 快捷键
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, handleExecute);
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF, onFormat);
-    }, [handleExecute, onFormat, tableColumnsCache]);
+    }, [handleExecute, onFormat]);
 
     // 复制
     const copySQL = useCallback(() => {
@@ -224,7 +327,7 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
                 <Editor
                     height="100%"
                     defaultLanguage="sql"
-                    value={value}
+                    defaultValue={value}
                     onChange={(val) => onChange(val || '')}
                     onMount={handleEditorDidMount}
                     theme={isDark ? "vs-dark" : "vs-light"}
@@ -240,7 +343,6 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
                         scrollBeyondLastLine: false,
                         folding: true,
                         cursorBlinking: 'smooth',
-                        // 性能优化
                         renderLineHighlight: 'line',
                         smoothScrolling: true
                     }}
@@ -250,4 +352,4 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
     );
 };
 
-export default memo(SQLEditor);
+export default SQLEditor;

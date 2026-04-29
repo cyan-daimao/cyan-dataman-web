@@ -42,13 +42,15 @@ interface SidebarProps {
     onTableSelect: (table: TableInfoWithColumns, shouldAppend: boolean) => void;
     onHistorySelect: (sql: string) => void;
     onFavoriteSelect: (sql: string) => void;
+    onTableListLoaded?: (tables: string[]) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
     currentSql = '',
     onTableSelect,
     onHistorySelect,
-    onFavoriteSelect
+    onFavoriteSelect,
+    onTableListLoaded
 }) => {
     const [activeTab, setActiveTab] = useState('tables');
     const [searchValue, setSearchValue] = useState('');
@@ -85,6 +87,11 @@ const Sidebar: React.FC<SidebarProps> = ({
             // 展开所有节点
             const allKeys = collectAllKeys(data);
             setExpandedKeys(allKeys);
+            // 收集所有表名通知编辑器
+            if (onTableListLoaded) {
+                const tables = collectAllTables(data);
+                onTableListLoaded(tables);
+            }
         } catch (error) {
             console.error('加载主题树失败:', error);
         } finally {
@@ -116,6 +123,24 @@ const Sidebar: React.FC<SidebarProps> = ({
         };
         traverse(nodes);
         return keys;
+    };
+
+    // 收集所有表名（含 schema 前缀）
+    const collectAllTables = (nodes: SubjectTableTreeDTO[]): string[] => {
+        const tables: string[] = [];
+        const traverse = (items: SubjectTableTreeDTO[]) => {
+            items.forEach(item => {
+                if (item.type === 'table' && item.tableName) {
+                    const displayName = item.schema
+                        ? `${item.schema}.${item.tableName}`
+                        : item.tableName;
+                    tables.push(displayName);
+                }
+                if (item.children) traverse(item.children);
+            });
+        };
+        traverse(nodes);
+        return tables;
     };
 
     // 树选择事件
@@ -217,6 +242,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
 
     // 转换树数据为 Tree 组件格式
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const convertToTreeData = useCallback((nodes: SubjectTableTreeDTO[]): any[] => {
         return nodes.map(node => {
             if (node.type === 'subject') {
@@ -453,7 +479,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     ];
 
     return (
-        <div style={{height: '100%', background: '#fff', borderRight: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column'}}>
+        <div className="sql-editor-sidebar" style={{height: '100%', background: '#fff', borderRight: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column'}}>
             <Tabs
                 activeKey={activeTab}
                 onChange={setActiveTab}

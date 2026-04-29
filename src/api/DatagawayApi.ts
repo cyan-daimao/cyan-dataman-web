@@ -6,27 +6,37 @@ export interface SqlResultDTO {
     executeId: string,
     status: string,
     costTimeMs: number,
-    data: {}[],
+    data: object[],
     errorMessage: string
 }
 
 // 执行SQL
 export const executeSql = async (sql: string): Promise<Response<SqlResultDTO>> => {
     try {
-        return  await datagatewayRequest.post('/api/v1/starrocks/sql/execute', {
+        const response = await datagatewayRequest.post('/api/v1/starrocks/sql/execute', {
             sql: sql
         });
-    } catch (e) {
-        throw new Error(e);
+        if (response.data.status === 'FAILED') {
+            throw new Error(response.data.errorMessage || 'SQL执行失败');
+        }
+        return response;
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        throw new Error(msg || 'SQL执行失败');
     }
 }
 // 执行SparkSQL
 export const executeSparkSql = async (sql: string): Promise<Response<SqlResultDTO>> => {
     try {
-        return  await datagatewayRequest.post('/api/v1/spark/sql/execute', {
+        const response = await datagatewayRequest.post('/api/v1/spark/sql/execute', {
             sql: sql
         });
-    } catch (e) {
-        throw new Error(e);
+        if (response.data.status === 'FAILED') {
+            throw new Error(response.data.errorMessage || 'SQL执行失败');
+        }
+        return response;
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        throw new Error(msg || 'SQL执行失败');
     }
 }
