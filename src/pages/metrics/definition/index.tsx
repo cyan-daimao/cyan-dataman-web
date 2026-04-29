@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     Card, Table, Button, Space, Modal, Form, Input, Select, TreeSelect, message,
-    Empty, Tag, Popconfirm, Typography, Divider, Row, Col, Drawer,
+    Empty, Tag, Popconfirm, Typography,  Row, Col, Drawer,
 } from 'antd';
 import {
     PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, PlayCircleOutlined,
@@ -247,7 +247,7 @@ const SqlPreviewPanel: React.FC<{
                 <Button icon={<PlayCircleOutlined />} loading={trialLoading} onClick={handleTrial} disabled={!canTrial} title={!sql ? '请先点击SQL预览' : '当前参数已变更，请重新点击SQL预览'}>试算</Button>
             </Space>
             {sql && (
-                <pre style={{ background: '#fff', padding: 12, borderRadius: 4, overflowX: 'auto', overflowY: 'auto', whiteSpace: 'pre', wordBreak: 'keep-all', maxWidth: '100%' }}>{sql}</pre>
+                <pre style={{ background: '#fff', padding: 12, borderRadius: 4, whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxWidth: '100%' }}>{sql}</pre>
             )}
             {sqlResult && (
                 <div style={{ marginTop: 8 }}>
