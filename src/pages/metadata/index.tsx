@@ -6,7 +6,7 @@ import {
     DatabaseOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
-import { Layout, Menu, theme } from 'antd';
+import { Button, Layout, Menu, theme } from 'antd';
 import {Link, Outlet, useLocation} from "react-router-dom";
 
 const { Sider } = Layout;
@@ -105,7 +105,7 @@ const App: React.FC = () => {
                     background: token.colorBgContainer,
                     borderRadius: token.colorBorderRadiusLG,
                     width: '100%',
-                    height: '100%'
+                    height: '100%',
                 }}
             >
                 <Sider
@@ -116,7 +116,6 @@ const App: React.FC = () => {
                     style={{
                         background: '#FFFFFF',
                         height: '100%',
-                        position: 'relative',
                         boxShadow: '2px 0 8px rgba(29, 35, 51, 0.04)',
                         zIndex: 2,
                     }}
@@ -127,10 +126,10 @@ const App: React.FC = () => {
                             height: 56,
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: collapsed ? 'center' : 'flex-start',
-                            padding: collapsed ? 0 : '0 20px',
+                            justifyContent: collapsed ? 'center' : 'space-between',
+                            padding: collapsed ? '0 8px' : '0 16px',
                             borderBottom: '1px solid #F4F6FA',
-                            marginBottom: 8,
+                            flexShrink: 0,
                         }}
                     >
                         {!collapsed && (
@@ -140,55 +139,29 @@ const App: React.FC = () => {
                                     fontWeight: 600,
                                     color: '#1D2333',
                                     letterSpacing: 0.5,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
                                 }}
                             >
                                 元数据平台
                             </span>
                         )}
-                        {collapsed && (
-                            <DatabaseOutlined style={{ fontSize: 18, color: '#4F6DF5' }} />
-                        )}
-                    </div>
-
-                    {/* 悬浮折叠按钮 */}
-                    <div
-                        style={{
-                            position: 'absolute',
-                            top: '68px',
-                            right: '-12px',
-                            zIndex: 10,
-                            width: 24,
-                            height: 24,
-                            borderRadius: '50%',
-                            background: '#FFFFFF',
-                            border: `1px solid ${token.colorBorder}`,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                            transition: 'all 0.2s',
-                        }}
-                        onClick={() => setCollapsed(!collapsed)}
-                        onMouseEnter={(e) => {
-                            (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-                        }}
-                        onMouseLeave={(e) => {
-                            (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
-                        }}
-                    >
-                        {collapsed ?
-                            <MenuUnfoldOutlined style={{ color: '#4F6DF5', fontSize: 12 }} /> :
-                            <MenuFoldOutlined style={{ color: '#4F6DF5', fontSize: 12 }} />
-                        }
+                        <Button
+                            type="text"
+                            size="small"
+                            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                            onClick={() => setCollapsed(!collapsed)}
+                            style={{ color: '#8B909A', padding: '4px 8px' }}
+                        />
                     </div>
 
                     <Menu
                         mode="inline"
                         style={{
-                            height: 'calc(100% - 64px)',
+                            height: 'calc(100% - 56px)',
                             borderRight: 0,
-                            paddingTop: 4,
+                            paddingTop: 8,
                             background: 'transparent',
                         }}
                         items={items}

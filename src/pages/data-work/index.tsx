@@ -1,25 +1,36 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Input, Layout, message, Tabs, Spin, Radio, Space, Button, Tooltip} from 'antd';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {message, Spin, Button, Space, Divider} from 'antd';
 import {
-    CodeOutlined,
-    PlusOutlined,
-    MenuOutlined
+    PlayCircleOutlined,
+    SaveOutlined,
+    FormatPainterOutlined,
+    ReloadOutlined,
+    CloudUploadOutlined,
+    ShareAltOutlined,
 } from '@ant-design/icons';
-import Sidebar from '../sql-editor/components/Sidebar';
-import SQLEditor from '../sql-editor/components/SQLEditor';
-import ResultPanel from '../sql-editor/components/ResultPanel';
-import ScheduleSidebar from './components/ScheduleSidebar';
-import {ExecutionPlan, QueryHistory, QueryResult, SQLEngine, ScheduleConfig} from './types';
-import {ColumnVO} from '@/api/MetadataTableAPI.ts';
-import {executeSparkSql} from '@/api/DatagawayApi.ts';
 import {loader} from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
+import SQLEditor from '@/pages/sql-editor/components/SQLEditor';
+import DataWorkResultPanel from './components/DataWorkResultPanel';
+import {ColumnVO} from '@/api/MetadataTableAPI.ts';
+import {
+    DataWorkTaskDTO,
+    ScheduleConfigDTO,
+    ExecutionRecordDTO,
+    createDataWorkTask,
+    updateDataWorkTask,
+    executeTask,
+    getDataWorkTask,
+    getTaskSchedule,
+    saveTaskSchedule,
+} from '@/api/DataworksApi.ts';
+import {QueryResult, ExecutionPlan} from '@/pages/sql-editor/types';
+import LeftSidebar from './components/LeftSidebar';
+import RightSidebar from './components/RightSidebar';
 
-// 预加载 Monaco 编辑器 - 使用本地 monaco-editor
+// 预加载 Monaco
 loader.config({monaco});
-
 let monacoLoaded = false;
-
 const loadMonaco = () => {
     if (monacoLoaded) return Promise.resolve();
     return loader.init().then(() => {
@@ -27,561 +38,418 @@ const loadMonaco = () => {
     });
 };
 
-const {Content} = Layout;
-
-// SQL 查询标签页
-interface QueryTab {
-    id: string;
-    name: string;
-    sql: string;
-    engine: SQLEngine;
-    result: QueryResult | null;
-    executionPlan: ExecutionPlan[] | null;
-    error: string | null;
-}
-
 // 表字段缓存
 interface TableColumnsCache {
     [tableName: string]: ColumnVO[];
 }
 
-// localStorage key
-const STORAGE_KEY = 'data_work_tabs';
-const ACTIVE_TAB_KEY = 'data_work_active_tab';
-const ENGINE_KEY = 'data_work_engine';
+// 生成空任务
+const createEmptyTask = (): DataWorkTaskDTO => ({
+    id: '',
+    name: '未命名任务',
+    description: '',
+    engineType: 'SPARK',
+    sqlContent: '',
+    status: 'DRAFT',
+});
 
-// 生成唯一ID
-const generateId = () => Date.now().toString();
-
-// 从 localStorage 加载 tabs
-const loadTabsFromStorage = (): { tabs: QueryTab[], activeTab: string, engine: SQLEngine } => {
-    try {
-        const savedTabs = localStorage.getItem(STORAGE_KEY);
-        const savedActiveTab = localStorage.getItem(ACTIVE_TAB_KEY);
-        const savedEngine = localStorage.getItem(ENGINE_KEY) as SQLEngine;
-        if (savedTabs) {
-            const tabs = JSON.parse(savedTabs);
-            // 清除 result 和 executionPlan，因为这些都是临时的
-            const cleanTabs = tabs.map((tab: QueryTab) => ({
-                ...tab,
-                result: null,
-                executionPlan: null,
-                error: null
-            }));
-            return {
-                tabs: cleanTabs.length > 0 ? cleanTabs : [{
-                    id: '1',
-                    name: '任务 1',
-                    sql: '',
-                    engine: savedEngine || 'spark',
-                    result: null,
-                    executionPlan: null,
-                    error: null
-                }],
-                activeTab: savedActiveTab && cleanTabs.some((t: QueryTab) => t.id === savedActiveTab) ? savedActiveTab : cleanTabs[0]?.id || '1',
-                engine: savedEngine || 'spark'
-            };
-        }
-    } catch (e) {
-        console.error('加载 tabs 失败:', e);
-    }
-    return {
-        tabs: [{
-            id: '1',
-            name: '任务 1',
-            sql: '',
-            engine: 'spark',
-            result: null,
-            executionPlan: null,
-            error: null
-        }],
-        activeTab: '1',
-        engine: 'spark'
-    };
-};
-
-const DataWorkPage: React.FC = () => {
-    // 从 localStorage 初始化状态
-    const initialState = useMemo(() => loadTabsFromStorage(), []);
-
-    const [tabs, setTabs] = useState<QueryTab[]>(initialState.tabs);
-    const [activeTab, setActiveTab] = useState(initialState.activeTab);
-    const [defaultEngine, setDefaultEngine] = useState<SQLEngine>(initialState.engine);
-    const [loading, setLoading] = useState(false);
+const DataWorkWorkspace: React.FC = () => {
+    // ========== Monaco 初始化 ==========
     const [editorInitializing, setEditorInitializing] = useState(true);
-
-    // 预加载 Monaco 编辑器
     useEffect(() => {
         loadMonaco()
             .then(() => setEditorInitializing(false))
-            .catch((err) => {
-                console.error('Monaco 加载失败:', err);
-                setEditorInitializing(false);
-            });
+            .catch(() => setEditorInitializing(false));
     }, []);
-    const [tableColumnsCache, setTableColumnsCache] = useState<TableColumnsCache>({});
-    const [availableTables, setAvailableTables] = useState<Array<{name: string; title: string}>>([]);
+
+    // ========== 任务状态 ==========
+    const [currentTask, setCurrentTask] = useState<DataWorkTaskDTO>(createEmptyTask());
+    const [schedule, setSchedule] = useState<ScheduleConfigDTO>({
+        id: '',
+        taskId: '',
+        cronExpression: '',
+        enabled: false,
+    });
+    const [sqlContent, setSqlContent] = useState('');
+
+    // ========== 执行结果状态 ==========
+    const [loading, setLoading] = useState(false);
+    const [result, setResult] = useState<QueryResult | null>(null);
+    const [executionPlan, setExecutionPlan] = useState<ExecutionPlan[] | null>(null);
+    const [error, setError] = useState<string | null>(null);
     const [resultActiveTab, setResultActiveTab] = useState('result');
+    const [logs, setLogs] = useState<string[]>([]);
 
-    // 重命名相关状态
-    const [editingTabId, setEditingTabId] = useState<string | null>(null);
-    const [editingTabName, setEditingTabName] = useState('');
+    // ========== 操作状态 ==========
+    const [saving, setSaving] = useState(false);
+    const [executing, setExecuting] = useState(false);
 
-    // 拖拽相关状态
-    const [siderWidth, setSiderWidth] = useState(280);
-    const [editorHeight, setEditorHeight] = useState(400);
+    // ========== 布局状态 ==========
+    const [siderWidth, setSiderWidth] = useState(260);
+    const [rightSiderWidth, setRightSiderWidth] = useState(300);
+    const [editorHeight, setEditorHeight] = useState(420);
     const [isDraggingSider, setIsDraggingSider] = useState(false);
+    const [isDraggingRightSider, setIsDraggingRightSider] = useState(false);
     const [isDraggingEditor, setIsDraggingEditor] = useState(false);
-    
-    // 侧边栏可见性
-    const [sidebarVisible, setSidebarVisible] = useState(false);
-    
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // 使用 ref 保存最新的 activeTab，避免闭包问题
-    const activeTabRef = useRef(activeTab);
-    useEffect(() => {
-        activeTabRef.current = activeTab;
-    }, [activeTab]);
+    // ========== 数据源状态 ==========
+    const [tableColumnsCache, setTableColumnsCache] = useState<TableColumnsCache>({});
+    const [availableTables, setAvailableTables] = useState<Array<{name: string; title: string}>>([]);
 
-    // 持久化 tabs 到 localStorage
-    useEffect(() => {
-        const tabsToSave = tabs.map(tab => ({
-            id: tab.id,
-            name: tab.name,
-            sql: tab.sql,
-            engine: tab.engine,
-            result: null,
-            executionPlan: null,
-            error: null
-        }));
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(tabsToSave));
-        localStorage.setItem(ACTIVE_TAB_KEY, activeTab);
-        localStorage.setItem(ENGINE_KEY, defaultEngine);
-    }, [tabs, activeTab, defaultEngine]);
-
-    // 左侧边栏拖拽处理
+    // ========== 拖拽处理 ==========
     const handleSiderMouseDown = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
         setIsDraggingSider(true);
     }, []);
 
-    // 编辑器高度拖拽处理
+    const handleRightSiderMouseDown = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsDraggingRightSider(true);
+    }, []);
+
     const handleEditorMouseDown = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
         setIsDraggingEditor(true);
     }, []);
 
-    // 全局鼠标移动和释放事件
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
             if (isDraggingSider) {
                 const newWidth = e.clientX;
-                if (newWidth >= 200 && newWidth <= 500) {
-                    setSiderWidth(newWidth);
-                }
+                if (newWidth >= 200 && newWidth <= 400) setSiderWidth(newWidth);
+            }
+            if (isDraggingRightSider) {
+                const newWidth = window.innerWidth - e.clientX;
+                if (newWidth >= 260 && newWidth <= 400) setRightSiderWidth(newWidth);
             }
             if (isDraggingEditor && containerRef.current) {
-                const containerRect = containerRef.current.getBoundingClientRect();
-                const headerHeight = 41;
-                const newHeight = e.clientY - containerRect.top - headerHeight;
-                if (newHeight >= 150 && newHeight <= containerRect.height - headerHeight - 150) {
-                    setEditorHeight(newHeight);
-                }
+                const rect = containerRef.current.getBoundingClientRect();
+                const newHeight = e.clientY - rect.top - 48; // 减去顶部工具栏高度
+                if (newHeight >= 200 && newHeight <= rect.height - 300) setEditorHeight(newHeight);
             }
         };
-
         const handleMouseUp = () => {
             setIsDraggingSider(false);
+            setIsDraggingRightSider(false);
             setIsDraggingEditor(false);
         };
-
-        if (isDraggingSider || isDraggingEditor) {
+        if (isDraggingSider || isDraggingRightSider || isDraggingEditor) {
             document.addEventListener('mousemove', handleMouseMove);
             document.addEventListener('mouseup', handleMouseUp);
-            document.body.style.cursor = isDraggingEditor ? 'row-resize' : 'col-resize';
             document.body.style.userSelect = 'none';
         }
-
         return () => {
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
-            document.body.style.cursor = '';
             document.body.style.userSelect = '';
         };
-    }, [isDraggingSider, isDraggingEditor]);
+    }, [isDraggingSider, isDraggingRightSider, isDraggingEditor]);
 
-    // 当前活动的标签页
-    const currentTab = useMemo(() => tabs.find(t => t.id === activeTab), [tabs, activeTab]);
-
-    // 更新当前标签页的 SQL
-    const handleSQLChange = useCallback((sql: string) => {
-        const currentActiveTab = activeTabRef.current;
-        setTabs(prev => prev.map(t =>
-            t.id === currentActiveTab ? {...t, sql} : t
-        ));
-    }, []);
-
-    // 更新当前标签页的引擎
-    const handleEngineChange = useCallback((engine: SQLEngine) => {
-        const currentActiveTab = activeTabRef.current;
-        setDefaultEngine(engine);
-        setTabs(prev => prev.map(t =>
-            t.id === currentActiveTab ? {...t, engine} : t
-        ));
-    }, []);
-
-    // 新建标签页
-    const handleAddTab = useCallback(() => {
-        const newId = generateId();
-        setTabs(prev => {
-            const newTab: QueryTab = {
-                id: newId,
-                name: `任务 ${prev.length + 1}`,
-                sql: '',
-                engine: defaultEngine,
-                result: null,
-                executionPlan: null,
-                error: null
-            };
-            return [...prev, newTab];
-        });
-        setTimeout(() => setActiveTab(newId), 0);
-    }, [defaultEngine]);
-
-    // 关闭标签页
-    const handleCloseTab = useCallback((tabId: string) => {
-        setTabs(prev => {
-            if (prev.length === 1) {
-                message.warning('至少保留一个任务标签页');
-                return prev;
+    // ========== 加载任务到编辑器 ==========
+    const loadTask = useCallback(async (task: DataWorkTaskDTO) => {
+        setCurrentTask(task);
+        setSqlContent(task.sqlContent || '');
+        setResult(null);
+        setExecutionPlan(null);
+        setError(null);
+        // 加载调度配置
+        if (task.id) {
+            try {
+                const sched = await getTaskSchedule(task.id);
+                if (sched) {
+                    setSchedule(sched);
+                } else {
+                    setSchedule({id: '', taskId: task.id, cronExpression: '', enabled: false});
+                }
+            } catch {
+                setSchedule({id: '', taskId: task.id, cronExpression: '', enabled: false});
             }
-            const newTabs = prev.filter(t => t.id !== tabId);
-            if (activeTabRef.current === tabId) {
-                setActiveTab(newTabs[0].id);
-            }
-            return newTabs;
-        });
+        }
     }, []);
 
-    // 执行 SQL
-    const handleExecute = useCallback(async (sqlToExecute?: string) => {
-        const currentActiveTab = activeTabRef.current;
-        const currentTabData = tabs.find(t => t.id === currentActiveTab);
+    // ========== 新建任务 ==========
+    const handleNewTask = useCallback(() => {
+        setCurrentTask(createEmptyTask());
+        setSqlContent('');
+        setSchedule({id: '', taskId: '', cronExpression: '', enabled: false});
+        setResult(null);
+        setExecutionPlan(null);
+        setError(null);
+    }, []);
 
-        const sql = sqlToExecute || currentTabData?.sql || '';
-
-        if (!sql.trim()) {
-            message.warning('请输入SQL语句');
+    // ========== 保存任务 ==========
+    const handleSave = useCallback(async () => {
+        if (!currentTask.name.trim()) {
+            message.warning('请输入任务名称');
             return;
         }
-
-        setLoading(true);
-
+        const body = {
+            name: currentTask.name.trim(),
+            description: currentTask.description,
+            engineType: currentTask.engineType,
+            sqlContent: sqlContent,
+        };
+        setSaving(true);
         try {
-            const resp = await executeSparkSql(sql);
-            const result = resp.data;
-            const columns = result.data.length > 0 ? Object.keys(result.data[0]) : [];
-
-            const queryResult: QueryResult = {
-                columns,
-                rows: result.data,
-                total: result.data.length,
-                duration: result.costTimeMs
-            };
-
-            setTabs(prev => prev.map(t =>
-                t.id === currentActiveTab
-                    ? {...t, result: queryResult, error: null, executionPlan: null}
-                    : t
-            ));
-
-            saveHistory(sql, 'success', result.costTimeMs, result.data.length, currentTabData?.engine);
-            setResultActiveTab('result');
-            message.success(`执行成功，返回 ${result.data.length} 行数据，耗时 ${result.costTimeMs}ms`);
-        } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : 'SQL执行失败';
-
-            setTabs(prev => prev.map(t =>
-                t.id === currentActiveTab
-                    ? {...t, result: null, error: errorMessage, executionPlan: null}
-                    : t
-            ));
-
-            saveHistory(sql, 'error', 0, undefined, currentTabData?.engine);
-            message.error(errorMessage);
+            let savedTask: DataWorkTaskDTO;
+            if (!currentTask.id) {
+                const resp = await createDataWorkTask(body);
+                savedTask = resp.data;
+                message.success('任务创建成功');
+            } else {
+                const resp = await updateDataWorkTask(currentTask.id, body);
+                savedTask = resp.data;
+                message.success('任务更新成功');
+            }
+            // 保存调度配置
+            if (savedTask.id && schedule.cronExpression) {
+                await saveTaskSchedule(savedTask.id, {
+                    cronExpression: schedule.cronExpression,
+                    enabled: schedule.enabled || false,
+                });
+            }
+            // 刷新当前任务状态
+            const freshTask = await getDataWorkTask(savedTask.id);
+            setCurrentTask(freshTask);
+            setSqlContent(freshTask.sqlContent || '');
+        } catch {
+            // 错误由拦截器处理
         } finally {
-            setLoading(false);
+            setSaving(false);
         }
-    }, [tabs]);
+    }, [currentTask, sqlContent, schedule]);
 
-    // 查看执行计划
-    const handleExecutePlan = useCallback(async () => {
-        const currentActiveTab = activeTabRef.current;
-        const currentTabData = tabs.find(t => t.id === currentActiveTab);
-
-        if (!currentTabData?.sql.trim()) {
+    // ========== 执行任务 ==========
+    const handleExecute = useCallback(async () => {
+        if (!sqlContent.trim()) {
             message.warning('请输入SQL语句');
             return;
         }
-
+        // 如果任务未保存，先提示保存
+        if (!currentTask.id) {
+            message.warning('请先保存任务再执行');
+            return;
+        }
+        setExecuting(true);
         setLoading(true);
-
+        setResult(null);
+        setExecutionPlan(null);
+        setError(null);
+        const startTime = Date.now();
+        const newLogs: string[] = [
+            `[${new Date().toLocaleString()}] INFO 开始执行任务: ${currentTask.name}`,
+            `[${new Date().toLocaleString()}] INFO 引擎类型: ${currentTask.engineType}`,
+            `[${new Date().toLocaleString()}] INFO SQL 内容:`,
+            ...sqlContent.split('\n').map(line => `    ${line}`),
+        ];
+        setLogs(newLogs);
         try {
-            const explainSql = `EXPLAIN ${currentTabData.sql}`;
-            const resp = await executeSparkSql(explainSql);
-            const result = resp.data;
+            const resp = await executeTask(currentTask.id);
+            const record: ExecutionRecordDTO = resp.data;
+            const cost = Date.now() - startTime;
+            if (record.status === 'SUCCESS' && record.resultData) {
+                try {
+                    const data = JSON.parse(record.resultData);
+                    const columns = Array.isArray(data) && data.length > 0 ? Object.keys(data[0]) : [];
+                    const queryResult: QueryResult = {
+                        columns,
+                        rows: Array.isArray(data) ? data : [],
+                        total: Array.isArray(data) ? data.length : 0,
+                        duration: record.costTimeMs || cost,
+                    };
+                    setResult(queryResult);
+                    setError(null);
+                    setLogs(prev => [
+                        ...prev,
+                        `[${new Date().toLocaleString()}] INFO 执行成功`,
+                        `[${new Date().toLocaleString()}] INFO 耗时: ${record.costTimeMs || cost}ms`,
+                        `[${new Date().toLocaleString()}] INFO 返回行数: ${Array.isArray(data) ? data.length : 0}`,
+                    ]);
+                    message.success(`执行成功，耗时 ${record.costTimeMs || cost}ms`);
+                } catch {
+                    setResult(null);
+                    setError('解析结果失败');
+                    setLogs(prev => [...prev, `[${new Date().toLocaleString()}] ERROR 解析结果失败`]);
+                }
+            } else if (record.status === 'FAILED') {
+                setResult(null);
+                setError(record.errorMessage || '执行失败');
+                setLogs(prev => [
+                    ...prev,
+                    `[${new Date().toLocaleString()}] ERROR 执行失败`,
+                    `[${new Date().toLocaleString()}] ERROR ${record.errorMessage || '未知错误'}`,
+                ]);
+                message.error(record.errorMessage || '执行失败');
+            } else {
+                setResult(null);
+                setError('执行状态未知');
+                setLogs(prev => [...prev, `[${new Date().toLocaleString()}] WARN 执行状态未知: ${record.status}`]);
+            }
+        } catch (e: any) {
+            setLogs(prev => [...prev, `[${new Date().toLocaleString()}] ERROR ${e.message || '执行异常'}`]);
+        } finally {
+            setExecuting(false);
+            setLoading(false);
+            setLogs(prev => [...prev, `[${new Date().toLocaleString()}] INFO 任务执行结束`]);
+        }
+    }, [currentTask, sqlContent]);
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const plan: ExecutionPlan[] = result.data.map((row: any, index: number) => ({
-                id: String(index + 1),
-                operation: row.operation || row.Operation || row.id || '',
-                rowCount: row.rows || row.Rows || row.row_count || 0,
+    // ========== 执行计划 ==========
+    const handleExecutePlan = useCallback(async () => {
+        if (!sqlContent.trim()) {
+            message.warning('请输入SQL语句');
+            return;
+        }
+        setLoading(true);
+        try {
+            const {executeSql} = await import('@/api/DatagawayApi');
+            const explainSql = `EXPLAIN ${sqlContent}`;
+            const resp = await executeSql(explainSql);
+            const result = resp.data;
+            const plan: ExecutionPlan[] = result.data.map((row: any, idx: number) => ({
+                id: String(idx + 1),
+                operation: row.operation || row.Operation || '',
+                rowCount: row.rows || row.Rows || 0,
                 cost: row.cost || row.Cost || 0,
                 details: row.details || row.Details || JSON.stringify(row),
             }));
-
-            setTabs(prev => prev.map(t =>
-                t.id === currentActiveTab
-                    ? {...t, executionPlan: plan, error: null}
-                    : t
-            ));
-
+            setExecutionPlan(plan);
+            setError(null);
             setResultActiveTab('plan');
-            message.success(`执行计划生成成功，耗时 ${result.costTimeMs}ms`);
-        } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : '获取执行计划失败';
-
-            setTabs(prev => prev.map(t =>
-                t.id === currentActiveTab
-                    ? {...t, executionPlan: null, error: errorMessage}
-                    : t
-            ));
-
-            message.error(errorMessage);
+            message.success('执行计划生成成功');
+        } catch {
+            message.error('获取执行计划失败');
         } finally {
             setLoading(false);
         }
-    }, [tabs]);
+    }, [sqlContent]);
 
-    // 格式化 SQL
+    // ========== 格式化 SQL ==========
     const handleFormat = useCallback(() => {
-        const currentTabData = tabs.find(t => t.id === activeTabRef.current);
-        if (!currentTabData?.sql) return;
-
-        const formatted = currentTabData.sql
+        if (!sqlContent) return;
+        const formatted = sqlContent
             .replace(/\s+/g, ' ')
             .replace(/\s*,\s*/g, ',\n    ')
             .replace(/\s+(SELECT|FROM|WHERE|JOIN|LEFT JOIN|RIGHT JOIN|INNER JOIN|GROUP BY|HAVING|ORDER BY|LIMIT|UNION|WITH)/gi, '\n$1')
             .replace(/\s+(AND|OR)/gi, '\n    $1')
             .trim();
-
-        handleSQLChange(formatted);
+        setSqlContent(formatted);
         message.success('SQL已格式化');
-    }, [tabs, handleSQLChange]);
+    }, [sqlContent]);
 
-    // 保存历史记录
-    const saveHistory = (sql: string, status: 'success' | 'error', duration: number, rowCount?: number, engine?: SQLEngine) => {
-        const historyItem: QueryHistory = {
-            id: generateId(),
-            sql,
-            executeTime: new Date().toLocaleString(),
-            duration,
-            status,
-            rowCount,
-            engine: engine || 'spark'
-        };
-
-        const saved = localStorage.getItem('data_work_history');
-        let history: QueryHistory[] = saved ? JSON.parse(saved) : [];
-        history = [historyItem, ...history].slice(0, 50);
-        localStorage.setItem('data_work_history', JSON.stringify(history));
-    };
-
-    // 选择表
-    const handleTableSelect = useCallback((table: {
-        name: string;
-        tableId: string;
-        catalog?: string;
-        schema?: string;
-        columns?: ColumnVO[]
-    }) => {
+    // ========== 左侧边栏回调 ==========
+    const handleTableSelect = useCallback((table: {name: string; tableId: string; catalog?: string; schema?: string; columns?: ColumnVO[]}) => {
         const fullTableName = table.schema ? `${table.schema}.${table.name}` : table.name;
         const selectSQL = `SELECT * FROM ${fullTableName} LIMIT 100;`;
-        handleSQLChange(selectSQL);
-
+        setSqlContent(selectSQL);
         if (table.columns) {
             setTableColumnsCache(prev => ({
                 ...prev,
                 [fullTableName]: table.columns!,
-                [table.name]: table.columns!
+                [table.name]: table.columns!,
             }));
         }
-
-        message.info(`已选择表: ${fullTableName}`);
-    }, [handleSQLChange]);
-
-    // 选择历史记录
-    const handleHistorySelect = useCallback((sql: string) => {
-        handleSQLChange(sql);
-    }, [handleSQLChange]);
-
-    // 选择收藏
-    const handleFavoriteSelect = useCallback((sql: string) => {
-        handleSQLChange(sql);
-    }, [handleSQLChange]);
-
-    // 开始重命名
-    const handleStartRename = useCallback((tabId: string, currentName: string) => {
-        setEditingTabId(tabId);
-        setEditingTabName(currentName);
     }, []);
 
-    // 完成重命名
-    const handleFinishRename = useCallback(() => {
-        if (editingTabId && editingTabName.trim()) {
-            setTabs(prev => prev.map(t =>
-                t.id === editingTabId ? {...t, name: editingTabName.trim()} : t
-            ));
-        }
-        setEditingTabId(null);
-        setEditingTabName('');
-    }, [editingTabId, editingTabName]);
+    const handleTaskSelect = useCallback((task: DataWorkTaskDTO) => {
+        loadTask(task);
+    }, [loadTask]);
 
-    // 保存调度配置
-    const handleSaveSchedule = useCallback((config: ScheduleConfig) => {
-        console.log('保存调度配置:', config);
-        // TODO: 调用后端 API 保存调度配置
-        message.success('调度配置已保存');
+    const handleHistorySelect = useCallback((record: ExecutionRecordDTO) => {
+        if (record.sqlContent) setSqlContent(record.sqlContent);
+        message.info(`已加载历史 SQL: ${record.taskName}`);
     }, []);
 
-    // 标签页配置
-    const tabItems = useMemo(() => tabs.map(tab => ({
-        key: tab.id,
-        label: editingTabId === tab.id ? (
-            <Input
-                autoFocus
-                size="small"
-                value={editingTabName}
-                onChange={(e) => setEditingTabName(e.target.value)}
-                onBlur={handleFinishRename}
-                onPressEnter={handleFinishRename}
-                style={{width: 100}}
-                onClick={(e) => e.stopPropagation()}
-            />
-        ) : (
-            <span onDoubleClick={() => handleStartRename(tab.id, tab.name)}>
-                <CodeOutlined style={{marginRight: 4}}/>
-                {tab.name}
-            </span>
-        ),
-        children: null
-    })), [tabs, editingTabId, editingTabName, handleStartRename, handleFinishRename]);
-
+    // ========== 渲染 ==========
     return (
-        <Layout style={{height: '100%', background: '#f5f5f5', display: 'flex', flexDirection: 'row'}}>
-            {/* 左侧边栏 */}
+        <div style={{height: '100%', display: 'flex', flexDirection: 'column', background: '#f5f5f5'}}>
+            {/* 顶部工具栏 */}
             <div style={{
-                width: siderWidth,
-                minWidth: 200,
-                maxWidth: 500,
+                height: 48,
                 background: '#fff',
-                position: 'relative',
+                borderBottom: '1px solid #f0f0f0',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 16px',
+                gap: 12,
                 flexShrink: 0,
-                height: '100%'
             }}>
-                <Sidebar
-                    currentSql={currentTab?.sql || ''}
-                    onTableSelect={handleTableSelect}
-                    onHistorySelect={handleHistorySelect}
-                    onFavoriteSelect={handleFavoriteSelect}
-                    onTableListLoaded={setAvailableTables}
-                />
-                {/* 左侧拖拽条 */}
-                <div
-                    onMouseDown={handleSiderMouseDown}
-                    style={{
-                        position: 'absolute',
-                        right: 0,
-                        top: 0,
-                        bottom: 0,
-                        width: 6,
-                        cursor: 'col-resize',
-                        background: isDraggingSider ? '#1890ff' : 'transparent',
-                        zIndex: 10,
-                        transition: 'background 0.2s'
-                    }}
-                />
+                <span style={{fontWeight: 600, fontSize: 14, marginRight: 16, minWidth: 120}}>
+                    {currentTask.name}
+                    {!currentTask.id && <span style={{color: '#999', fontWeight: 400}}>（未保存）</span>}
+                </span>
+                <Space>
+                    <Button type="primary" icon={<PlayCircleOutlined />} loading={executing} onClick={handleExecute}>
+                        运行
+                    </Button>
+                    <Button icon={<SaveOutlined />} loading={saving} onClick={handleSave}>
+                        保存
+                    </Button>
+                    <Button icon={<FormatPainterOutlined />} onClick={handleFormat}>
+                        格式化
+                    </Button>
+                    <Button icon={<ReloadOutlined />} onClick={() => { setResult(null); setError(null); message.info('已重置结果'); }}>
+                        刷新
+                    </Button>
+                    <Divider type="vertical" />
+                    <Button icon={<CloudUploadOutlined />} disabled={!currentTask.id}>
+                        发布
+                    </Button>
+                    <Button icon={<ShareAltOutlined />} disabled={!currentTask.id}>
+                        分享
+                    </Button>
+                </Space>
             </div>
 
-            {/* 主内容区 */}
-            <Content style={{display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden'}} ref={containerRef}>
-                {/* 标签页栏 */}
+            {/* 主体三栏布局 */}
+            <div style={{flex: 1, display: 'flex', overflow: 'hidden'}}>
+                {/* 左侧边栏 */}
                 <div style={{
-                    background: '#fff',
-                    borderBottom: '1px solid #f0f0f0',
-                    padding: '4px 8px 0'
+                    width: siderWidth,
+                    minWidth: 200,
+                    maxWidth: 400,
+                    position: 'relative',
+                    flexShrink: 0,
                 }}>
-                    <Tabs
-                        type="editable-card"
-                        activeKey={activeTab}
-                        onChange={setActiveTab}
-                        items={tabItems}
-                        onEdit={(targetKey, action) => {
-                            if (action === 'add') {
-                                handleAddTab();
-                            } else if (action === 'remove' && typeof targetKey === 'string') {
-                                handleCloseTab(targetKey);
-                            }
+                    <LeftSidebar
+                        currentSql={sqlContent}
+                        currentTaskId={currentTask.id}
+                        onTableSelect={handleTableSelect}
+                        onTableListLoaded={setAvailableTables}
+                        onTaskSelect={handleTaskSelect}
+                        onHistorySelect={handleHistorySelect}
+                        onNewTask={handleNewTask}
+                    />
+                    {/* 左侧拖拽条 */}
+                    <div
+                        onMouseDown={handleSiderMouseDown}
+                        style={{
+                            position: 'absolute',
+                            right: 0, top: 0, bottom: 0,
+                            width: 6,
+                            cursor: 'col-resize',
+                            background: isDraggingSider ? '#1890ff' : 'transparent',
+                            zIndex: 10,
+                            transition: 'background 0.2s',
                         }}
-                        hideAdd={false}
-                        addIcon={<PlusOutlined/>}
-                        tabBarStyle={{marginBottom: 0}}
-                        tabBarExtraContent={
-                            <Space>
-                                <Radio.Group
-                                    value={currentTab?.engine || defaultEngine}
-                                    onChange={(e) => handleEngineChange(e.target.value)}
-                                    size="small"
-                                >
-                                    <Radio.Button value="spark">SparkSQL</Radio.Button>
-                                    <Radio.Button value="flink">FlinkSQL</Radio.Button>
-                                </Radio.Group>
-                                <Tooltip title={sidebarVisible ? '隐藏任务配置' : '显示任务配置'}>
-                                    <Button
-                                        type={sidebarVisible ? 'primary' : 'default'}
-                                        icon={<MenuOutlined/>}
-                                        size="small"
-                                        onClick={() => setSidebarVisible(!sidebarVisible)}
-                                    />
-                                </Tooltip>
-                            </Space>
-                        }
                     />
                 </div>
 
-                {/* 当前标签页内容 */}
-                <div style={{flex: 1, overflow: 'hidden', position: 'relative'}}>
+                {/* 中央区域 */}
+                <div style={{flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden'}} ref={containerRef}>
                     {editorInitializing ? (
-                        <div style={{
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: '#fff',
-                            flexDirection: 'column',
-                            gap: 16
-                        }}>
-                            <Spin size="large"/>
+                        <div style={{height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', flexDirection: 'column', gap: 16}}>
+                            <Spin size="large" />
                             <div style={{color: '#999', fontSize: 14}}>SQL 编辑器初始化中...</div>
                         </div>
-                    ) : currentTab && (
-                        <div style={{height: '100%', display: 'flex', flexDirection: 'column', background: '#fff'}}>
+                    ) : (
+                        <>
                             {/* SQL 编辑器 */}
-                            <div style={{height: editorHeight, minHeight: 250, borderBottom: '1px solid #f0f0f0'}}>
+                            <div style={{height: editorHeight, minHeight: 200, borderBottom: '1px solid #f0f0f0'}}>
                                 <SQLEditor
-                                    value={currentTab.sql}
-                                    onChange={handleSQLChange}
+                                    value={sqlContent}
+                                    onChange={setSqlContent}
                                     onExecute={handleExecute}
                                     onExecutePlan={handleExecutePlan}
                                     onFormat={handleFormat}
@@ -597,36 +465,68 @@ const DataWorkPage: React.FC = () => {
                                     cursor: 'row-resize',
                                     background: isDraggingEditor ? '#1890ff' : '#f0f0f0',
                                     transition: 'background 0.2s',
-                                    flexShrink: 0
+                                    flexShrink: 0,
                                 }}
                             />
                             {/* 结果面板 */}
                             <div style={{flex: 1, minHeight: 150, overflow: 'hidden'}}>
-                                <ResultPanel
+                                <DataWorkResultPanel
                                     loading={loading}
-                                    result={currentTab.result}
-                                    executionPlan={currentTab.executionPlan}
-                                    error={currentTab.error}
+                                    result={result}
+                                    executionPlan={executionPlan}
+                                    error={error}
                                     activeTab={resultActiveTab}
                                     onTabChange={setResultActiveTab}
+                                    logs={logs}
                                 />
                             </div>
-                        </div>
+                        </>
                     )}
+                </div>
 
-                    {/* 右侧调度侧边栏 - 可展开/收起 */}
-                    <ScheduleSidebar
-                        visible={sidebarVisible}
-                        currentSql={currentTab?.sql || ''}
-                        engine={currentTab?.engine || defaultEngine}
-                        onClose={() => setSidebarVisible(false)}
-                        onSaveSchedule={handleSaveSchedule}
-                        onRunImmediate={handleExecute}
+                {/* 右侧边栏 */}
+                <div style={{
+                    width: rightSiderWidth,
+                    minWidth: 260,
+                    maxWidth: 400,
+                    position: 'relative',
+                    flexShrink: 0,
+                }}>
+                    <RightSidebar
+                        taskId={currentTask.id}
+                        task={{
+                            name: currentTask.name,
+                            description: currentTask.description,
+                            engineType: currentTask.engineType,
+                        }}
+                        schedule={{
+                            cronExpression: schedule.cronExpression,
+                            enabled: schedule.enabled,
+                        }}
+                        onTaskChange={(t) => setCurrentTask(prev => ({...prev, ...t}))}
+                        onScheduleChange={(s) => setSchedule(prev => ({...prev, ...s}))}
+                        onSave={handleSave}
+                        onExecute={handleExecute}
+                        saving={saving}
+                        executing={executing}
+                    />
+                    {/* 右侧拖拽条 */}
+                    <div
+                        onMouseDown={handleRightSiderMouseDown}
+                        style={{
+                            position: 'absolute',
+                            left: 0, top: 0, bottom: 0,
+                            width: 6,
+                            cursor: 'col-resize',
+                            background: isDraggingRightSider ? '#1890ff' : 'transparent',
+                            zIndex: 10,
+                            transition: 'background 0.2s',
+                        }}
                     />
                 </div>
-            </Content>
-        </Layout>
+            </div>
+        </div>
     );
 };
 
-export default DataWorkPage;
+export default DataWorkWorkspace;

@@ -299,6 +299,23 @@ body {
       border-radius: 6px;
     }
   }
+
+  /* 折叠状态下恢复默认，避免文字串行 */
+  &.ant-menu-inline-collapsed {
+    .ant-menu-item {
+      width: auto;
+      margin-inline: 0;
+      padding-inline: calc(50% - 16px);
+    }
+
+    .ant-menu-submenu {
+      .ant-menu-submenu-title {
+        width: auto;
+        margin-inline: 0;
+        padding-inline: calc(50% - 16px);
+      }
+    }
+  }
 }
 
 /* 消息提示 */

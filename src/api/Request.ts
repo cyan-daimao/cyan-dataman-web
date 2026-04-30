@@ -11,15 +11,15 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         datagateway: "http://cyan-datagateway.cyan.com/",
         datametric: "http://localhost:8080/",
         databi: "http://localhost:8085",
+        dataworks: "http://localhost:8086",
     },
     "pre": {
         dataman: "http://cyan-dataman-pre.cyan.com/",
-        // dataman: "http://localhost:8080/",
         employee: "http://cyan-employee-pre.cyan.com/",
         datagateway: "http://cyan-datagateway-pre.cyan.com/",
-        // datametric: "http://cyan-datametric-pre.cyan.com/",
-        datametric: "http://localhost:8080/",
-        databi: "http://localhost:8085",
+        datametric: "http://cyan-datametric-pre.cyan.com/",
+        databi: "http://cyan-databi-pre.cyan.com/",
+        dataworks: "http://cyan-dataworks-pre.cyan.com/",
     },
     "prod":  {
         dataman: "http://cyan-dataman-prod.cyan.com/",
@@ -27,6 +27,7 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         datagateway: "http://cyan-datagateway-prod.cyan.com/",
         datametric: "http://cyan-datametric-prod.cyan.com/",
         databi: "http://cyan-databi-prod.cyan.com/",
+        dataworks: "http://cyan-dataworks-prod.cyan.com/",
     },
     // vite preview 默认使用 production mode
     "production":  {
@@ -35,6 +36,7 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         datagateway: "http://cyan-datagateway-prod.cyan.com/",
         datametric: "http://cyan-datametric-prod.cyan.com/",
         databi: "http://cyan-databi-prod.cyan.com/",
+        dataworks: "http://cyan-dataworks-prod.cyan.com/",
     },
 };
 
@@ -117,6 +119,7 @@ export const datamanRequest = createRequest('dataman');
 export const datagatewayRequest = createRequest('datagateway');
 export const datametricRequest = createRequest('datametric');
 export const databiRequest = createRequest('databi');
+export const dataworksRequest = createRequest('dataworks');
 
 // 也可以导出创建函数，支持后续扩展更多业务线
 export const createCustomRequest = createRequest;

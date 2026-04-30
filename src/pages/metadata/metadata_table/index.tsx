@@ -1,11 +1,27 @@
 import React, {useEffect, useState} from 'react';
 import type {TableColumnsType, TreeProps} from 'antd';
-import {Button, Card, Empty, Input, Layout, message, Modal, Space, Spin, Table, Tag, Tree, Typography} from 'antd';
+import {
+    Button,
+    Card,
+    Empty,
+    Input,
+    Layout,
+    message,
+    Modal,
+    Space,
+    Spin,
+    Table,
+    Tag,
+    Tree,
+    Typography
+} from 'antd';
 import {
     DatabaseOutlined,
     DeleteOutlined,
     EditOutlined,
     FilterOutlined,
+    MenuFoldOutlined,
+    MenuUnfoldOutlined,
     PlusOutlined,
     SearchOutlined,
     TableOutlined
@@ -15,7 +31,7 @@ import {treeSubjects} from "@/api/MetadataSubjectAPI.ts";
 import ImportTable from "./ImportTableForm";
 import {deleteMetadataTable, MetadataTableDTO, pageMetadataTables} from "@/api/MetadataTableAPI.ts";
 
-const {Header, Sider, Content} = Layout;
+const {Sider, Content} = Layout;
 const {Title, Text} = Typography;
 const {confirm} = Modal;
 
@@ -97,9 +113,9 @@ const columns: TableColumnsType<TableMeta> = [
         width: 200,
         ellipsis: true,
         render: (text: string, record: TableMeta) => (
-            <Text 
-                strong 
-                style={{cursor: 'pointer', color: '#1890ff'}} 
+            <Text
+                strong
+                style={{cursor: 'pointer', color: '#4F6DF5'}}
                 onClick={() => navigate('/meta/metadata/metadata_table/detail', { state: { tableId: record.id } })}
             >
                 {text}
@@ -264,62 +280,110 @@ useEffect(() => {
 
 
 return (
-    <Layout style={{minHeight: '100vh'}}>
-        {/* 顶部Header */}
-        <Header style={{background: '#fff', padding: '0 20px', boxShadow: '0 1px 4px rgba(0,21,41,.08)'}}>
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%'}}>
-                <Title level={4} style={{margin: 0}}>
-                    <DatabaseOutlined style={{marginRight: 8}}/>
-                    元数据管理平台
-                </Title>
-                <Space>
-                    <ImportTable/>
-                    <Button type="primary" icon={<PlusOutlined/>} onClick={handleAdd}>
-                        新增表
-                    </Button>
-                </Space>
-            </div>
-        </Header>
+    <Layout style={{ minHeight: '100%', background: '#F8F9FA' }}>
+        {/* 页面标题区 */}
+        <div style={{
+            padding: '16px 20px',
+            background: '#fff',
+            borderBottom: '1px solid #EDEFF5',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexShrink: 0,
+        }}>
+            <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                {collapsed && (
+                    <Button
+                        type="text"
+                        icon={<MenuUnfoldOutlined />}
+                        onClick={() => setCollapsed(false)}
+                        style={{ color: '#4F6DF5', padding: '4px 8px' }}
+                    />
+                )}
+                <DatabaseOutlined style={{ color: '#4F6DF5' }}/>
+                元数据管理平台
+            </Title>
+            <Space>
+                <ImportTable/>
+                <Button type="primary" icon={<PlusOutlined/>} onClick={handleAdd}>
+                    新增表
+                </Button>
+            </Space>
+        </div>
 
-        <Layout>
+        <Layout style={{ background: '#F8F9FA' }}>
             {/* 左侧主题树 */}
             <Sider
+                trigger={null}
                 collapsible
                 collapsed={collapsed}
-                onCollapse={setCollapsed}
-                style={{background: '#fff', borderRight: '1px solid #f0f0f0'}}
+                collapsedWidth={0}
+                width={240}
+                style={{
+                    background: '#fff',
+                    borderRight: '1px solid #EDEFF5',
+                    overflow: 'hidden',
+                }}
             >
-                <div style={{padding: '16px', borderBottom: '1px solid #f0f0f0'}}>
+                {/* 标题栏 */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '14px 16px',
+                    borderBottom: '1px solid #EDEFF5',
+                }}>
+                    <span style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: '#1D2333',
+                    }}>
+                        主题目录
+                    </span>
+                    <Button
+                        type="text"
+                        size="small"
+                        icon={<MenuFoldOutlined />}
+                        onClick={() => setCollapsed(true)}
+                        style={{ color: '#8B909A' }}
+                    />
+                </div>
+
+                {/* 搜索框 */}
+                <div style={{ padding: '12px 16px' }}>
                     <Input
                         placeholder="搜索主题/表"
                         size="small"
-                        prefix={<SearchOutlined/>}
-                        style={{marginBottom: 0}}
+                        prefix={<SearchOutlined style={{ color: '#8B909A' }} />}
+                        style={{ borderRadius: 6 }}
                     />
                 </div>
-                <Tree
-                    treeData={subjectTreeData}
-                    defaultSelectedKeys={['all']}
-                    expandedKeys={expandedKeys}
-                    onExpand={(keys) => setExpandedKeys(keys as string[])}
-                    onSelect={onTreeSelect}
-                    showIcon
-                    style={{padding: '16px'}}
-                    switcherIcon={<FilterOutlined/>}
-                />
+
+                {/* Tree */}
+                <div style={{ padding: '0 8px 16px', overflow: 'auto', height: 'calc(100% - 110px)' }}>
+                    <Tree
+                        treeData={subjectTreeData}
+                        defaultSelectedKeys={['all']}
+                        expandedKeys={expandedKeys}
+                        onExpand={(keys) => setExpandedKeys(keys as string[])}
+                        onSelect={onTreeSelect}
+                        showIcon
+                        switcherIcon={<FilterOutlined style={{ fontSize: 12, color: '#8B909A' }} />}
+                    />
+                </div>
             </Sider>
 
             {/* 右侧表管理内容 */}
-            <Content style={{margin: '0px', background: '#fff', borderRadius: '1px'}}>
-                <Card style={{marginBottom: 8}}>
-                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+            <Content style={{ padding: 16, background: '#F8F9FA', overflow: 'auto' }}>
+                <Card style={{ marginBottom: 12, borderRadius: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Space>
                             <Input
                                 placeholder="搜索表名称/备注"
                                 value={searchValue}
                                 onChange={(e) => setSearchValue(e.target.value)}
                                 onPressEnter={handleSearch}
-                                style={{width: 300}}
+                                style={{ width: 300 }}
                                 prefix={<SearchOutlined/>}
                             />
                             <Button onClick={handleSearch} icon={<SearchOutlined/>}>搜索</Button>
@@ -341,7 +405,6 @@ return (
                                 showTotal: (total) => `共 ${total} 条记录`
                             }}
                             scroll={{x: 'max-content'}}
-                            bordered
                         />
                     ) : (
                         <Empty
