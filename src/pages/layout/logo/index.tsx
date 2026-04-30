@@ -1,13 +1,16 @@
 import React from "react";
-import logo from "@/assets/react.svg";
 import "./index.less";
-const Index:React.FC = () => {
-  return (
-    <div className="sidebar-logo-container">
-      <img src={logo} className="sidebar-logo" alt="logo" />
-      <h1 className="sidebar-title">Dataman-System</h1>
-    </div>
-  );
+
+const Logo: React.FC = () => {
+    return (
+        <div className="sidebar-logo-container">
+            <span className="logo-en">
+                <span className="logo-en-accent">Data</span>
+                <span className="logo-en-base">Center</span>
+            </span>
+            <span className="logo-cn">数据中心</span>
+        </div>
+    );
 };
 
-export default Index;
+export default Logo;

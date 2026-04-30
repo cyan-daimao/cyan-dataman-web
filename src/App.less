@@ -1,14 +1,378 @@
-/* 重置 body/html 的默认边距和高度 */
+/* ============================================
+   全局基础样式重置
+   ============================================ */
 body, html {
   margin: 0;
   padding: 0;
   height: 100%;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* SQL 编辑器侧边栏 Tabs 占满高度 */
+/* 全局背景色 */
+body {
+  background-color: #F8F9FA;
+}
+
+/* ============================================
+   滚动条美化（Webkit 浏览器）
+   ============================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D5D9E6;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #B0B5BF;
+}
+
+/* ============================================
+   Ant Design 组件全局覆写
+   ============================================ */
+
+/* 卡片：增加轻阴影过渡 */
+.ant-card {
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+
+  &:hover {
+    box-shadow: 0 6px 16px rgba(29, 35, 51, 0.06);
+  }
+}
+
+/* 表格：去边框化 + 行 hover 优化 */
+.ant-table {
+  .ant-table-thead > tr > th {
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.2px;
+    border-bottom: 1px solid #EDEFF5;
+  }
+
+  .ant-table-tbody > tr > td {
+    font-size: 14px;
+    color: #1D2333;
+    border-bottom: 1px solid #F4F6FA;
+    transition: background 0.2s ease;
+  }
+
+  .ant-table-tbody > tr:hover > td {
+    background-color: #F4F6FA !important;
+  }
+
+  /* 去除默认的外边框 */
+  .ant-table-container {
+    border: none !important;
+  }
+
+  .ant-table-cell-scrollbar {
+    box-shadow: none;
+  }
+}
+
+/* 去除 table bordered 的厚重感 */
+.ant-table-wrapper .ant-table-bordered {
+  .ant-table-container {
+    border: none;
+  }
+
+  .ant-table-thead > tr > th,
+  .ant-table-tbody > tr > td {
+    border-inline-end: none;
+  }
+
+  .ant-table-thead > tr > th:first-child,
+  .ant-table-tbody > tr > td:first-child {
+    border-inline-start: none;
+  }
+}
+
+/* 标签：pill 形状优化 */
+.ant-tag {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 10px;
+  border: none;
+
+  &.ant-tag-blue {
+    background: #EEF4FF;
+    color: #2B6DE5;
+  }
+
+  &.ant-tag-green {
+    background: #E8F8F0;
+    color: #1A9F5C;
+  }
+
+  &.ant-tag-purple {
+    background: #F3EEFD;
+    color: #6B3FD4;
+  }
+
+  &.ant-tag-red,
+  &.ant-tag-error {
+    background: #FDECEB;
+    color: #D9392A;
+  }
+
+  &.ant-tag-orange,
+  &.ant-tag-warning {
+    background: #FFF4E0;
+    color: #D97A0B;
+  }
+
+  &.ant-tag-cyan,
+  &.ant-tag-processing {
+    background: #E6F7FF;
+    color: #0A7BBF;
+  }
+
+  &.ant-tag-success {
+    background: #E8F8F0;
+    color: #1A9F5C;
+  }
+}
+
+/* 按钮：主按钮渐变效果 */
+.ant-btn-primary {
+  background: linear-gradient(135deg, #4F6DF5 0%, #3D5BD9 100%);
+  border: none;
+  box-shadow: 0 2px 8px rgba(79, 109, 245, 0.25);
+  font-weight: 500;
+  transition: all 0.25s ease;
+
+  &:hover {
+    background: linear-gradient(135deg, #5A7AF7 0%, #4A68E8 100%);
+    box-shadow: 0 4px 12px rgba(79, 109, 245, 0.35);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    background: linear-gradient(135deg, #3D5BD9 0%, #2F4ABF 100%);
+    transform: translateY(0);
+    box-shadow: 0 1px 4px rgba(79, 109, 245, 0.2);
+  }
+}
+
+/* 默认按钮 */
+.ant-btn-default {
+  border-color: #D5D9E6;
+  color: #4E5566;
+  font-weight: 500;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: #4F6DF5;
+    color: #4F6DF5;
+    background: #F8F9FF;
+  }
+}
+
+/* 链接按钮 */
+.ant-btn-link {
+  font-weight: 500;
+
+  &:hover {
+    background: #F4F6FA;
+  }
+}
+
+/* 输入框：聚焦态优化 */
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-input-password {
+  transition: all 0.25s ease;
+
+  &:hover {
+    border-color: #7B8FF7;
+  }
+
+  &:focus,
+  &-focused {
+    border-color: #4F6DF5;
+    box-shadow: 0 0 0 3px rgba(79, 109, 245, 0.12);
+  }
+}
+
+/* 选择器 */
+.ant-select:not(.ant-select-disabled):not(.ant-select-customize-input) {
+  .ant-select-selector {
+    transition: all 0.25s ease;
+  }
+
+  &:hover .ant-select-selector {
+    border-color: #7B8FF7 !important;
+  }
+
+  &.ant-select-focused .ant-select-selector {
+    border-color: #4F6DF5 !important;
+    box-shadow: 0 0 0 3px rgba(79, 109, 245, 0.12) !important;
+  }
+}
+
+/* 模态框 */
+.ant-modal {
+  .ant-modal-header {
+    border-bottom: 1px solid #EDEFF5;
+    padding: 20px 24px;
+  }
+
+  .ant-modal-title {
+    font-weight: 600;
+    font-size: 16px;
+    color: #1D2333;
+  }
+
+  .ant-modal-body {
+    padding: 24px;
+  }
+
+  .ant-modal-footer {
+    border-top: 1px solid #EDEFF5;
+    padding: 16px 24px;
+  }
+}
+
+/* 分页 */
+.ant-pagination {
+  .ant-pagination-item {
+    border: none;
+    background: transparent;
+    font-weight: 500;
+
+    &:hover {
+      background: #F4F6FA;
+    }
+
+    &-active {
+      background: #EEF1FF !important;
+
+      a {
+        color: #4F6DF5 !important;
+      }
+    }
+  }
+
+  .ant-pagination-prev,
+  .ant-pagination-next {
+    border: none;
+    background: transparent;
+
+    &:hover {
+      background: #F4F6FA;
+    }
+  }
+}
+
+/* 菜单：选中态优化 */
+.ant-menu {
+  .ant-menu-item {
+    margin-inline: 8px;
+    width: calc(100% - 16px);
+    border-radius: 6px;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: #F4F6FA;
+    }
+
+    &.ant-menu-item-selected {
+      background: #EEF1FF;
+      color: #4F6DF5;
+      font-weight: 500;
+    }
+  }
+
+  .ant-menu-submenu {
+    .ant-menu-submenu-title {
+      margin-inline: 8px;
+      width: calc(100% - 16px);
+      border-radius: 6px;
+    }
+  }
+}
+
+/* 消息提示 */
+.ant-message {
+  .ant-message-notice-content {
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(29, 35, 51, 0.1);
+    padding: 10px 16px;
+    font-weight: 500;
+  }
+}
+
+/* ============================================
+   SQL 编辑器侧边栏 Tabs 占满高度（保留原有）
+   ============================================ */
 .sql-editor-sidebar .ant-tabs,
 .sql-editor-sidebar .ant-tabs-content,
 .sql-editor-sidebar .ant-tabs-content-holder,
 .sql-editor-sidebar .ant-tabs-tabpane {
   height: 100% !important;
+}
+
+/* ============================================
+   页面级通用样式类
+   ============================================ */
+
+/* 页面容器 */
+.page-container {
+  padding: 24px;
+  background: #F8F9FA;
+  min-height: 100%;
+}
+
+/* 页面标题区 */
+.page-header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+
+  .page-title-wrapper {
+    .page-title {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+      color: #1D2333;
+      line-height: 1.4;
+    }
+
+    .page-subtitle {
+      margin-top: 4px;
+      font-size: 13px;
+      color: #8B909A;
+      line-height: 1.5;
+    }
+  }
+}
+
+/* 搜索筛选区 */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #FFFFFF;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(29, 35, 51, 0.03);
+}
+
+/* 数据表格卡片 */
+.data-table-card {
+  background: #FFFFFF;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(29, 35, 51, 0.03);
+  overflow: hidden;
 }

@@ -1,5 +1,10 @@
 import React, { useState, useMemo, createContext, useContext } from 'react';
-import {LaptopOutlined, UserOutlined, MenuUnfoldOutlined, MenuFoldOutlined, DatabaseOutlined} from '@ant-design/icons';
+import {
+    LaptopOutlined,
+    MenuUnfoldOutlined,
+    MenuFoldOutlined,
+    DatabaseOutlined,
+} from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { Layout, Menu, theme } from 'antd';
 import {Link, Outlet, useLocation} from "react-router-dom";
@@ -24,7 +29,7 @@ const pathToKeyMap: Record<string, string> = {
 const items: MenuProps['items'] = [
     {
         key: 'business-ds',
-        label: <Link to={'/meta/business-ds'}>业务数据库</Link>,
+        label: '业务数据库',
         icon: <DatabaseOutlined />,
         children: [
             {
@@ -47,7 +52,7 @@ const items: MenuProps['items'] = [
     },
     {
         key: 'metadata',
-        label: <Link to={'/meta/metadata/datasource'}>元数据</Link>,
+        label: '元数据',
         icon: <LaptopOutlined />,
         children: [
             {
@@ -67,30 +72,24 @@ const items: MenuProps['items'] = [
 ];
 
 const App: React.FC = () => {
-    // 获取当前嵌套层级（0 表示第一层，1 表示第二层嵌套）
     const level = useContext(MetadataLevelContext);
     const isNestedLayer = level > 0;
-    
-    // 正确获取 token，避免类型错误
+
     const { token } = theme.useToken();
     const location = useLocation();
 
     const [collapsed, setCollapsed] = useState(false);
-    // 默认展开所有一级菜单
-    const [openKeys, setOpenKeys] = useState<string[]>(['business-ds', 'metadata', 'data']);
+    const [openKeys, setOpenKeys] = useState<string[]>(['business-ds', 'metadata']);
 
-    // 根据路径计算选中的菜单 key
     const selectedKeys = useMemo(() => {
         const key = pathToKeyMap[location.pathname];
         return key ? [key] : ['bd-datasource'];
     }, [location.pathname]);
 
-    // 处理菜单展开/收起
     const handleOpenChange: MenuProps['onOpenChange'] = (keys) => {
         setOpenKeys(keys as string[]);
     };
 
-    // 如果是嵌套层，直接渲染 Outlet，不渲染侧边栏
     if (isNestedLayer) {
         return (
             <MetadataLevelContext.Provider value={level + 1}>
@@ -113,42 +112,85 @@ const App: React.FC = () => {
                     trigger={null}
                     collapsible
                     collapsed={collapsed}
+                    width={220}
                     style={{
-                        background: token.colorBgContainer,
-                        height: '100vh',
-                        position: 'relative' // 为绝对定位的按钮提供参考
+                        background: '#FFFFFF',
+                        height: '100%',
+                        position: 'relative',
+                        boxShadow: '2px 0 8px rgba(29, 35, 51, 0.04)',
+                        zIndex: 2,
                     }}
                 >
-                    {/* 悬浮在侧边栏边缘的折叠按钮 - 修复 Token 类型问题 */}
-                    <div style={{
-                        position: 'absolute',
-                        top: '20px',
-                        right: '-12px', // 一半在侧边栏内，一半在外
-                        zIndex: 1,
-                        width: '24px',
-                        height: '24px',
-                        borderRadius: '50%',
-                        background: token.colorBgContainer,
-                        // 使用兼容的 border 颜色属性
-                        border: `1px solid ${token.colorBorder}`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                        transition: 'all 0.2s'
-                    }}
-                         onClick={() => setCollapsed(!collapsed)}
+                    {/* 侧边栏标题 */}
+                    <div
+                        style={{
+                            height: 56,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: collapsed ? 'center' : 'flex-start',
+                            padding: collapsed ? 0 : '0 20px',
+                            borderBottom: '1px solid #F4F6FA',
+                            marginBottom: 8,
+                        }}
+                    >
+                        {!collapsed && (
+                            <span
+                                style={{
+                                    fontSize: 14,
+                                    fontWeight: 600,
+                                    color: '#1D2333',
+                                    letterSpacing: 0.5,
+                                }}
+                            >
+                                元数据平台
+                            </span>
+                        )}
+                        {collapsed && (
+                            <DatabaseOutlined style={{ fontSize: 18, color: '#4F6DF5' }} />
+                        )}
+                    </div>
+
+                    {/* 悬浮折叠按钮 */}
+                    <div
+                        style={{
+                            position: 'absolute',
+                            top: '68px',
+                            right: '-12px',
+                            zIndex: 10,
+                            width: 24,
+                            height: 24,
+                            borderRadius: '50%',
+                            background: '#FFFFFF',
+                            border: `1px solid ${token.colorBorder}`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                            transition: 'all 0.2s',
+                        }}
+                        onClick={() => setCollapsed(!collapsed)}
+                        onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                        }}
+                        onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                        }}
                     >
                         {collapsed ?
-                            <MenuUnfoldOutlined style={{ color: token.colorPrimary }} /> :
-                            <MenuFoldOutlined style={{ color: token.colorPrimary }} />
+                            <MenuUnfoldOutlined style={{ color: '#4F6DF5', fontSize: 12 }} /> :
+                            <MenuFoldOutlined style={{ color: '#4F6DF5', fontSize: 12 }} />
                         }
                     </div>
 
                     <Menu
                         mode="inline"
-                        style={{ height: '100%', borderRight: 0, paddingTop: '16px' }}
+                        style={{
+                            height: 'calc(100% - 64px)',
+                            borderRight: 0,
+                            paddingTop: 4,
+                            background: 'transparent',
+                        }}
                         items={items}
                         selectedKeys={selectedKeys}
                         openKeys={openKeys}
@@ -157,7 +199,14 @@ const App: React.FC = () => {
                     />
                 </Sider>
 
-                <Layout.Content style={{ padding: 16, height: '100vh', overflow: 'auto' }}>
+                <Layout.Content
+                    style={{
+                        padding: 0,
+                        height: '100%',
+                        overflow: 'auto',
+                        background: '#F8F9FA',
+                    }}
+                >
                     <MetadataLevelContext.Provider value={level + 1}>
                         <Outlet />
                     </MetadataLevelContext.Provider>

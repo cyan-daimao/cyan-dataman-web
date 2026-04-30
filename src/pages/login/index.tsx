@@ -1,53 +1,41 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, Card, Layout, Typography, message } from 'antd';
+import { Form, Input, Button, Typography, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { useLocation, useNavigate } from 'react-router-dom'; // 引入路由钩子
-import 'antd/dist/reset.css';
-import {login} from "../../api/LoginApi";
-import {currentEmployee} from "../../api/EmployeeApi"; // AntD v5 样式引入
-import {KEY, setStorage} from "../../utils/storage";
+import { useLocation, useNavigate } from 'react-router-dom';
+import { login } from "../../api/LoginApi";
+import { currentEmployee } from "../../api/EmployeeApi";
+import { KEY, setStorage } from "../../utils/storage";
+import './index.less';
+
 // 类型定义
 interface LoginFormValues {
     username: string;
     password: string;
 }
 
-const { Header, Content, Footer } = Layout;
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 const LoginPage: React.FC = () => {
-    // 表单实例
     const [form] = Form.useForm();
-    // 加载状态
     const [loading, setLoading] = useState<boolean>(false);
-    // 路由导航钩子
     const navigate = useNavigate();
-    // 获取路由参数（用于读取原页面地址）
     const location = useLocation();
-    /**
-     * 登录提交处理函数
-     * @param values 表单提交的值
-     */
+
     const handleLogin = async (values: LoginFormValues) => {
         try {
             setLoading(true);
-          const resp =  await login({passport:values.username, password:values.password})
-            if (resp.code==200){
-                // 登录成功后，将 token 存储到 localStorage
+            const resp = await login({ passport: values.username, password: values.password });
+            if (resp.code == 200) {
                 setStorage(KEY.TOKEN, resp.data);
                 message.success('登录成功！');
-                // 读取跳转前的页面地址，优先跳回原页面，否则跳首页
-                // 1. 从路由参数中获取原页面地址（redirect 参数）
                 const redirectPath = (location.state?.from as string) || '/';
-                // 2. 跳转到目标页面
-                navigate(redirectPath, { replace: true }); // replace 避免回退到登录页
-            }else{
+                navigate(redirectPath, { replace: true });
+            } else {
                 message.error(resp.message);
             }
             const employeeDTO = await currentEmployee();
             setStorage(KEY.CURRENT, employeeDTO.data);
         } catch (error) {
-            // 登录失败处理
             message.error('登录失败，请检查账号密码！');
             console.error('登录错误:', error);
         } finally {
@@ -56,93 +44,116 @@ const LoginPage: React.FC = () => {
     };
 
     return (
-        <Layout style={{ minHeight: '100vh' }}>
-            {/* 页面头部 */}
-            <Header style={{ background: '#fff', padding: '0 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }}>
-                <Title level={3} style={{ margin: '16px 0', color: '#1890ff' }}>
-                    系统登录
-                </Title>
-            </Header>
+        <div className="login-page">
+            {/* 背景装饰 */}
+            <div className="login-bg-decoration">
+                <div className="bg-circle bg-circle-1" />
+                <div className="bg-circle bg-circle-2" />
+                <div className="bg-circle bg-circle-3" />
+            </div>
 
-            {/* 登录主体 */}
-            <Content style={{
-                background: '#f5f5f5',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '50px 20px'
-            }}>
-                <Card
-                    style={{
-                        width: '100%',
-                        maxWidth: 400,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                    }}
-                >
-                    <Title level={4} style={{ textAlign: 'center', marginBottom: 30 }}>
-                        账号密码登录
-                    </Title>
+            <div className="login-container">
+                {/* 左侧品牌区 */}
+                <div className="login-brand">
+                    <div className="brand-content">
+                        <div className="brand-logo-text">
+                            <span className="brand-en">
+                                <span className="brand-en-accent">Data</span>
+                                <span className="brand-en-base">Center</span>
+                            </span>
+                            <span className="brand-cn">数据中心</span>
+                        </div>
+                        <Text className="brand-slogan">
+                            企业级数据资产管理平台
+                        </Text>
+                        <div className="brand-features">
+                            <div className="feature-item">
+                                <div className="feature-dot" />
+                                <Text>元数据统一管理</Text>
+                            </div>
+                            <div className="feature-item">
+                                <div className="feature-dot" />
+                                <Text>指标平台可视化</Text>
+                            </div>
+                            <div className="feature-item">
+                                <div className="feature-dot" />
+                                <Text>SQL 在线查询分析</Text>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                    {/* 登录表单 */}
-                    <Form
-                        form={form}
-                        name="login_form"
-                        initialValues={{ username: 'cyan1', password: '12345' }}
-                        onFinish={handleLogin}
-                        autoComplete="off"
-                    >
-                        {/* 用户名输入框 */}
-                        <Form.Item
-                            name="username"
-                            rules={[
-                                { required: true, message: '请输入用户名！'},
-                            ]}
+                {/* 右侧表单区 */}
+                <div className="login-form-wrapper">
+                    <div className="login-form-card">
+                        <div className="form-header">
+                            <Title level={3} className="form-title">欢迎回来</Title>
+                            <Text type="secondary" className="form-subtitle">
+                                请登录您的账号以继续
+                            </Text>
+                        </div>
+
+                        <Form
+                            form={form}
+                            name="login_form"
+                            onFinish={handleLogin}
+                            autoComplete="off"
+                            layout="vertical"
+                            className="login-form"
                         >
-                            <Input
-                                prefix={<UserOutlined className="site-form-item-icon" />}
-                                placeholder="请输入用户名"
-                                size="large"
-                                value={'cyan1'}
-                            />
-                        </Form.Item>
-
-                        {/* 密码输入框 */}
-                        <Form.Item
-                            name="password"
-                            rules={[
-                                { required: true, message: '请输入密码！' },
-                            ]}
-                        >
-                            <Input.Password
-                                prefix={<LockOutlined className="site-form-item-icon" />}
-                                placeholder="请输入密码"
-                                size="large"
-                                value={'123456'}
-                            />
-                        </Form.Item>
-
-                        {/* 登录按钮 */}
-                        <Form.Item>
-                            <Button
-                                type="primary"
-                                htmlType="submit"
-                                loading={loading}
-                                block
-                                size="large"
-                                style={{ height: 48 }}
+                            <Form.Item
+                                name="username"
+                                label="用户名"
+                                rules={[
+                                    { required: true, message: '请输入用户名！' },
+                                ]}
                             >
-                                登录
-                            </Button>
-                        </Form.Item>
-                    </Form>
-                </Card>
-            </Content>
+                                <Input
+                                    prefix={<UserOutlined style={{ color: '#8B909A', marginRight: 8 }} />}
+                                    placeholder="请输入用户名"
+                                    size="large"
+                                    className="login-input"
+                                />
+                            </Form.Item>
 
-            {/* 页面底部 */}
-            <Footer style={{ textAlign: 'center' }}>
-                ©{new Date().getFullYear()} 系统登录页面 | 基于 React + AntD 开发
-            </Footer>
-        </Layout>
+                            <Form.Item
+                                name="password"
+                                label="密码"
+                                rules={[
+                                    { required: true, message: '请输入密码！' },
+                                ]}
+                            >
+                                <Input.Password
+                                    prefix={<LockOutlined style={{ color: '#8B909A', marginRight: 8 }} />}
+                                    placeholder="请输入密码"
+                                    size="large"
+                                    className="login-input"
+                                />
+                            </Form.Item>
+
+                            <Form.Item style={{ marginTop: 8 }}>
+                                <Button
+                                    type="primary"
+                                    htmlType="submit"
+                                    loading={loading}
+                                    block
+                                    size="large"
+                                    className="login-btn"
+                                >
+                                    登 录
+                                </Button>
+                            </Form.Item>
+                        </Form>
+
+                        <div className="form-footer">
+                            <Text type="secondary" style={{ fontSize: 13 }}>
+                                ©{new Date().getFullYear()} DATA-CENTER | cyan
+                            </Text>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 };
 

@@ -80,8 +80,8 @@ export interface DatasetDTO {
     sourceTable?: string;
     sourceSql?: string;
     fields: DatasetField[];
-    createBy?: string;
-    updateBy?: string;
+    createdBy?: string;
+    updatedAt?: string;
     createdAt?: string;
     updatedAt?: string;
 }
@@ -131,8 +131,8 @@ export interface ChartDTO {
     orders?: OrderConfig[];
     limitValue?: number;
     sqlContent?: string;
-    createBy?: string;
-    updateBy?: string;
+    createdBy?: string;
+    updatedAt?: string;
     createdAt?: string;
     updatedAt?: string;
 }
@@ -166,8 +166,8 @@ export interface DashboardDTO {
     description?: string;
     layoutConfig?: string;
     chartRefs?: ChartRef[];
-    createBy?: string;
-    updateBy?: string;
+    createdBy?: string;
+    updatedAt?: string;
     createdAt?: string;
     updatedAt?: string;
 }
