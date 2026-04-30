@@ -30,7 +30,7 @@ const items: MenuProps['items'] = [
         label: '数据加工',
         key: '4',
     },{
-        label: 'BI分析',
+        label: '智能分析',
         key: '5',
     }
 ]

@@ -30,6 +30,16 @@ const TableSchemaEdit = React.lazy(() => import((`@/pages/metadata/business_db/t
 const TableSchemaDetail = React.lazy(() => import((`@/pages/metadata/business_db/table_schema/TableSchemaDetail.tsx`)))
 const BusinessDsSql = React.lazy(() => import((`@/pages/metadata/business_db/sql/index.tsx`)))
 
+// 智能分析（BI）模块
+const BiLayout = React.lazy(() => import((`@/pages/bi/index.tsx`)))
+const DatasetList = React.lazy(() => import((`@/pages/bi/dataset/index.tsx`)))
+const DatasetForm = React.lazy(() => import((`@/pages/bi/dataset/DatasetForm.tsx`)))
+const ChartList = React.lazy(() => import((`@/pages/bi/chart/index.tsx`)))
+const ChartAnalyzer = React.lazy(() => import((`@/pages/bi/chart/ChartAnalyzer.tsx`)))
+const DashboardList = React.lazy(() => import((`@/pages/bi/dashboard/index.tsx`)))
+const DashboardEditor = React.lazy(() => import((`@/pages/bi/dashboard/DashboardEditor.tsx`)))
+const DashboardViewer = React.lazy(() => import((`@/pages/bi/dashboard/DashboardViewer.tsx`)))
+
 // 鉴权组件：拦截未登录的访问
 const PrivateRoute = ({children}: { children: React.ReactNode }) => {
     const hasToken = !!localStorage.getItem('token');
@@ -176,6 +186,47 @@ const routes = createBrowserRouter([
             }, {
                 path: "data-work",
                 element: <DataWork/>,
+            }, {
+                path: "bi",
+                element: <BiLayout/>,
+                children: [
+                    {
+                        index: true,
+                        element: <DatasetList/>
+                    },
+                    {
+                        path: "dataset",
+                        element: <DatasetList/>
+                    },
+                    {
+                        path: "dataset/create",
+                        element: <DatasetForm/>
+                    },
+                    {
+                        path: "dataset/edit/:id",
+                        element: <DatasetForm/>
+                    },
+                    {
+                        path: "chart",
+                        element: <ChartList/>
+                    },
+                    {
+                        path: "chart/analyzer/:datasetId?/:chartId?",
+                        element: <ChartAnalyzer/>
+                    },
+                    {
+                        path: "dashboard",
+                        element: <DashboardList/>
+                    },
+                    {
+                        path: "dashboard/edit/:id?",
+                        element: <DashboardEditor/>
+                    },
+                    {
+                        path: "dashboard/view/:id",
+                        element: <DashboardViewer/>
+                    },
+                ]
             }
         ]
     },

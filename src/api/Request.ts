@@ -10,6 +10,7 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         employee: "http://cyan-employee.cyan.com/",
         datagateway: "http://cyan-datagateway.cyan.com/",
         datametric: "http://localhost:8080/",
+        databi: "http://localhost:8085",
     },
     "pre": {
         dataman: "http://cyan-dataman-pre.cyan.com/",
@@ -18,12 +19,14 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         datagateway: "http://cyan-datagateway-pre.cyan.com/",
         // datametric: "http://cyan-datametric-pre.cyan.com/",
         datametric: "http://localhost:8080/",
+        databi: "http://localhost:8085",
     },
     "prod":  {
         dataman: "http://cyan-dataman-prod.cyan.com/",
         employee: "http://cyan-employee-prod.cyan.com/",
         datagateway: "http://cyan-datagateway-prod.cyan.com/",
         datametric: "http://cyan-datametric-prod.cyan.com/",
+        databi: "http://cyan-databi-prod.cyan.com/",
     },
     // vite preview 默认使用 production mode
     "production":  {
@@ -31,6 +34,7 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         employee: "http://cyan-employee-prod.cyan.com/",
         datagateway: "http://cyan-datagateway-prod.cyan.com/",
         datametric: "http://cyan-datametric-prod.cyan.com/",
+        databi: "http://cyan-databi-prod.cyan.com/",
     },
 };
 
@@ -112,6 +116,7 @@ export const employeeRequest = createRequest('employee');
 export const datamanRequest = createRequest('dataman');
 export const datagatewayRequest = createRequest('datagateway');
 export const datametricRequest = createRequest('datametric');
+export const databiRequest = createRequest('databi');
 
 // 也可以导出创建函数，支持后续扩展更多业务线
 export const createCustomRequest = createRequest;
