@@ -20,6 +20,10 @@ interface SQLEditorProps {
     tableColumnsCache?: Record<string, ColumnVO[]>;
     availableTables?: Array<{name: string; title: string}>;
     theme?: 'light' | 'dark';
+    /** 是否显示工具栏的运行按钮（默认 true） */
+    showRun?: boolean;
+    /** 是否显示工具栏的格式化按钮（默认 true） */
+    showFormat?: boolean;
 }
 
 // SQL 关键字
@@ -55,7 +59,9 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
     onFormat,
     tableColumnsCache = {},
     availableTables = [],
-    theme = 'light'
+    theme = 'light',
+    showRun = true,
+    showFormat = true,
 }) => {
     const isDark = theme === 'dark';
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -298,15 +304,19 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
                 alignItems: 'center'
             }}>
                 <Space>
-                    <Tooltip title="执行选中内容或全部 (Ctrl+Enter)">
-                        <Button type="primary" icon={<CaretRightOutlined/>} onClick={handleExecute}>运行</Button>
-                    </Tooltip>
+                    {showRun && (
+                        <Tooltip title="执行选中内容或全部 (Ctrl+Enter)">
+                            <Button type="primary" icon={<CaretRightOutlined/>} onClick={handleExecute}>运行</Button>
+                        </Tooltip>
+                    )}
                     <Tooltip title="执行计划">
                         <Button icon={<FileSearchOutlined/>} onClick={onExecutePlan}/>
                     </Tooltip>
-                    <Tooltip title="格式化 (Ctrl+Shift+F)">
-                        <Button icon={<FormatPainterOutlined/>} onClick={onFormat}/>
-                    </Tooltip>
+                    {showFormat && (
+                        <Tooltip title="格式化 (Ctrl+Shift+F)">
+                            <Button icon={<FormatPainterOutlined/>} onClick={onFormat}/>
+                        </Tooltip>
+                    )}
                 </Space>
                 
                 <Space>

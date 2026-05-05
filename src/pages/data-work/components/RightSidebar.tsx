@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
     Button,
     Card,
@@ -9,66 +9,46 @@ import {
     Space,
     Switch,
     Tag,
-    Tooltip,
-    Drawer,
 } from 'antd';
 import {
     SaveOutlined,
     PlayCircleOutlined,
     ThunderboltOutlined,
-    SettingOutlined,
-    BranchesOutlined,
-    FileTextOutlined,
     CloseOutlined,
 } from '@ant-design/icons';
 
-/**
- * 引擎类型选项
- */
 const engineOptions = [
     { label: 'SparkSQL', value: 'SPARK' },
     { label: 'FlinkSQL', value: 'FLINK' },
 ];
 
-/**
- * 任务属性
- */
 interface TaskProps {
     name: string;
     description?: string;
     engineType: 'SPARK' | 'FLINK';
 }
 
-/**
- * 调度属性
- */
 interface ScheduleProps {
     cronExpression?: string;
     enabled?: boolean;
 }
 
-interface RightSidebarProps {
-    /** 当前任务ID（空表示未保存的新任务） */
-    taskId?: string;
-    /** 任务属性 */
-    task: TaskProps;
-    /** 调度属性 */
-    schedule: ScheduleProps;
-    /** 属性变更回调 */
-    onTaskChange: (task: TaskProps) => void;
-    /** 调度变更回调 */
-    onScheduleChange: (schedule: ScheduleProps) => void;
-    /** 保存任务 */
-    onSave: () => void;
-    /** 执行任务 */
-    onExecute: () => void;
-    /** 保存中 */
-    saving?: boolean;
-    /** 执行中 */
-    executing?: boolean;
-}
-
 type PanelType = 'property' | 'schedule' | 'version' | 'settings' | null;
+
+interface RightSidebarProps {
+    taskId?: string;
+    task: TaskProps;
+    schedule: ScheduleProps;
+    onTaskChange: (task: TaskProps) => void;
+    onScheduleChange: (schedule: ScheduleProps) => void;
+    onSave: () => void;
+    onExecute: () => void;
+    saving?: boolean;
+    executing?: boolean;
+    activePanel: PanelType;
+    panelWidth: number;
+    onActivePanelChange: (panel: PanelType) => void;
+}
 
 const RightSidebar: React.FC<RightSidebarProps> = ({
     taskId,
@@ -80,23 +60,11 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     onExecute,
     saving = false,
     executing = false,
+    activePanel,
+    onActivePanelChange,
 }) => {
-    const [activePanel, setActivePanel] = useState<PanelType>('property');
     const isNew = !taskId;
 
-    const togglePanel = (panel: PanelType) => {
-        setActivePanel(prev => (prev === panel ? null : panel));
-    };
-
-    // 右侧 icon 按钮列表
-    const iconButtons = [
-        { key: 'property' as PanelType, icon: <FileTextOutlined />, title: '属性' },
-        { key: 'schedule' as PanelType, icon: <ThunderboltOutlined />, title: '调度配置' },
-        { key: 'version' as PanelType, icon: <BranchesOutlined />, title: '版本' },
-        { key: 'settings' as PanelType, icon: <SettingOutlined />, title: '运行配置' },
-    ];
-
-    // 属性面板内容
     const PropertyPanel = (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <div style={{
@@ -105,6 +73,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
+                flexShrink: 0,
             }}>
                 <span style={{ fontWeight: 600, fontSize: 14 }}>任务属性</span>
                 {isNew ? <Tag color="orange">未保存</Tag> : <Tag color="blue">已保存</Tag>}
@@ -166,7 +135,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                     </Form>
                 </Card>
             </div>
-            <div style={{ padding: '12px 16px', borderTop: '1px solid #f0f0f0', background: '#fafafa' }}>
+            <div style={{ padding: '12px 16px', borderTop: '1px solid #f0f0f0', background: '#fafafa', flexShrink: 0 }}>
                 <Space direction="vertical" style={{ width: '100%' }}>
                     <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={onSave} block>
                         {isNew ? '保存任务' : '更新任务'}
@@ -179,10 +148,9 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
         </div>
     );
 
-    // 调度配置面板（简化版，与属性面板中的调度配置重复，但独立展示）
     const SchedulePanel = (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 14 }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 14, flexShrink: 0 }}>
                 调度配置
             </div>
             <div style={{ flex: 1, overflow: 'auto', padding: '12px 16px' }}>
@@ -213,15 +181,14 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
         </div>
     );
 
-    // 版本面板（占位）
     const VersionPanel = (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 14 }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 14, flexShrink: 0 }}>
                 版本管理
             </div>
             <div style={{ flex: 1, overflow: 'auto', padding: '12px 16px' }}>
                 <div style={{ textAlign: 'center', color: '#999', padding: '40px 0' }}>
-                    <BranchesOutlined style={{ fontSize: 32, marginBottom: 12 }} />
+                    <span style={{ fontSize: 32, marginBottom: 12, display: 'block' }}>🌿</span>
                     <p>版本管理功能开发中</p>
                     <p style={{ fontSize: 12 }}>将支持 SQL 版本快照与回滚</p>
                 </div>
@@ -229,10 +196,9 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
         </div>
     );
 
-    // 运行配置面板（占位）
     const SettingsPanel = (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 14 }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 14, flexShrink: 0 }}>
                 运行配置
             </div>
             <div style={{ flex: 1, overflow: 'auto', padding: '12px 16px' }}>
@@ -265,53 +231,21 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     };
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'row' }}>
-            {/* 右侧 icon 按钮列 */}
+        <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* 关闭按钮行 */}
             <div style={{
-                width: 44,
-                background: '#fafafa',
-                borderLeft: '1px solid #f0f0f0',
+                padding: '8px 12px',
+                borderBottom: '1px solid #f0f0f0',
                 display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                padding: '8px 0',
-                gap: 8,
+                justifyContent: 'flex-end',
+                flexShrink: 0,
             }}>
-                {iconButtons.map(btn => (
-                    <Tooltip key={btn.key} title={btn.title} placement="left">
-                        <Button
-                            type={activePanel === btn.key ? 'primary' : 'text'}
-                            icon={btn.icon}
-                            size="small"
-                            style={{ width: 32, height: 32 }}
-                            onClick={() => togglePanel(btn.key)}
-                        />
-                    </Tooltip>
-                ))}
+                <Button type="text" icon={<CloseOutlined />} size="small" onClick={() => onActivePanelChange(null)} />
             </div>
-
-            {/* 展开面板 */}
-            {activePanel && (
-                <div style={{
-                    width: 320,
-                    background: '#fff',
-                    borderLeft: '1px solid #f0f0f0',
-                    display: 'flex',
-                    flexDirection: 'column',
-                }}>
-                    <div style={{
-                        padding: '8px 12px',
-                        borderBottom: '1px solid #f0f0f0',
-                        display: 'flex',
-                        justifyContent: 'flex-end',
-                    }}>
-                        <Button type="text" icon={<CloseOutlined />} size="small" onClick={() => setActivePanel(null)} />
-                    </div>
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                        {panelContent[activePanel]}
-                    </div>
-                </div>
-            )}
+            {/* 面板内容 */}
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+                {activePanel ? panelContent[activePanel] : null}
+            </div>
         </div>
     );
 };

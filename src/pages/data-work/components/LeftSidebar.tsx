@@ -178,8 +178,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
         {
             key: 'tasks',
             label: (
-                <span>
-                    <FolderOutlined />
+                <span style={{ whiteSpace: 'nowrap' }}>
+                    <FolderOutlined style={{ marginRight: 4 }} />
                     项目目录
                 </span>
             ),
@@ -227,8 +227,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
         {
             key: 'tables',
             label: (
-                <span>
-                    <DatabaseOutlined />
+                <span style={{ whiteSpace: 'nowrap' }}>
+                    <DatabaseOutlined style={{ marginRight: 4 }} />
                     数据表
                 </span>
             ),
@@ -247,8 +247,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
         {
             key: 'history',
             label: (
-                <span>
-                    <HistoryOutlined />
+                <span style={{ whiteSpace: 'nowrap' }}>
+                    <HistoryOutlined style={{ marginRight: 4 }} />
                     执行历史
                 </span>
             ),
@@ -303,6 +303,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
     return (
         <div
+            className="sql-editor-sidebar"
             style={{
                 height: '100%',
                 display: 'flex',
@@ -316,8 +317,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
                 onChange={setActiveTab}
                 items={tabItems}
                 size="small"
+                tabBarGutter={0}
                 style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
-                tabBarStyle={{ marginBottom: 0, padding: '0 8px', flexShrink: 0 }}
+                tabBarStyle={{ marginBottom: 0, padding: '0 2px', flexShrink: 0 }}
             />
         </div>
     );

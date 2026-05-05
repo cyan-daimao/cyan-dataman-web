@@ -32,6 +32,7 @@ const LoginPage: React.FC = () => {
                 navigate(redirectPath, { replace: true });
             } else {
                 message.error(resp.message);
+                return;
             }
             const employeeDTO = await currentEmployee();
             setStorage(KEY.CURRENT, employeeDTO.data);

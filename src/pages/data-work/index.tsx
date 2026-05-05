@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {message, Spin, Button, Space, Divider} from 'antd';
+import {message, Spin, Button, Space, Divider, Row, Col, Tooltip} from 'antd';
 import {
     PlayCircleOutlined,
     SaveOutlined,
@@ -7,6 +7,10 @@ import {
     ReloadOutlined,
     CloudUploadOutlined,
     ShareAltOutlined,
+    FileTextOutlined,
+    ThunderboltOutlined,
+    BranchesOutlined,
+    SettingOutlined,
 } from '@ant-design/icons';
 import {loader} from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
@@ -86,7 +90,15 @@ const DataWorkWorkspace: React.FC = () => {
 
     // ========== 布局状态 ==========
     const [siderWidth, setSiderWidth] = useState(260);
-    const [rightSiderWidth, setRightSiderWidth] = useState(300);
+    const [rightSiderWidth, setRightSiderWidth] = useState(320);
+    const [rightActivePanel, setRightActivePanel] = useState<'property' | 'schedule' | 'version' | 'settings' | null>('property');
+
+    const handleRightPanelChange = useCallback((panel: 'property' | 'schedule' | 'version' | 'settings' | null) => {
+        setRightActivePanel(prev => {
+            if (panel === null) return null;
+            return prev === panel ? null : panel;
+        });
+    }, []);
     const [editorHeight, setEditorHeight] = useState(420);
     const [isDraggingSider, setIsDraggingSider] = useState(false);
     const [isDraggingRightSider, setIsDraggingRightSider] = useState(false);
@@ -120,8 +132,10 @@ const DataWorkWorkspace: React.FC = () => {
                 if (newWidth >= 200 && newWidth <= 400) setSiderWidth(newWidth);
             }
             if (isDraggingRightSider) {
-                const newWidth = window.innerWidth - e.clientX;
-                if (newWidth >= 260 && newWidth <= 400) setRightSiderWidth(newWidth);
+                const newPanelWidth = window.innerWidth - e.clientX - 44;
+                if (newPanelWidth >= 260 && newPanelWidth <= 400) {
+                    setRightSiderWidth(newPanelWidth);
+                }
             }
             if (isDraggingEditor && containerRef.current) {
                 const rect = containerRef.current.getBoundingClientRect();
@@ -363,7 +377,7 @@ const DataWorkWorkspace: React.FC = () => {
 
     // ========== 渲染 ==========
     return (
-        <div style={{height: '100%', display: 'flex', flexDirection: 'column', background: '#f5f5f5'}}>
+        <div style={{flex: 1, display: 'flex', flexDirection: 'column', background: '#f5f5f5', minHeight: 0}}>
             {/* 顶部工具栏 */}
             <div style={{
                 height: 48,
@@ -402,16 +416,10 @@ const DataWorkWorkspace: React.FC = () => {
                 </Space>
             </div>
 
-            {/* 主体三栏布局 */}
-            <div style={{flex: 1, display: 'flex', overflow: 'hidden'}}>
+            {/* 主体三栏布局 — Ant Design Grid */}
+            <Row wrap={false} style={{ flex: 1, overflow: 'hidden', height: '100%' }}>
                 {/* 左侧边栏 */}
-                <div style={{
-                    width: siderWidth,
-                    minWidth: 200,
-                    maxWidth: 400,
-                    position: 'relative',
-                    flexShrink: 0,
-                }}>
+                <Col flex={`0 0 ${siderWidth}px`} style={{ height: '100%', position: 'relative', overflow: 'hidden' }}>
                     <LeftSidebar
                         currentSql={sqlContent}
                         currentTaskId={currentTask.id}
@@ -434,97 +442,149 @@ const DataWorkWorkspace: React.FC = () => {
                             transition: 'background 0.2s',
                         }}
                     />
-                </div>
+                </Col>
 
                 {/* 中央区域 */}
-                <div style={{flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden'}} ref={containerRef}>
-                    {editorInitializing ? (
-                        <div style={{height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', flexDirection: 'column', gap: 16}}>
-                            <Spin size="large" />
-                            <div style={{color: '#999', fontSize: 14}}>SQL 编辑器初始化中...</div>
-                        </div>
-                    ) : (
-                        <>
-                            {/* SQL 编辑器 */}
-                            <div style={{height: editorHeight, minHeight: 200, borderBottom: '1px solid #f0f0f0'}}>
-                                <SQLEditor
-                                    value={sqlContent}
-                                    onChange={setSqlContent}
-                                    onExecute={handleExecute}
-                                    onExecutePlan={handleExecutePlan}
-                                    onFormat={handleFormat}
-                                    tableColumnsCache={tableColumnsCache}
-                                    availableTables={availableTables}
-                                />
+                <Col flex="1 1 auto" style={{ height: '100%', overflow: 'hidden', minWidth: 0 }}>
+                    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} ref={containerRef}>
+                        {editorInitializing ? (
+                            <div style={{height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', flexDirection: 'column', gap: 16}}>
+                                <Spin size="large" />
+                                <div style={{color: '#999', fontSize: 14}}>SQL 编辑器初始化中...</div>
                             </div>
-                            {/* 水平拖拽条 */}
-                            <div
-                                onMouseDown={handleEditorMouseDown}
-                                style={{
-                                    height: 6,
-                                    cursor: 'row-resize',
-                                    background: isDraggingEditor ? '#1890ff' : '#f0f0f0',
-                                    transition: 'background 0.2s',
-                                    flexShrink: 0,
-                                }}
-                            />
-                            {/* 结果面板 */}
-                            <div style={{flex: 1, minHeight: 150, overflow: 'hidden'}}>
-                                <DataWorkResultPanel
-                                    loading={loading}
-                                    result={result}
-                                    executionPlan={executionPlan}
-                                    error={error}
-                                    activeTab={resultActiveTab}
-                                    onTabChange={setResultActiveTab}
-                                    logs={logs}
+                        ) : (
+                            <>
+                                {/* SQL 编辑器 */}
+                                <div style={{height: editorHeight, minHeight: 200, borderBottom: '1px solid #f0f0f0'}}>
+                                    <SQLEditor
+                                        value={sqlContent}
+                                        onChange={setSqlContent}
+                                        onExecute={handleExecute}
+                                        onExecutePlan={handleExecutePlan}
+                                        onFormat={handleFormat}
+                                        tableColumnsCache={tableColumnsCache}
+                                        availableTables={availableTables}
+                                        showRun={false}
+                                        showFormat={false}
+                                    />
+                                </div>
+                                {/* 水平拖拽条 */}
+                                <div
+                                    onMouseDown={handleEditorMouseDown}
+                                    style={{
+                                        height: 6,
+                                        cursor: 'row-resize',
+                                        background: isDraggingEditor ? '#1890ff' : '#f0f0f0',
+                                        transition: 'background 0.2s',
+                                        flexShrink: 0,
+                                    }}
                                 />
-                            </div>
-                        </>
-                    )}
-                </div>
+                                {/* 结果面板 */}
+                                <div style={{flex: 1, minHeight: 150, overflow: 'hidden'}}>
+                                    <DataWorkResultPanel
+                                        loading={loading}
+                                        result={result}
+                                        executionPlan={executionPlan}
+                                        error={error}
+                                        activeTab={resultActiveTab}
+                                        onTabChange={setResultActiveTab}
+                                        logs={logs}
+                                    />
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </Col>
 
-                {/* 右侧边栏 */}
-                <div style={{
-                    width: rightSiderWidth,
-                    minWidth: 260,
-                    maxWidth: 400,
-                    position: 'relative',
-                    flexShrink: 0,
-                }}>
-                    <RightSidebar
-                        taskId={currentTask.id}
-                        task={{
-                            name: currentTask.name,
-                            description: currentTask.description,
-                            engineType: currentTask.engineType,
-                        }}
-                        schedule={{
-                            cronExpression: schedule.cronExpression,
-                            enabled: schedule.enabled,
-                        }}
-                        onTaskChange={(t) => setCurrentTask(prev => ({...prev, ...t}))}
-                        onScheduleChange={(s) => setSchedule(prev => ({...prev, ...s}))}
-                        onSave={handleSave}
-                        onExecute={handleExecute}
-                        saving={saving}
-                        executing={executing}
-                    />
-                    {/* 右侧拖拽条 */}
-                    <div
-                        onMouseDown={handleRightSiderMouseDown}
-                        style={{
+                {/* 右侧边栏 — 固定 44px，展开面板用绝对定位放在左侧 */}
+                <Col flex="0 0 44px" style={{ height: '100%', position: 'relative', overflow: 'visible' }}>
+                    {/* 展开面板 — 条件渲染 */}
+                    {rightActivePanel && (
+                        <div style={{
                             position: 'absolute',
-                            left: 0, top: 0, bottom: 0,
-                            width: 6,
-                            cursor: 'col-resize',
-                            background: isDraggingRightSider ? '#1890ff' : 'transparent',
-                            zIndex: 10,
-                            transition: 'background 0.2s',
-                        }}
-                    />
-                </div>
-            </div>
+                            right: 44,
+                            top: 0,
+                            bottom: 0,
+                            width: rightSiderWidth,
+                            background: '#fff',
+                            borderLeft: '1px solid #f0f0f0',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            zIndex: 1,
+                        }}>
+                            <RightSidebar
+                                taskId={currentTask.id}
+                                task={{
+                                    name: currentTask.name,
+                                    description: currentTask.description,
+                                    engineType: currentTask.engineType,
+                                }}
+                                schedule={{
+                                    cronExpression: schedule.cronExpression,
+                                    enabled: schedule.enabled,
+                                }}
+                                onTaskChange={(t) => setCurrentTask(prev => ({...prev, ...t}))}
+                                onScheduleChange={(s) => setSchedule(prev => ({...prev, ...s}))}
+                                onSave={handleSave}
+                                onExecute={handleExecute}
+                                saving={saving}
+                                executing={executing}
+                                activePanel={rightActivePanel}
+                                panelWidth={rightSiderWidth}
+                                onActivePanelChange={handleRightPanelChange}
+                            />
+                        </div>
+                    )}
+
+                    {/* icon 按钮列 */}
+                    <div style={{
+                        width: 44,
+                        height: '100%',
+                        background: '#fafafa',
+                        borderLeft: '1px solid #f0f0f0',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        padding: '8px 0',
+                        gap: 8,
+                    }}>
+                        {[
+                            { key: 'property', icon: <FileTextOutlined />, title: '属性' },
+                            { key: 'schedule', icon: <ThunderboltOutlined />, title: '调度配置' },
+                            { key: 'version', icon: <BranchesOutlined />, title: '版本' },
+                            { key: 'settings', icon: <SettingOutlined />, title: '运行配置' },
+                        ].map(btn => (
+                            <Tooltip key={btn.key} title={btn.title} placement="left">
+                                <Button
+                                    type={rightActivePanel === btn.key ? 'primary' : 'text'}
+                                    icon={btn.icon}
+                                    size="small"
+                                    style={{ width: 32, height: 32 }}
+                                    onClick={() => handleRightPanelChange(btn.key as 'property' | 'schedule' | 'version' | 'settings')}
+                                />
+                            </Tooltip>
+                        ))}
+                    </div>
+
+                    {/* 右侧拖拽条 */}
+                    {rightActivePanel && (
+                        <div
+                            onMouseDown={handleRightSiderMouseDown}
+                            style={{
+                                position: 'absolute',
+                                right: 41,
+                                top: 0,
+                                bottom: 0,
+                                width: 6,
+                                cursor: 'col-resize',
+                                background: isDraggingRightSider ? '#1890ff' : 'transparent',
+                                zIndex: 10,
+                                transition: 'background 0.2s',
+                            }}
+                        />
+                    )}
+                </Col>
+            </Row>
         </div>
     );
 };
