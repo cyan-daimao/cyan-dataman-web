@@ -372,7 +372,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
                 onChange={setActiveTab}
                 items={tabItems}
                 size="small"
-                tabBarGutter={0}
+                tabBarGutter={16}
                 style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
                 tabBarStyle={{ marginBottom: 0, padding: '0 2px', flexShrink: 0 }}
             />

@@ -34,8 +34,6 @@ const BusinessDsSql = React.lazy(() => import((`@/pages/metadata/business_db/sql
 
 // 智能分析（BI）模块
 const BiLayout = React.lazy(() => import((`@/pages/bi/index.tsx`)))
-const DatasetList = React.lazy(() => import((`@/pages/bi/dataset/index.tsx`)))
-const DatasetForm = React.lazy(() => import((`@/pages/bi/dataset/DatasetForm.tsx`)))
 const ChartList = React.lazy(() => import((`@/pages/bi/chart/index.tsx`)))
 const ChartAnalyzer = React.lazy(() => import((`@/pages/bi/chart/ChartAnalyzer.tsx`)))
 const DashboardList = React.lazy(() => import((`@/pages/bi/dashboard/index.tsx`)))
@@ -197,26 +195,14 @@ const routes = createBrowserRouter([
                 children: [
                     {
                         index: true,
-                        element: <DatasetList/>
-                    },
-                    {
-                        path: "dataset",
-                        element: <DatasetList/>
-                    },
-                    {
-                        path: "dataset/create",
-                        element: <DatasetForm/>
-                    },
-                    {
-                        path: "dataset/edit/:id",
-                        element: <DatasetForm/>
+                        element: <ChartList/>
                     },
                     {
                         path: "chart",
                         element: <ChartList/>
                     },
                     {
-                        path: "chart/analyzer/:datasetId?/:chartId?",
+                        path: "chart/analyzer/:chartId?",
                         element: <ChartAnalyzer/>
                     },
                     {

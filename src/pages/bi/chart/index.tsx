@@ -1,24 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Input, Table, Space, Popconfirm, message, Card, Modal } from 'antd';
+import { Button, Input, Table, Space, Popconfirm, message, Card, Modal, Tag, Select } from 'antd';
 import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { chartApi, ChartDTO, ChartDataDTO } from '@/api/DatabiApi';
+import { chartApi, ChartDTO, ChartDataDTO, AnalysisType } from '@/api/DatabiApi';
 
 const ChartList: React.FC = () => {
     const navigate = useNavigate();
     const [data, setData] = useState<ChartDTO[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchName, setSearchName] = useState('');
+    const [filterType, setFilterType] = useState<AnalysisType | undefined>(undefined);
     const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
     const [resultModal, setResultModal] = useState<{ open: boolean; title: string; data?: ChartDataDTO }>({
         open: false,
         title: '',
     });
 
-    const fetchData = async (current = 1, pageSize = 10, name?: string) => {
+    const fetchData = async (current = 1, pageSize = 10, name?: string, analysisType?: AnalysisType) => {
         setLoading(true);
         try {
-            const res = await chartApi.page({ current, size: pageSize, name });
+            const res = await chartApi.page({ current, size: pageSize, name, analysisType });
             if (res.code === 200) {
                 setData(res.data.data);
                 setPagination({
@@ -29,7 +30,7 @@ const ChartList: React.FC = () => {
             } else {
                 message.error(res.message || '获取图表列表失败');
             }
-        } catch (e) {
+        } catch {
             message.error('获取图表列表失败');
         } finally {
             setLoading(false);
@@ -41,7 +42,7 @@ const ChartList: React.FC = () => {
     }, []);
 
     const handleSearch = () => {
-        fetchData(1, pagination.pageSize, searchName || undefined);
+        fetchData(1, pagination.pageSize, searchName || undefined, filterType);
     };
 
     const handleDelete = async (id: string) => {
@@ -49,11 +50,11 @@ const ChartList: React.FC = () => {
             const res = await chartApi.delete(id);
             if (res.code === 200) {
                 message.success('删除成功');
-                fetchData(pagination.current, pagination.pageSize, searchName || undefined);
+                fetchData(pagination.current, pagination.pageSize, searchName || undefined, filterType);
             } else {
                 message.error(res.message || '删除失败');
             }
-        } catch (e) {
+        } catch {
             message.error('删除失败');
         }
     };
@@ -66,7 +67,7 @@ const ChartList: React.FC = () => {
             } else {
                 message.error(res.message || '执行失败');
             }
-        } catch (e) {
+        } catch {
             message.error('执行失败');
         }
     };
@@ -83,9 +84,21 @@ const ChartList: React.FC = () => {
             key: 'chartType',
         },
         {
+            title: '分析类型',
+            dataIndex: 'analysisType',
+            key: 'analysisType',
+            render: (v?: AnalysisType) => {
+                if (v === AnalysisType.METRICS) {
+                    return <Tag color="blue">指标</Tag>;
+                }
+                return <Tag color="default">数据集</Tag>;
+            },
+        },
+        {
             title: '关联数据集',
             dataIndex: 'datasetId',
             key: 'datasetId',
+            render: (v?: string) => v || '-',
         },
         {
             title: '创建时间',
@@ -100,7 +113,7 @@ const ChartList: React.FC = () => {
                     <Button
                         type="link"
                         icon={<EditOutlined />}
-                        onClick={() => navigate(`/bi/chart/analyzer/${record.datasetId}/${record.id}`)}
+                        onClick={() => navigate(`/bi/chart/analyzer/${record.id}`)}
                     >
                         编辑
                     </Button>
@@ -151,6 +164,17 @@ const ChartList: React.FC = () => {
                     style={{ width: 240 }}
                     prefix={<SearchOutlined />}
                 />
+                <Select
+                    placeholder="分析类型"
+                    style={{ width: 140 }}
+                    value={filterType}
+                    onChange={(v) => setFilterType(v)}
+                    allowClear
+                    options={[
+                        { label: '数据集', value: AnalysisType.DATASET },
+                        { label: '指标', value: AnalysisType.METRICS },
+                    ]}
+                />
                 <Button type="primary" onClick={handleSearch}>
                     搜索
                 </Button>
@@ -167,7 +191,7 @@ const ChartList: React.FC = () => {
                     showSizeChanger: true,
                     showTotal: (total) => `共 ${total} 条`,
                     onChange: (page, pageSize) => {
-                        fetchData(page, pageSize || 10, searchName || undefined);
+                        fetchData(page, pageSize || 10, searchName || undefined, filterType);
                     },
                 }}
             />

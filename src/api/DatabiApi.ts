@@ -1,6 +1,7 @@
 import { databiRequest } from './Request';
 import { Response } from './Response';
 import { AxiosRequestConfig } from 'axios';
+import type { MetricBiAnalysisCmd } from './MetricBiApi';
 
 // ==================== 枚举定义 ====================
 
@@ -54,6 +55,11 @@ export enum OrderDirection {
     DESC = 'DESC',
 }
 
+export enum AnalysisType {
+    DATASET = 'DATASET',
+    METRICS = 'METRICS',
+}
+
 // ==================== 分页类型 ====================
 
 export interface Page<T> {
@@ -83,7 +89,6 @@ export interface DatasetDTO {
     createdBy?: string;
     updatedAt?: string;
     createdAt?: string;
-    updatedAt?: string;
 }
 
 export interface DatasetCmd {
@@ -123,7 +128,9 @@ export interface ChartDTO {
     id: string;
     name: string;
     description?: string;
-    datasetId: string;
+    datasetId?: string;
+    analysisType: AnalysisType;
+    metricAnalysisCmd?: MetricBiAnalysisCmd;
     chartType: ChartType;
     dimensions?: DimensionConfig[];
     metrics?: MetricConfig[];
@@ -134,13 +141,14 @@ export interface ChartDTO {
     createdBy?: string;
     updatedAt?: string;
     createdAt?: string;
-    updatedAt?: string;
 }
 
 export interface ChartCmd {
     name: string;
     description?: string;
-    datasetId: string;
+    datasetId?: string;
+    analysisType: AnalysisType;
+    metricAnalysisCmd?: MetricBiAnalysisCmd;
     chartType: ChartType;
     dimensions?: DimensionConfig[];
     metrics?: MetricConfig[];
@@ -169,7 +177,6 @@ export interface DashboardDTO {
     createdBy?: string;
     updatedAt?: string;
     createdAt?: string;
-    updatedAt?: string;
 }
 
 export interface DashboardCmd {
@@ -254,7 +261,7 @@ export const chartApi = {
     /**
      * 分页查询图表
      */
-    page: async (params?: { name?: string; datasetId?: string; current?: number; size?: number }): Promise<Response<Page<ChartDTO>>> => {
+    page: async (params?: { name?: string; datasetId?: string; analysisType?: AnalysisType; current?: number; size?: number }): Promise<Response<Page<ChartDTO>>> => {
         const config: AxiosRequestConfig = { params };
         return databiRequest.get('/api/v1/charts', config);
     },
@@ -262,8 +269,8 @@ export const chartApi = {
     /**
      * 列表查询图表
      */
-    list: async (name?: string, datasetId?: string): Promise<Response<ChartDTO[]>> => {
-        const config: AxiosRequestConfig = { params: { name, datasetId } };
+    list: async (name?: string, datasetId?: string, analysisType?: AnalysisType): Promise<Response<ChartDTO[]>> => {
+        const config: AxiosRequestConfig = { params: { name, datasetId, analysisType } };
         return databiRequest.get('/api/v1/charts/list', config);
     },
 

@@ -2,6 +2,7 @@ import { datametricRequest, datamanRequest } from './Request';
 import { ApiResponse } from './Response';
 import { AxiosRequestConfig } from 'axios';
 import { PageResult, PageQuery, PeriodType, RelativeUnit } from './MetricApi';
+import type { DimensionBiListItem } from './MetricBiApi';
 
 // ==================== 修饰词 ====================
 
@@ -301,4 +302,7 @@ export const DimensionApi = {
     delete: async (id: string): Promise<ApiResponse<void>> => {
         return datametricRequest.delete(`${BASE}/dimensions/${id}`);
     },
+
+    biList: async (params?: { name?: string; categoryId?: string }): Promise<ApiResponse<DimensionBiListItem[]>> =>
+        datametricRequest.get('/api/v1/metrics/bi/dimensions', { params }),
 };

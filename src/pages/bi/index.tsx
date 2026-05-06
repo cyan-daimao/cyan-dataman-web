@@ -1,6 +1,5 @@
 import React, { useState, useMemo, createContext, useContext } from 'react';
 import {
-    DatabaseOutlined,
     LineChartOutlined,
     DashboardOutlined,
     MenuUnfoldOutlined,
@@ -17,19 +16,12 @@ const BiLevelContext = createContext(0);
 
 // 路由到菜单 key 的映射
 const pathToKeyMap: Record<string, string> = {
-    '/bi': 'bi-dataset',
-    '/bi/dataset': 'bi-dataset',
-    '/bi/dataset/create': 'bi-dataset',
+    '/bi': 'bi-chart',
     '/bi/chart': 'bi-chart',
     '/bi/dashboard': 'bi-dashboard',
 };
 
 const items: MenuProps['items'] = [
-    {
-        key: 'bi-dataset',
-        label: <Link to={'/bi/dataset'}>数据集管理</Link>,
-        icon: <DatabaseOutlined />,
-    },
     {
         key: 'bi-chart',
         label: <Link to={'/bi/chart'}>图表分析</Link>,
@@ -51,12 +43,12 @@ const BiPage: React.FC = () => {
     const location = useLocation();
 
     const [collapsed, setCollapsed] = useState(false);
-    const [openKeys, setOpenKeys] = useState<string[]>(['bi-dataset']);
+    const [openKeys, setOpenKeys] = useState<string[]>(['bi-chart']);
 
     // 根据路径计算选中的菜单 key
     const selectedKeys = useMemo(() => {
         const key = pathToKeyMap[location.pathname];
-        return key ? [key] : ['bi-dataset'];
+        return key ? [key] : ['bi-chart'];
     }, [location.pathname]);
 
     // 处理菜单展开/收起

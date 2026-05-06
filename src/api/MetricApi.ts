@@ -1,6 +1,7 @@
 import { datametricRequest } from './Request';
 import { ApiResponse } from './Response';
 import { AxiosRequestConfig } from 'axios';
+import type { MetricBiListItem } from './MetricBiApi';
 
 // ==================== 枚举定义 ====================
 
@@ -418,6 +419,9 @@ export const MetricApi = {
     rollback: async (id: string, version: number): Promise<ApiResponse<MetricDetail>> => {
         return datametricRequest.post(`${BASE}/${id}/rollback/${version}`, {});
     },
+
+    biList: async (params?: { name?: string; subjectCode?: string; metricType?: string }): Promise<ApiResponse<MetricBiListItem[]>> =>
+        datametricRequest.get('/api/v1/metrics/bi/list', { params }),
 };
 
 // ==================== 指标字典 API ====================
