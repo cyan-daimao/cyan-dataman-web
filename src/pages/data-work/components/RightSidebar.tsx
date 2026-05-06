@@ -21,7 +21,7 @@ import {
 
 const engineOptions = [
     { label: 'SparkSQL', value: 'SPARK' },
-    { label: 'FlinkSQL', value: 'FLINK' },
+    { label: 'FlinkSQL', value: 'FLINK', disabled: true },
 ];
 
 interface TaskProps {
@@ -146,7 +146,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                     <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={onSave} block>
                         {isNew ? '保存任务' : '更新任务'}
                     </Button>
-                    <Button icon={<PlayCircleOutlined />} loading={executing} onClick={onExecute} block>
+                    <Button icon={<PlayCircleOutlined />} loading={executing} onClick={onExecute} block disabled={task.engineType === 'FLINK'}>
                         立即执行
                     </Button>
                     {!isNew && onDelete && (
@@ -226,7 +226,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                     <Form.Item label="执行引擎">
                         <Radio.Group value={task.engineType} optionType="button" buttonStyle="solid">
                             <Radio.Button value="SPARK">SparkSQL</Radio.Button>
-                            <Radio.Button value="FLINK">FlinkSQL</Radio.Button>
+                            <Radio.Button value="FLINK" disabled>FlinkSQL</Radio.Button>
                         </Radio.Group>
                     </Form.Item>
                     <Form.Item label="内存（GB）">

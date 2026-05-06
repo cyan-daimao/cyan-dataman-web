@@ -213,7 +213,7 @@ const JobInstancePage: React.FC = () => {
     ];
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#f5f5f5' }}>
+        <div style={{ height: '100%', flex: 1, display: 'flex', flexDirection: 'column', background: '#f5f5f5' }}>
             {/* 顶部工具栏 */}
             <div style={{
                 height: 48,

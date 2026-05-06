@@ -60,7 +60,7 @@ const MetaDataManagement: React.FC = () => {
     // 从 URL 参数初始化搜索值
     const [searchValue, setSearchValue] = useState(() => {
         const search = searchParams.get('search');
-        return (search && typeof search === 'string') ? search : '';
+        return (search && true) ? search : '';
     }); // 搜索值
 
     useEffect(() => {

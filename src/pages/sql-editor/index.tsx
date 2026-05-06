@@ -92,32 +92,6 @@ const SQLEditorPage: React.FC = () => {
             });
     }, []);
 
-    // 在 SQL 查询页面显示 Dify 悬浮按钮
-    useEffect(() => {
-        let observer: MutationObserver | null = null;
-
-        const showButton = () => {
-            const btn = document.getElementById('dify-chatbot-bubble-button');
-            if (btn) {
-                btn.style.setProperty('display', 'flex', 'important');
-                return true;
-            }
-            return false;
-        };
-
-        if (!showButton()) {
-            observer = new MutationObserver(() => showButton());
-            observer.observe(document.body, { childList: true, subtree: true });
-        }
-
-        return () => {
-            if (observer) observer.disconnect();
-            const btn = document.getElementById('dify-chatbot-bubble-button');
-            if (btn) {
-                btn.style.setProperty('display', 'none', 'important');
-            }
-        };
-    }, []);
     const [tableColumnsCache, setTableColumnsCache] = useState<TableColumnsCache>({});
     const [availableTables, setAvailableTables] = useState<Array<{name: string; title: string}>>([]);
     const [resultActiveTab, setResultActiveTab] = useState('result');

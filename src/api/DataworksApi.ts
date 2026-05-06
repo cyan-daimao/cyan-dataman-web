@@ -292,3 +292,17 @@ export const retryJobInstance = async (id: string): Promise<Response<JobInstance
 export const terminateJobInstance = async (id: string): Promise<Response<JobInstanceDTO>> => {
     return await dataworksRequest.post(`/api/v1/data-work/instances/${id}/terminate`);
 };
+
+/**
+ * 发布作业（状态变为 ONLINE）
+ */
+export const publishJob = async (id: string): Promise<Response<JobDTO>> => {
+    return await dataworksRequest.put(`/api/v1/data-work/jobs/${id}/publish`);
+};
+
+/**
+ * 下线作业（状态变为 OFFLINE）
+ */
+export const offlineJob = async (id: string): Promise<Response<JobDTO>> => {
+    return await dataworksRequest.put(`/api/v1/data-work/jobs/${id}/offline`);
+};

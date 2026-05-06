@@ -63,6 +63,19 @@ const App: React.FC = () => {
 
     const activeKey = getSelectedKey();
 
+    // 智能问数只在 SQL查询和数据加工页面显示
+    React.useEffect(() => {
+        const shouldShow = location.pathname.startsWith('/sql-editor') || location.pathname.startsWith('/data-work');
+        const btn = document.getElementById('dify-chatbot-bubble-button');
+        const win = document.getElementById('dify-chatbot-bubble-window');
+        if (shouldShow) {
+            if (btn) btn.style.setProperty('display', 'inline-flex', 'important');
+        } else {
+            if (btn) btn.style.setProperty('display', 'none', 'important');
+            if (win) win.style.setProperty('display', 'none', 'important');
+        }
+    }, [location.pathname]);
+
     const handleNavClick = (key: string) => {
         const route = keyToRoute[key];
         if (route) {

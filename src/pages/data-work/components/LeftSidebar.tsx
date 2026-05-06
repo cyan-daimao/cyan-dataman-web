@@ -135,7 +135,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
             key: 'draft',
             title: '草稿',
             type: 'folder',
-            icon: <FolderOutlined style={{ color: '#faad14' }} />,
             children: tasks
                 .filter(t => t.status === 'DRAFT')
                 .map(t => ({
@@ -143,14 +142,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
                     title: t.name,
                     type: 'task' as const,
                     task: t,
-                    icon: <FileOutlined style={{ color: '#1890ff' }} />,
                 })),
         },
         {
             key: 'online',
             title: '已上线',
             type: 'folder',
-            icon: <FolderOutlined style={{ color: '#52c41a' }} />,
             children: tasks
                 .filter(t => t.status === 'ONLINE')
                 .map(t => ({
@@ -158,14 +155,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
                     title: t.name,
                     type: 'task' as const,
                     task: t,
-                    icon: <FileOutlined style={{ color: '#52c41a' }} />,
                 })),
         },
         {
             key: 'offline',
             title: '已下线',
             type: 'folder',
-            icon: <FolderOutlined style={{ color: '#999' }} />,
             children: tasks
                 .filter(t => t.status === 'OFFLINE')
                 .map(t => ({
@@ -173,7 +168,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
                     title: t.name,
                     type: 'task' as const,
                     task: t,
-                    icon: <FileOutlined style={{ color: '#999' }} />,
                 })),
         },
     ];
@@ -186,19 +180,37 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
         }
     };
 
-    // 自定义树节点标题：任务节点右侧增加"实例"跳转链接
+    // 节点图标映射
+    const nodeIcon = (node: TreeNode) => {
+        if (node.type === 'folder') {
+            if (node.key === 'draft') return <FolderOutlined style={{ color: '#faad14', fontSize: 14 }} />;
+            if (node.key === 'online') return <FolderOutlined style={{ color: '#52c41a', fontSize: 14 }} />;
+            return <FolderOutlined style={{ color: '#999', fontSize: 14 }} />;
+        }
+        if (node.task) {
+            if (node.task.status === 'DRAFT') return <FileOutlined style={{ color: '#1890ff', fontSize: 14 }} />;
+            if (node.task.status === 'ONLINE') return <FileOutlined style={{ color: '#52c41a', fontSize: 14 }} />;
+            return <FileOutlined style={{ color: '#999', fontSize: 14 }} />;
+        }
+        return null;
+    };
+
+    // 自定义树节点标题：统一渲染 icon + title，确保在同一行
     const titleRender = (nodeData: any) => {
         const node = nodeData as TreeNode;
         if (node.type === 'task' && node.task) {
             return (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {node.title}
-                    </span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
+                        {nodeIcon(node)}
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {node.title}
+                        </span>
+                    </div>
                     <Button
                         type="text"
                         size="small"
-                        style={{ padding: '0 4px', minWidth: 20, height: 20, marginLeft: 4 }}
+                        style={{ padding: '0 4px', minWidth: 20, height: 20, flexShrink: 0 }}
                         icon={<LinkOutlined style={{ fontSize: 11 }} />}
                         title="查看实例"
                         onClick={(e) => {
@@ -209,7 +221,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
                 </div>
             );
         }
-        return <span>{node.title}</span>;
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {nodeIcon(node)}
+                <span>{node.title}</span>
+            </div>
+        );
     };
 
     const tabItems = [
@@ -249,7 +266,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
                                 <Tree
                                     treeData={taskTreeData}
                                     defaultExpandAll
-                                    showIcon
                                     onSelect={handleTreeSelect}
                                     selectedKeys={currentTaskId ? [currentTaskId] : []}
                                     style={{ fontSize: 13 }}

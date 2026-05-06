@@ -71,7 +71,7 @@ const supportsUnsigned = (type: string): boolean => {
 const createDefaultTimeColumns = (): EditableColumn[] => [
     {
         _id: generateId(),
-        name: 'create_by',
+        name: 'created_by',
         type: 'VARCHAR',
         precision: 255,
         comment: '创建人',
@@ -79,7 +79,7 @@ const createDefaultTimeColumns = (): EditableColumn[] => [
         defaultValue: '',
     },{
         _id: generateId(),
-        name: 'update_by',
+        name: 'updated_by',
         type: 'VARCHAR',
         precision: 255,
         comment: '更新人',
@@ -319,7 +319,7 @@ const TableSchemaEdit: React.FC = () => {
 
         // 找到 create_by 字段的索引
         const createdAtIndex = columns.findIndex(
-            col => col.name.toLowerCase() === 'create_by'
+            col => col.name.toLowerCase() === 'created_by'
         );
 
         if (createdAtIndex === -1) {

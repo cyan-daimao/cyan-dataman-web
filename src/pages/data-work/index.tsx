@@ -25,12 +25,13 @@ import {
     JobInstanceDTO,
     createJob,
     updateJob,
-    executeJob,
     getJob,
     getJobSchedule,
     saveJobSchedule,
     deleteJob,
+    publishJob,
 } from '@/api/DataworksApi.ts';
+import { executeSparkSql } from '@/api/DatagawayApi.ts';
 import {QueryResult, ExecutionPlan} from '@/pages/sql-editor/types';
 import LeftSidebar from './components/LeftSidebar';
 import RightSidebar from './components/RightSidebar';
@@ -125,6 +126,7 @@ const DataWorkWorkspace: React.FC = () => {
     // ========== 操作状态 ==========
     const [saving, setSaving] = useState(false);
     const [executing, setExecuting] = useState(false);
+    const [publishing, setPublishing] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
 
@@ -306,23 +308,52 @@ const DataWorkWorkspace: React.FC = () => {
         }
     }, [tabs, activeTabId]);
 
+    // ========== 发布任务 ==========
+    const handlePublish = useCallback(async () => {
+        const tab = tabs.find(t => t.tabId === activeTabId);
+        if (!tab) return;
+        if (!tab.task.id) {
+            message.warning('请先保存任务');
+            return;
+        }
+        if (tab.task.status === 'ONLINE') {
+            message.info('任务已发布');
+            return;
+        }
+        setPublishing(true);
+        try {
+            const resp = await publishJob(tab.task.id);
+            const publishedTask = resp.data;
+            message.success('任务发布成功');
+            setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                ...t,
+                task: publishedTask,
+                isModified: false,
+            } : t));
+            setSidebarRefreshKey(prev => prev + 1);
+        } catch {
+            // 错误由拦截器处理
+        } finally {
+            setPublishing(false);
+        }
+    }, [tabs, activeTabId]);
+
     // ========== 执行任务 ==========
     const handleExecute = useCallback(async () => {
         const tab = tabs.find(t => t.tabId === activeTabId);
         if (!tab) return;
 
+        if (tab.task.engineType === 'FLINK') {
+            message.info('FlinkSQL 执行功能暂未开放');
+            return;
+        }
+
         if (!tab.sqlContent.trim()) {
             message.warning('请输入SQL语句');
             return;
         }
-        if (!tab.task.id) {
-            message.warning('请先保存任务再执行');
-            return;
-        }
+
         setExecuting(true);
-        updateActiveTab(t => ({...t, loading: true as any, result: null, executionPlan: null, error: null}));
-        // 使用局部状态避免 updateActiveTab 的 loading 问题
-        // 改用 setTabs 直接更新
         setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
             ...t,
             result: null,
@@ -332,47 +363,37 @@ const DataWorkWorkspace: React.FC = () => {
 
         const startTime = Date.now();
         const newLogs: string[] = [
-            `[${new Date().toLocaleString()}] INFO 开始执行任务: ${tab.task.name}`,
-            `[${new Date().toLocaleString()}] INFO 引擎类型: ${tab.task.engineType}`,
+            `[${new Date().toLocaleString()}] INFO 开始执行 SparkSQL: ${tab.task.name}`,
             `[${new Date().toLocaleString()}] INFO SQL 内容:`,
             ...tab.sqlContent.split('\n').map(line => `    ${line}`),
         ];
         setTabs(prev => prev.map(t => t.tabId === activeTabId ? {...t, logs: newLogs} : t));
 
         try {
-            const resp = await executeJob(tab.task.id);
-            const record: JobInstanceDTO = resp.data;
+            const resp = await executeSparkSql(tab.sqlContent);
+            const record = resp.data;
             const cost = Date.now() - startTime;
-            if (record.status === 'SUCCESS' && record.resultData) {
-                try {
-                    const data = JSON.parse(record.resultData);
-                    const columns = Array.isArray(data) && data.length > 0 ? Object.keys(data[0]) : [];
-                    const queryResult: QueryResult = {
-                        columns,
-                        rows: Array.isArray(data) ? data : [],
-                        total: Array.isArray(data) ? data.length : 0,
-                        duration: record.costTimeMs || cost,
-                    };
-                    setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
-                        ...t,
-                        result: queryResult,
-                        error: null,
-                        logs: [
-                            ...t.logs,
-                            `[${new Date().toLocaleString()}] INFO 执行成功`,
-                            `[${new Date().toLocaleString()}] INFO 耗时: ${record.costTimeMs || cost}ms`,
-                            `[${new Date().toLocaleString()}] INFO 返回行数: ${Array.isArray(data) ? data.length : 0}`,
-                        ],
-                    } : t));
-                    message.success(`执行成功，耗时 ${record.costTimeMs || cost}ms`);
-                } catch {
-                    setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
-                        ...t,
-                        result: null,
-                        error: '解析结果失败',
-                        logs: [...t.logs, `[${new Date().toLocaleString()}] ERROR 解析结果失败`],
-                    } : t));
-                }
+            if (record.status === 'SUCCESS' && record.data) {
+                const data = record.data;
+                const columns = Array.isArray(data) && data.length > 0 ? Object.keys(data[0]) : [];
+                const queryResult: QueryResult = {
+                    columns,
+                    rows: Array.isArray(data) ? data : [],
+                    total: Array.isArray(data) ? data.length : 0,
+                    duration: record.costTimeMs || cost,
+                };
+                setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                    ...t,
+                    result: queryResult,
+                    error: null,
+                    logs: [
+                        ...t.logs,
+                        `[${new Date().toLocaleString()}] INFO 执行成功`,
+                        `[${new Date().toLocaleString()}] INFO 耗时: ${record.costTimeMs || cost}ms`,
+                        `[${new Date().toLocaleString()}] INFO 返回行数: ${Array.isArray(data) ? data.length : 0}`,
+                    ],
+                } : t));
+                message.success(`执行成功，耗时 ${record.costTimeMs || cost}ms`);
             } else if (record.status === 'FAILED') {
                 setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
                     ...t,
@@ -394,10 +415,14 @@ const DataWorkWorkspace: React.FC = () => {
                 } : t));
             }
         } catch (e: any) {
+            const errMsg = e.message || '执行异常';
             setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
                 ...t,
-                logs: [...t.logs, `[${new Date().toLocaleString()}] ERROR ${e.message || '执行异常'}`],
+                result: null,
+                error: errMsg,
+                logs: [...t.logs, `[${new Date().toLocaleString()}] ERROR ${errMsg}`],
             } : t));
+            message.error(errMsg);
         } finally {
             setExecuting(false);
             setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
@@ -570,7 +595,7 @@ const DataWorkWorkspace: React.FC = () => {
                                 gap: 4,
                                 height: 28,
                                 padding: '0 8px',
-                                fontSize: 12,
+                                fontSize: 14,
                                 cursor: 'pointer',
                                 userSelect: 'none',
                                 borderRadius: 4,
@@ -699,7 +724,7 @@ const DataWorkWorkspace: React.FC = () => {
                     {!activeTab.task.id && <span style={{color: '#999', fontWeight: 400}}>（未保存）</span>}
                 </span>
                 <Space>
-                    <Button type="primary" icon={<PlayCircleOutlined />} loading={executing} onClick={handleExecute}>
+                    <Button type="primary" icon={<PlayCircleOutlined />} loading={executing} onClick={handleExecute} disabled={activeTab.task.engineType === 'FLINK'}>
                         运行
                     </Button>
                     <Button icon={<SaveOutlined />} loading={saving} onClick={handleSave}>
@@ -719,7 +744,7 @@ const DataWorkWorkspace: React.FC = () => {
                         刷新
                     </Button>
                     <Divider type="vertical" />
-                    <Button icon={<CloudUploadOutlined />} disabled={!activeTab.task.id}>
+                    <Button icon={<CloudUploadOutlined />} loading={publishing} onClick={handlePublish} disabled={!activeTab.task.id || activeTab.task.status === 'ONLINE'}>
                         发布
                     </Button>
                     <Button icon={<ShareAltOutlined />} disabled={!activeTab.task.id}>
