@@ -107,7 +107,7 @@ const DataLineage: React.FC<DataLineageProps> = ({tableName, tableComment}) => {
                         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                         border: 'none',
                     }}
-                    bodyStyle={{padding: 24}}
+                    styles={{ body: { padding: 24 } }}
                     loading={loading}
                 >
                     <div style={{textAlign: 'center', color: '#fff'}}>

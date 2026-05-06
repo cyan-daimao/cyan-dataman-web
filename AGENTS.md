@@ -4,14 +4,15 @@
 
 ## 项目概述
 
-**cyan-dataman-web**（页面标题：DATA-CENTER）是一个企业级数据资产管理平台的前端系统，基于 React 18 + Vite + TypeScript + Ant Design 5 构建。面向数据分析师、BI 工程师、业务运营人员、数据产品经理和数据治理人员，提供元数据管理、指标平台、SQL 查询编辑器、数据加工（SparkSQL / FlinkSQL）等核心能力。
+**cyan-dataman-web**（页面标题：DATA-CENTER）是一个企业级数据资产管理平台的前端系统，基于 React 18 + Vite + TypeScript + Ant Design 5 构建。面向数据分析师、BI 工程师、业务运营人员、数据产品经理和数据治理人员，提供元数据管理、指标平台、SQL 查询编辑器、数据加工（SparkSQL / FlinkSQL）、智能分析（BI）等核心能力。
 
 核心功能模块：
 - **业务数据库**：业务数据源管理、数据库管理、表结构管理（支持 MySQL / PostgreSQL / Iceberg）、SQL 执行
 - **元数据管理**：Gravitino 数据源管理、主题域管理、元数据表管理（含字段信息、数据预览、数据血缘、数据质量、快照、异步任务）
-- **指标平台**：指标概览、指标定义、指标字典、指标分析、指标配置
+- **指标平台**：指标概览、指标定义、指标字典、指标分析、维度管理、指标配置
 - **SQL 查询编辑器**：基于 Monaco Editor 的在线 SQL 编辑器，支持多标签页、执行计划、查询历史、收藏
-- **数据加工**：SparkSQL / FlinkSQL 任务编辑与调度配置
+- **数据加工**：SparkSQL / FlinkSQL 任务编辑、保存、执行与调度配置
+- **智能分析（BI）**：数据集管理、图表分析、看板管理（支持拖拽式画布编辑与查看）
 
 ## 技术栈
 
@@ -27,7 +28,8 @@
 | 代码编辑器 | Monaco Editor 0.55.1（`@monaco-editor/react` 封装，使用本地包 `loader.config({ monaco })`） |
 | 样式方案 | Less 4.2.2 + Ant Design CSS-in-JS |
 | 代码规范 | ESLint 9.21.0 + `typescript-eslint` + `eslint-plugin-react-hooks` + `eslint-plugin-react-refresh` |
-| E2E 测试 | Playwright 1.59.1（已安装） |
+| E2E 测试 | Playwright 1.59.1（已安装，无已编写用例） |
+| 图表渲染 | Puppeteer 24.40.0（已安装，用于 BI 模块服务端渲染场景） |
 
 ## 构建与运行命令
 
@@ -69,22 +71,40 @@ src/
 │   ├── LoginApi.ts         # 登录 API（独立 axios，不走拦截器）
 │   ├── MetadataSubjectAPI.ts  # 主题域管理 API
 │   ├── MetadataTableAPI.ts    # 元数据表 CRUD、快照管理 API
-│   └── DatagawayApi.ts     # 数据网关 API（StarRocks / SparkSQL 执行）
+│   ├── DatagawayApi.ts     # 数据网关 API（StarRocks / SparkSQL 执行）
+│   ├── DataworksApi.ts     # 数据加工任务/调度/执行记录 API
+│   ├── DatabiApi.ts        # 智能分析（BI）数据集/图表/看板 API
+│   ├── MetricApi.ts        # 指标平台指标定义/字典/血缘/分析 API
+│   ├── MetricConfigApi.ts  # 指标配置 API
+│   ├── MetricSubjectApi.ts # 指标主题域 API
+│   ├── DimensionCategoryApi.ts  # 维度分类 API
+│   └── ManualUploadApi.ts  # 手动上传 API
 ├── component/              # 公共组件（目前仅 employee/EmployeeSelect.tsx）
 ├── pages/                  # 页面组件（按业务模块划分）
 │   ├── layout/             # 顶层布局（顶部导航栏 + Content + Footer）
 │   ├── login/              # 登录页（独立页面，无布局）
-│   ├── index.tsx           # 主页（ConfigProvider 包裹 Layout）
+│   ├── index.tsx           # 主页（ConfigProvider 包裹 Layout，定义全局主题）
 │   ├── metadata/           # 元数据平台（含侧边栏布局）
 │   │   ├── business_db/    # 业务数据库（数据源/数据库/表结构/SQL）
 │   │   ├── datasource/     # 元数据数据源
 │   │   ├── subject/        # 主题域管理
 │   │   └── metadata_table/ # 元数据表（列表/导入/详情/编辑/子组件）
 │   ├── metrics/            # 指标平台（含侧边栏布局）
+│   │   ├── dashboard/      # 指标概览
+│   │   ├── definition/     # 指标定义
+│   │   ├── dictionary/     # 指标字典
+│   │   ├── analysis/       # 指标分析
+│   │   ├── dimension/      # 维度管理
+│   │   └── config/         # 指标配置
 │   ├── sql-editor/         # SQL 查询编辑器
 │   │   └── components/     # Sidebar / SQLEditor / ResultPanel
-│   └── data-work/          # 数据加工
-│       └── components/     # ScheduleSidebar（调度配置）
+│   ├── data-work/          # 数据加工
+│   │   └── components/     # LeftSidebar / RightSidebar / DataWorkResultPanel
+│   └── bi/                 # 智能分析（BI）
+│       ├── dataset/        # 数据集管理
+│       ├── chart/          # 图表分析
+│       ├── dashboard/      # 看板管理（编辑/查看）
+│       └── components/     # SimpleCanvasChart 等
 ├── router/
 │   └── index.tsx           # createBrowserRouter 路由定义
 ├── utils/
@@ -101,20 +121,27 @@ src/
 
 - 路由定义在 `src/router/index.tsx`，所有页面组件使用 `React.lazy(() => import('@/pages/xxx'))` 懒加载。
 - 鉴权通过 `PrivateRoute` 组件实现：检查 `localStorage.getItem('token')`，无 token 则跳转 `/login` 并携带原页面地址 `state={{from: window.location.pathname}}`。
-- `/login` 为独立页面，不使用 `layout` 布局。
-- 顶层布局 `src/pages/layout/index.tsx`：顶部水平导航栏（元数据平台 / 数据资产 / 指标平台 / SQL查询 / 数据加工）+ Content 区域 + Footer。
-- 元数据平台和指标平台采用相同的**嵌套侧边栏布局模式**：
+- `/login` 和 `/about` 为独立页面，不使用 `layout` 布局。
+- 顶层布局 `src/pages/layout/index.tsx`：顶部水平导航栏（元数据平台 / 指标平台 / SQL查询 / 数据加工 / 智能分析）+ Content 区域 + Footer。
+- 元数据平台、指标平台和智能分析（BI）采用相同的**嵌套侧边栏布局模式**：
   - `src/pages/metadata/index.tsx` 使用 `MetadataLevelContext`（`createContext`）追踪嵌套层级。
   - `src/pages/metrics/index.tsx` 使用 `MetricsLevelContext` 追踪嵌套层级。
+  - `src/pages/bi/index.tsx` 使用 `BiLevelContext` 追踪嵌套层级。
   - 第一层渲染 `Layout.Sider + Layout.Content`，嵌套层直接渲染 `<Outlet />`。
-  - 侧边栏支持折叠，折叠按钮悬浮在侧边栏右边缘。
+  - 侧边栏支持折叠，折叠按钮悬浮在侧边栏右边缘（metadata 布局的折叠按钮在标题栏内）。
 
 ### 2. API 请求架构
 
 `src/api/Request.ts` 封装了多业务线的 Axios 实例：
 
 - **默认导出**：`dataman` 业务线请求实例
-- **命名导出**：`employeeRequest`（员工服务）、`datamanRequest`（数据管理）、`datagatewayRequest`（数据网关）
+- **命名导出**：
+  - `employeeRequest`（员工服务）
+  - `datamanRequest`（数据管理）
+  - `datagatewayRequest`（数据网关）
+  - `datametricRequest`（指标平台）
+  - `databiRequest`（智能分析 BI）
+  - `dataworksRequest`（数据加工）
 - **环境配置**：`envURL` 对象按 `import.meta.env.MODE` 区分 `dev` / `pre` / `prod` / `production` 四组后端地址
 - **拦截器**：
   - 请求拦截器：自动附加 `Bearer token`（从 `localStorage` 读取 `KEY.TOKEN`）。无 token 时直接跳转 `/login`。
@@ -130,6 +157,12 @@ src/
 | `MetadataSubjectAPI.ts` | 主题域管理 | `datamanRequest` |
 | `DSApi.ts` | 业务数据源配置、数据库、表结构、SQL 执行 | `datamanRequest` |
 | `DatagawayApi.ts` | StarRocks SQL 执行、SparkSQL 执行 | `datagatewayRequest` |
+| `DataworksApi.ts` | 数据加工任务、调度配置、执行记录 | `dataworksRequest` |
+| `DatabiApi.ts` | BI 数据集、图表、看板、分析执行 | `databiRequest` |
+| `MetricApi.ts` | 指标定义、字典、血缘、Dashboard 统计、分析 | `datametricRequest` |
+| `MetricConfigApi.ts` | 指标配置 | `datametricRequest` |
+| `MetricSubjectApi.ts` | 指标主题域 | `datametricRequest` |
+| `DimensionCategoryApi.ts` | 维度分类 | `datametricRequest` |
 | `EmployeeApi.ts` | 员工信息 | `employeeRequest` |
 | `LoginApi.ts` | 登录（独立 axios，不经过拦截器） | 独立 axios |
 
@@ -137,11 +170,11 @@ src/
 
 `sql-editor` 和 `data-work` 两个页面共享以下组件（均位于 `src/pages/sql-editor/components/`）：
 
-- `Sidebar.tsx` — 左侧数据源/表/历史/收藏侧边栏
+- `Sidebar.tsx` / `LeftSidebar.tsx` — 左侧数据源/表/历史/收藏侧边栏
 - `SQLEditor.tsx` — Monaco SQL 编辑器
-- `ResultPanel.tsx` — 结果/执行计划/错误展示面板
+- `ResultPanel.tsx` / `DataWorkResultPanel.tsx` — 结果/执行计划/错误/日志展示面板
 
-`data-work` 额外包含 `ScheduleSidebar.tsx` 用于任务调度配置。
+`data-work` 额外包含 `RightSidebar.tsx` 用于任务属性、调度配置、版本、运行配置的右侧面板。
 
 ### 4. 状态持久化
 
@@ -167,6 +200,7 @@ Vite 和 TypeScript 均配置路径别名 `@/` 指向 `./src`：
 - **样式**：全局样式在 `src/App.less`；组件级样式使用同目录 `.less` 文件（如 `src/pages/layout/index.less`）；Ant Design 主题通过 `theme.useToken()` 获取 token。
 - **注释**：代码注释和文档使用中文。
 - **Ant Design 中文**：`src/pages/index.tsx` 中通过 `ConfigProvider locale={zhCN}` 全局配置中文，并设置 `dayjs.locale('zh-cn')`。
+- **主题定制**：全局主题色为 `#4F6DF5`（现代靛蓝），圆角统一 8px，背景色柔和，参考 `src/pages/index.tsx` 中的 `themeConfig`。
 
 ## 关键配置与陷阱
 
@@ -185,6 +219,12 @@ Vite 和 TypeScript 均配置路径别名 `@/` 指向 `./src`：
 - 使用 `typescript-eslint` + `eslint-plugin-react-hooks` + `eslint-plugin-react-refresh`。
 - `react-refresh/only-export-components` 规则允许常量导出（`allowConstantExport: true`）。
 - 忽略 `dist` 目录。
+
+### Dify 智能问数集成（`index.html`）
+
+- 页面内嵌了 Dify Chatbot 配置和样式，用于 SQL 查询页面的智能问答助手。
+- 悬浮按钮默认隐藏（`display: none`），由 `sql-editor/index.tsx` 中的 MutationObserver 控制显示。
+- 相关配置硬编码在 `index.html` 的 `<script>` 标签中，包括 `token` 和 `baseUrl`。
 
 ## 测试策略
 
@@ -229,13 +269,14 @@ Jenkins Pipeline（Kubernetes Agent），支持 dev / pre / prod / local 四环�
 ## 开发注意事项
 
 1. **新增页面路由**：在 `src/router/index.tsx` 中注册，采用 `React.lazy()` 懒加载，需要鉴权的用 `PrivateRoute` 包裹。
-2. **新增 API 模块**：参考现有模式（如 `DSApi.ts`），定义 TypeScript 接口类型 + 导出请求函数，按业务域选择正确的请求实例（`datamanRequest` / `employeeRequest` / `datagatewayRequest`）。
+2. **新增 API 模块**：参考现有模式（如 `DSApi.ts` 或 `DatabiApi.ts`），定义 TypeScript 接口类型 + 导出请求函数，按业务域选择正确的请求实例（`datamanRequest` / `employeeRequest` / `datagatewayRequest` / `datametricRequest` / `databiRequest` / `dataworksRequest`）。
 3. **Monaco Editor**：首次加载需要初始化时间，页面中通过 `loader.config({ monaco })` 预加载本地包，需处理 `editorInitializing` 状态显示加载动画。
 4. **响应拦截器**：API 函数拿到的就是后端 `Response<T>`，不要 `.data.data` 这种双重取值。
 5. **环境变量**：前端环境通过 `import.meta.env.MODE` 区分，后端地址在 `src/api/Request.ts` 中硬编码配置。
+6. **BI 模块图表**：BI 模块使用 `SimpleCanvasChart.tsx` 进行客户端图表渲染，同时后端支持 Puppeteer 服务端渲染。
 
 ## 相关文档
 
-- `CLAUDE.md` — 更详细的架构说明和常见任务指南
+- `vibecoding/AGENTS.md` — 项目基础文档（含常见任务指南）
 - `vibecoding/requirements/PRD-数据资产平台.md` — 产品需求文档
 - `vibecoding/requirements/ds/ds需求一期.md` — 业务数据库模块需求文档

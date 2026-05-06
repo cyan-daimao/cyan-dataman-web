@@ -11,6 +11,8 @@ import {
     ThunderboltOutlined,
     BranchesOutlined,
     SettingOutlined,
+    PlusOutlined,
+    CloseOutlined,
 } from '@ant-design/icons';
 import {loader} from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
@@ -18,15 +20,16 @@ import SQLEditor from '@/pages/sql-editor/components/SQLEditor';
 import DataWorkResultPanel from './components/DataWorkResultPanel';
 import {ColumnVO} from '@/api/MetadataTableAPI.ts';
 import {
-    DataWorkTaskDTO,
+    JobDTO,
     ScheduleConfigDTO,
-    ExecutionRecordDTO,
-    createDataWorkTask,
-    updateDataWorkTask,
-    executeTask,
-    getDataWorkTask,
-    getTaskSchedule,
-    saveTaskSchedule,
+    JobInstanceDTO,
+    createJob,
+    updateJob,
+    executeJob,
+    getJob,
+    getJobSchedule,
+    saveJobSchedule,
+    deleteJob,
 } from '@/api/DataworksApi.ts';
 import {QueryResult, ExecutionPlan} from '@/pages/sql-editor/types';
 import LeftSidebar from './components/LeftSidebar';
@@ -47,8 +50,22 @@ interface TableColumnsCache {
     [tableName: string]: ColumnVO[];
 }
 
+// Tab 数据
+interface TabData {
+    tabId: string; // Tab 唯一标识（未保存任务用临时 ID）
+    task: JobDTO;
+    schedule: ScheduleConfigDTO;
+    sqlContent: string;
+    result: QueryResult | null;
+    executionPlan: ExecutionPlan[] | null;
+    error: string | null;
+    resultActiveTab: string;
+    logs: string[];
+    isModified: boolean; // 是否有未保存修改
+}
+
 // 生成空任务
-const createEmptyTask = (): DataWorkTaskDTO => ({
+const createEmptyTask = (): JobDTO => ({
     id: '',
     name: '未命名任务',
     description: '',
@@ -56,6 +73,35 @@ const createEmptyTask = (): DataWorkTaskDTO => ({
     sqlContent: '',
     status: 'DRAFT',
 });
+
+// 生成默认调度配置
+const createEmptySchedule = (jobId: string = ''): ScheduleConfigDTO => ({
+    id: '',
+    jobId,
+    cronExpression: '',
+    enabled: false,
+});
+
+// 生成新 Tab
+const createNewTab = (): TabData => ({
+    tabId: `new-${Date.now()}`,
+    task: createEmptyTask(),
+    schedule: createEmptySchedule(),
+    sqlContent: '',
+    result: null,
+    executionPlan: null,
+    error: null,
+    resultActiveTab: 'result',
+    logs: [],
+    isModified: false,
+});
+
+// 生成 Tab 显示名称
+const getTabLabel = (tab: TabData): string => {
+    return tab.task.name || '未命名任务';
+};
+
+let tempIdCounter = 0;
 
 const DataWorkWorkspace: React.FC = () => {
     // ========== Monaco 初始化 ==========
@@ -66,27 +112,21 @@ const DataWorkWorkspace: React.FC = () => {
             .catch(() => setEditorInitializing(false));
     }, []);
 
-    // ========== 任务状态 ==========
-    const [currentTask, setCurrentTask] = useState<DataWorkTaskDTO>(createEmptyTask());
-    const [schedule, setSchedule] = useState<ScheduleConfigDTO>({
-        id: '',
-        taskId: '',
-        cronExpression: '',
-        enabled: false,
-    });
-    const [sqlContent, setSqlContent] = useState('');
+    // ========== Tab 状态 ==========
+    const [tabs, setTabs] = useState<TabData[]>([createNewTab()]);
+    const [activeTabId, setActiveTabId] = useState<string>(tabs[0].tabId);
 
-    // ========== 执行结果状态 ==========
-    const [loading, setLoading] = useState(false);
-    const [result, setResult] = useState<QueryResult | null>(null);
-    const [executionPlan, setExecutionPlan] = useState<ExecutionPlan[] | null>(null);
-    const [error, setError] = useState<string | null>(null);
-    const [resultActiveTab, setResultActiveTab] = useState('result');
-    const [logs, setLogs] = useState<string[]>([]);
+    const activeTab = tabs.find(t => t.tabId === activeTabId) || tabs[0];
+
+    const updateActiveTab = useCallback((updater: (tab: TabData) => TabData) => {
+        setTabs(prev => prev.map(t => t.tabId === activeTabId ? updater({...t}) : t));
+    }, [activeTabId]);
 
     // ========== 操作状态 ==========
     const [saving, setSaving] = useState(false);
     const [executing, setExecuting] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
 
     // ========== 布局状态 ==========
     const [siderWidth, setSiderWidth] = useState(260);
@@ -160,107 +200,148 @@ const DataWorkWorkspace: React.FC = () => {
         };
     }, [isDraggingSider, isDraggingRightSider, isDraggingEditor]);
 
-    // ========== 加载任务到编辑器 ==========
-    const loadTask = useCallback(async (task: DataWorkTaskDTO) => {
-        setCurrentTask(task);
-        setSqlContent(task.sqlContent || '');
-        setResult(null);
-        setExecutionPlan(null);
-        setError(null);
-        // 加载调度配置
+    // ========== 加载任务到 Tab ==========
+    const loadTaskToTab = useCallback(async (task: JobDTO, targetTabId: string) => {
+        let schedule = createEmptySchedule(task.id);
         if (task.id) {
             try {
-                const sched = await getTaskSchedule(task.id);
-                if (sched) {
-                    setSchedule(sched);
-                } else {
-                    setSchedule({id: '', taskId: task.id, cronExpression: '', enabled: false});
-                }
+                const sched = await getJobSchedule(task.id);
+                if (sched) schedule = sched;
             } catch {
-                setSchedule({id: '', taskId: task.id, cronExpression: '', enabled: false});
+                // ignore
             }
         }
+        setTabs(prev => prev.map(t => t.tabId === targetTabId ? {
+            ...t,
+            task,
+            sqlContent: task.sqlContent || '',
+            schedule,
+            result: null,
+            executionPlan: null,
+            error: null,
+            resultActiveTab: 'result',
+            logs: [],
+            isModified: false,
+        } : t));
     }, []);
 
-    // ========== 新建任务 ==========
+    // ========== 新建任务（新开 Tab）==========
     const handleNewTask = useCallback(() => {
-        setCurrentTask(createEmptyTask());
-        setSqlContent('');
-        setSchedule({id: '', taskId: '', cronExpression: '', enabled: false});
-        setResult(null);
-        setExecutionPlan(null);
-        setError(null);
+        const newTab = createNewTab();
+        newTab.tabId = `new-${Date.now()}-${++tempIdCounter}`;
+        setTabs(prev => [...prev, newTab]);
+        setActiveTabId(newTab.tabId);
     }, []);
+
+    // ========== 关闭 Tab ==========
+    const handleCloseTab = useCallback((tabId: string) => {
+        setTabs(prev => {
+            const idx = prev.findIndex(t => t.tabId === tabId);
+            if (prev.length <= 1) {
+                // 最后一个 Tab，重置为全新 Tab
+                const newTab = createNewTab();
+                setActiveTabId(newTab.tabId);
+                return [newTab];
+            }
+            const next = prev.filter(t => t.tabId !== tabId);
+            // 如果关闭的是当前激活的 Tab，切换到前一个
+            if (tabId === activeTabId) {
+                const newIdx = Math.max(0, idx - 1);
+                setActiveTabId(next[newIdx].tabId);
+            }
+            return next;
+        });
+    }, [activeTabId]);
 
     // ========== 保存任务 ==========
     const handleSave = useCallback(async () => {
-        if (!currentTask.name.trim()) {
+        const tab = tabs.find(t => t.tabId === activeTabId);
+        if (!tab) return;
+
+        if (!tab.task.name.trim()) {
             message.warning('请输入任务名称');
             return;
         }
         const body = {
-            name: currentTask.name.trim(),
-            description: currentTask.description,
-            engineType: currentTask.engineType,
-            sqlContent: sqlContent,
+            name: tab.task.name.trim(),
+            description: tab.task.description,
+            engineType: tab.task.engineType,
+            sqlContent: tab.sqlContent,
         };
         setSaving(true);
         try {
-            let savedTask: DataWorkTaskDTO;
-            if (!currentTask.id) {
-                const resp = await createDataWorkTask(body);
+            let savedTask: JobDTO;
+            if (!tab.task.id) {
+                const resp = await createJob(body);
                 savedTask = resp.data;
                 message.success('任务创建成功');
+                setSidebarRefreshKey(prev => prev + 1);
             } else {
-                const resp = await updateDataWorkTask(currentTask.id, body);
+                const resp = await updateJob(tab.task.id, body);
                 savedTask = resp.data;
                 message.success('任务更新成功');
+                setSidebarRefreshKey(prev => prev + 1);
             }
             // 保存调度配置
-            if (savedTask.id && schedule.cronExpression) {
-                await saveTaskSchedule(savedTask.id, {
-                    cronExpression: schedule.cronExpression,
-                    enabled: schedule.enabled || false,
+            if (savedTask.id && tab.schedule.cronExpression) {
+                await saveJobSchedule(savedTask.id, {
+                    cronExpression: tab.schedule.cronExpression,
+                    enabled: tab.schedule.enabled || false,
                 });
             }
             // 刷新当前任务状态
-            const freshTask = await getDataWorkTask(savedTask.id);
-            setCurrentTask(freshTask);
-            setSqlContent(freshTask.sqlContent || '');
+            const freshTask = await getJob(savedTask.id);
+            const freshSchedule = await getJobSchedule(freshTask.id).catch(() => createEmptySchedule(freshTask.id));
+            setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                ...t,
+                task: freshTask,
+                sqlContent: freshTask.sqlContent || '',
+                schedule: freshSchedule || createEmptySchedule(freshTask.id),
+                isModified: false,
+            } : t));
         } catch {
             // 错误由拦截器处理
         } finally {
             setSaving(false);
         }
-    }, [currentTask, sqlContent, schedule]);
+    }, [tabs, activeTabId]);
 
     // ========== 执行任务 ==========
     const handleExecute = useCallback(async () => {
-        if (!sqlContent.trim()) {
+        const tab = tabs.find(t => t.tabId === activeTabId);
+        if (!tab) return;
+
+        if (!tab.sqlContent.trim()) {
             message.warning('请输入SQL语句');
             return;
         }
-        // 如果任务未保存，先提示保存
-        if (!currentTask.id) {
+        if (!tab.task.id) {
             message.warning('请先保存任务再执行');
             return;
         }
         setExecuting(true);
-        setLoading(true);
-        setResult(null);
-        setExecutionPlan(null);
-        setError(null);
+        updateActiveTab(t => ({...t, loading: true as any, result: null, executionPlan: null, error: null}));
+        // 使用局部状态避免 updateActiveTab 的 loading 问题
+        // 改用 setTabs 直接更新
+        setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+            ...t,
+            result: null,
+            executionPlan: null,
+            error: null,
+        } : t));
+
         const startTime = Date.now();
         const newLogs: string[] = [
-            `[${new Date().toLocaleString()}] INFO 开始执行任务: ${currentTask.name}`,
-            `[${new Date().toLocaleString()}] INFO 引擎类型: ${currentTask.engineType}`,
+            `[${new Date().toLocaleString()}] INFO 开始执行任务: ${tab.task.name}`,
+            `[${new Date().toLocaleString()}] INFO 引擎类型: ${tab.task.engineType}`,
             `[${new Date().toLocaleString()}] INFO SQL 内容:`,
-            ...sqlContent.split('\n').map(line => `    ${line}`),
+            ...tab.sqlContent.split('\n').map(line => `    ${line}`),
         ];
-        setLogs(newLogs);
+        setTabs(prev => prev.map(t => t.tabId === activeTabId ? {...t, logs: newLogs} : t));
+
         try {
-            const resp = await executeTask(currentTask.id);
-            const record: ExecutionRecordDTO = resp.data;
+            const resp = await executeJob(tab.task.id);
+            const record: JobInstanceDTO = resp.data;
             const cost = Date.now() - startTime;
             if (record.status === 'SUCCESS' && record.resultData) {
                 try {
@@ -272,53 +353,76 @@ const DataWorkWorkspace: React.FC = () => {
                         total: Array.isArray(data) ? data.length : 0,
                         duration: record.costTimeMs || cost,
                     };
-                    setResult(queryResult);
-                    setError(null);
-                    setLogs(prev => [
-                        ...prev,
-                        `[${new Date().toLocaleString()}] INFO 执行成功`,
-                        `[${new Date().toLocaleString()}] INFO 耗时: ${record.costTimeMs || cost}ms`,
-                        `[${new Date().toLocaleString()}] INFO 返回行数: ${Array.isArray(data) ? data.length : 0}`,
-                    ]);
+                    setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                        ...t,
+                        result: queryResult,
+                        error: null,
+                        logs: [
+                            ...t.logs,
+                            `[${new Date().toLocaleString()}] INFO 执行成功`,
+                            `[${new Date().toLocaleString()}] INFO 耗时: ${record.costTimeMs || cost}ms`,
+                            `[${new Date().toLocaleString()}] INFO 返回行数: ${Array.isArray(data) ? data.length : 0}`,
+                        ],
+                    } : t));
                     message.success(`执行成功，耗时 ${record.costTimeMs || cost}ms`);
                 } catch {
-                    setResult(null);
-                    setError('解析结果失败');
-                    setLogs(prev => [...prev, `[${new Date().toLocaleString()}] ERROR 解析结果失败`]);
+                    setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                        ...t,
+                        result: null,
+                        error: '解析结果失败',
+                        logs: [...t.logs, `[${new Date().toLocaleString()}] ERROR 解析结果失败`],
+                    } : t));
                 }
             } else if (record.status === 'FAILED') {
-                setResult(null);
-                setError(record.errorMessage || '执行失败');
-                setLogs(prev => [
-                    ...prev,
-                    `[${new Date().toLocaleString()}] ERROR 执行失败`,
-                    `[${new Date().toLocaleString()}] ERROR ${record.errorMessage || '未知错误'}`,
-                ]);
+                setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                    ...t,
+                    result: null,
+                    error: record.errorMessage || '执行失败',
+                    logs: [
+                        ...t.logs,
+                        `[${new Date().toLocaleString()}] ERROR 执行失败`,
+                        `[${new Date().toLocaleString()}] ERROR ${record.errorMessage || '未知错误'}`,
+                    ],
+                } : t));
                 message.error(record.errorMessage || '执行失败');
             } else {
-                setResult(null);
-                setError('执行状态未知');
-                setLogs(prev => [...prev, `[${new Date().toLocaleString()}] WARN 执行状态未知: ${record.status}`]);
+                setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                    ...t,
+                    result: null,
+                    error: '执行状态未知',
+                    logs: [...t.logs, `[${new Date().toLocaleString()}] WARN 执行状态未知: ${record.status}`],
+                } : t));
             }
         } catch (e: any) {
-            setLogs(prev => [...prev, `[${new Date().toLocaleString()}] ERROR ${e.message || '执行异常'}`]);
+            setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                ...t,
+                logs: [...t.logs, `[${new Date().toLocaleString()}] ERROR ${e.message || '执行异常'}`],
+            } : t));
         } finally {
             setExecuting(false);
-            setLoading(false);
-            setLogs(prev => [...prev, `[${new Date().toLocaleString()}] INFO 任务执行结束`]);
+            setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                ...t,
+                logs: [...t.logs, `[${new Date().toLocaleString()}] INFO 任务执行结束`],
+            } : t));
         }
-    }, [currentTask, sqlContent]);
+    }, [tabs, activeTabId]);
 
     // ========== 执行计划 ==========
     const handleExecutePlan = useCallback(async () => {
-        if (!sqlContent.trim()) {
+        const tab = tabs.find(t => t.tabId === activeTabId);
+        if (!tab) return;
+
+        if (!tab.sqlContent.trim()) {
             message.warning('请输入SQL语句');
             return;
         }
-        setLoading(true);
+        setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+            ...t,
+            loading: true as any,
+        } : t));
         try {
             const {executeSql} = await import('@/api/DatagawayApi');
-            const explainSql = `EXPLAIN ${sqlContent}`;
+            const explainSql = `EXPLAIN ${tab.sqlContent}`;
             const resp = await executeSql(explainSql);
             const result = resp.data;
             const plan: ExecutionPlan[] = result.data.map((row: any, idx: number) => ({
@@ -328,35 +432,66 @@ const DataWorkWorkspace: React.FC = () => {
                 cost: row.cost || row.Cost || 0,
                 details: row.details || row.Details || JSON.stringify(row),
             }));
-            setExecutionPlan(plan);
-            setError(null);
-            setResultActiveTab('plan');
+            setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                ...t,
+                executionPlan: plan,
+                error: null,
+                resultActiveTab: 'plan',
+            } : t));
             message.success('执行计划生成成功');
         } catch {
             message.error('获取执行计划失败');
         } finally {
-            setLoading(false);
+            setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                ...t,
+                loading: false as any,
+            } : t));
         }
-    }, [sqlContent]);
+    }, [tabs, activeTabId]);
+
+    // ========== 删除任务 ==========
+    const handleDelete = useCallback(async () => {
+        const tab = tabs.find(t => t.tabId === activeTabId);
+        if (!tab || !tab.task.id) return;
+        setDeleting(true);
+        try {
+            await deleteJob(tab.task.id);
+            message.success('任务已删除');
+            handleCloseTab(activeTabId);
+        } catch {
+            // 错误由拦截器处理
+        } finally {
+            setDeleting(false);
+        }
+    }, [tabs, activeTabId, handleCloseTab]);
 
     // ========== 格式化 SQL ==========
     const handleFormat = useCallback(() => {
-        if (!sqlContent) return;
-        const formatted = sqlContent
+        const tab = tabs.find(t => t.tabId === activeTabId);
+        if (!tab || !tab.sqlContent) return;
+        const formatted = tab.sqlContent
             .replace(/\s+/g, ' ')
             .replace(/\s*,\s*/g, ',\n    ')
             .replace(/\s+(SELECT|FROM|WHERE|JOIN|LEFT JOIN|RIGHT JOIN|INNER JOIN|GROUP BY|HAVING|ORDER BY|LIMIT|UNION|WITH)/gi, '\n$1')
             .replace(/\s+(AND|OR)/gi, '\n    $1')
             .trim();
-        setSqlContent(formatted);
+        setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+            ...t,
+            sqlContent: formatted,
+            isModified: true,
+        } : t));
         message.success('SQL已格式化');
-    }, [sqlContent]);
+    }, [tabs, activeTabId]);
 
     // ========== 左侧边栏回调 ==========
     const handleTableSelect = useCallback((table: {name: string; tableId: string; catalog?: string; schema?: string; columns?: ColumnVO[]}) => {
         const fullTableName = table.schema ? `${table.schema}.${table.name}` : table.name;
         const selectSQL = `SELECT * FROM ${fullTableName} LIMIT 100;`;
-        setSqlContent(selectSQL);
+        setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+            ...t,
+            sqlContent: selectSQL,
+            isModified: true,
+        } : t));
         if (table.columns) {
             setTableColumnsCache(prev => ({
                 ...prev,
@@ -364,34 +499,204 @@ const DataWorkWorkspace: React.FC = () => {
                 [table.name]: table.columns!,
             }));
         }
-    }, []);
+    }, [activeTabId]);
 
-    const handleTaskSelect = useCallback((task: DataWorkTaskDTO) => {
-        loadTask(task);
-    }, [loadTask]);
+    const handleTaskSelect = useCallback((task: JobDTO) => {
+        // 检查是否已有该任务的 Tab
+        const existingTab = tabs.find(t => t.task.id === task.id);
+        if (existingTab) {
+            setActiveTabId(existingTab.tabId);
+            return;
+        }
+        // 未打开则新开 Tab
+        const newTabId = `task-${task.id}`;
+        const newTab: TabData = {
+            tabId: newTabId,
+            task,
+            schedule: createEmptySchedule(task.id),
+            sqlContent: task.sqlContent || '',
+            result: null,
+            executionPlan: null,
+            error: null,
+            resultActiveTab: 'result',
+            logs: [],
+            isModified: false,
+        };
+        setTabs(prev => [...prev, newTab]);
+        setActiveTabId(newTabId);
+        // 异步加载调度配置
+        loadTaskToTab(task, newTabId);
+    }, [tabs, loadTaskToTab]);
 
-    const handleHistorySelect = useCallback((record: ExecutionRecordDTO) => {
-        if (record.sqlContent) setSqlContent(record.sqlContent);
+    const handleHistorySelect = useCallback((record: JobInstanceDTO) => {
+        setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+            ...t,
+            sqlContent: record.sqlContent || t.sqlContent,
+            isModified: true,
+        } : t));
         message.info(`已加载历史 SQL: ${record.taskName}`);
+    }, [activeTabId]);
+
+    // ========== Tab 操作 ==========
+    const handleTabChange = useCallback((tabId: string) => {
+        setActiveTabId(tabId);
     }, []);
 
     // ========== 渲染 ==========
     return (
         <div style={{flex: 1, display: 'flex', flexDirection: 'column', background: '#f5f5f5', minHeight: 0}}>
+            {/* Tab 栏 — 模仿 DataWorks 编辑器标签页 */}
+            <div style={{
+                height: 36,
+                background: '#f5f5f5',
+                borderBottom: '1px solid #e8e8e8',
+                display: 'flex',
+                alignItems: 'flex-end',
+                flexShrink: 0,
+                overflow: 'hidden',
+                padding: '0 8px 0 0',
+                gap: 2,
+            }}>
+                {tabs.map((tab, idx) => {
+                    const isActive = tab.tabId === activeTabId;
+                    const isFirst = idx === 0;
+                    return (
+                        <div
+                            key={tab.tabId}
+                            onClick={() => setActiveTabId(tab.tabId)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                height: 28,
+                                padding: '0 8px',
+                                fontSize: 12,
+                                cursor: 'pointer',
+                                userSelect: 'none',
+                                borderRadius: 4,
+                                border: '1px solid transparent',
+                                background: isActive ? '#fff' : 'transparent',
+                                borderColor: isActive ? '#e8e8e8' : 'transparent',
+                                color: isActive ? '#262626' : '#8c8c8c',
+                                fontWeight: isActive ? 500 : 400,
+                                position: 'relative',
+                                top: isActive ? 0 : 1,
+                                maxWidth: 160,
+                                minWidth: 60,
+                                flexShrink: 0,
+                                transition: 'all 0.15s ease',
+                            }}
+                            onMouseEnter={(e) => {
+                                if (!isActive) {
+                                    e.currentTarget.style.background = '#e8e8e8';
+                                    e.currentTarget.style.color = '#595959';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                if (!isActive) {
+                                    e.currentTarget.style.background = 'transparent';
+                                    e.currentTarget.style.color = '#8c8c8c';
+                                }
+                            }}
+                        >
+                            {/* 左侧小圆点指示修改状态 */}
+                            {tab.isModified && (
+                                <span style={{
+                                    width: 6,
+                                    height: 6,
+                                    borderRadius: '50%',
+                                    background: '#faad14',
+                                    flexShrink: 0,
+                                }} />
+                            )}
+                            <span style={{
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                flex: 1,
+                            }}>
+                                {tab.task.name || '未命名任务'}
+                            </span>
+                            {tabs.length > 1 && (
+                                <span
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: 14,
+                                        height: 14,
+                                        borderRadius: 3,
+                                        fontSize: 12,
+                                        lineHeight: '14px',
+                                        color: '#bfbfbf',
+                                        cursor: 'pointer',
+                                        flexShrink: 0,
+                                        transition: 'all 0.15s',
+                                    }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleCloseTab(tab.tabId);
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = '#ff4d4f';
+                                        e.currentTarget.style.color = '#fff';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = 'transparent';
+                                        e.currentTarget.style.color = '#bfbfbf';
+                                    }}
+                                >
+                                    ×
+                                </span>
+                            )}
+                        </div>
+                    );
+                })}
+                {/* 新建按钮 */}
+                <div
+                    onClick={handleNewTask}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 24,
+                        height: 24,
+                        borderRadius: 4,
+                        cursor: 'pointer',
+                        color: '#8c8c8c',
+                        fontSize: 16,
+                        fontWeight: 300,
+                        flexShrink: 0,
+                        marginBottom: 2,
+                        transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.color = '#1677ff';
+                        e.currentTarget.style.background = '#e6f4ff';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.color = '#8c8c8c';
+                        e.currentTarget.style.background = 'transparent';
+                    }}
+                >
+                    +
+                </div>
+            </div>
+
             {/* 顶部工具栏 */}
             <div style={{
-                height: 48,
+                height: 40,
                 background: '#fff',
                 borderBottom: '1px solid #f0f0f0',
                 display: 'flex',
                 alignItems: 'center',
-                padding: '0 16px',
-                gap: 12,
+                padding: '0 12px',
+                gap: 8,
                 flexShrink: 0,
             }}>
-                <span style={{fontWeight: 600, fontSize: 14, marginRight: 16, minWidth: 120}}>
-                    {currentTask.name}
-                    {!currentTask.id && <span style={{color: '#999', fontWeight: 400}}>（未保存）</span>}
+                <span style={{fontWeight: 600, fontSize: 13, marginRight: 12, minWidth: 120, color: '#262626'}}>
+                    {activeTab.task.name}
+                    {!activeTab.task.id && <span style={{color: '#999', fontWeight: 400}}>（未保存）</span>}
                 </span>
                 <Space>
                     <Button type="primary" icon={<PlayCircleOutlined />} loading={executing} onClick={handleExecute}>
@@ -403,31 +708,39 @@ const DataWorkWorkspace: React.FC = () => {
                     <Button icon={<FormatPainterOutlined />} onClick={handleFormat}>
                         格式化
                     </Button>
-                    <Button icon={<ReloadOutlined />} onClick={() => { setResult(null); setError(null); message.info('已重置结果'); }}>
+                    <Button icon={<ReloadOutlined />} onClick={() => {
+                        setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                            ...t,
+                            result: null,
+                            error: null,
+                        } : t));
+                        message.info('已重置结果');
+                    }}>
                         刷新
                     </Button>
                     <Divider type="vertical" />
-                    <Button icon={<CloudUploadOutlined />} disabled={!currentTask.id}>
+                    <Button icon={<CloudUploadOutlined />} disabled={!activeTab.task.id}>
                         发布
                     </Button>
-                    <Button icon={<ShareAltOutlined />} disabled={!currentTask.id}>
+                    <Button icon={<ShareAltOutlined />} disabled={!activeTab.task.id}>
                         分享
                     </Button>
                 </Space>
             </div>
 
-            {/* 主体三栏布局 — Ant Design Grid */}
+            {/* 主体三栏布局 */}
             <Row wrap={false} style={{ flex: 1, overflow: 'hidden', height: '100%' }}>
                 {/* 左侧边栏 */}
                 <Col flex={`0 0 ${siderWidth}px`} style={{ height: '100%', position: 'relative', overflow: 'hidden' }}>
                     <LeftSidebar
-                        currentSql={sqlContent}
-                        currentTaskId={currentTask.id}
+                        currentSql={activeTab.sqlContent}
+                        currentTaskId={activeTab.task.id}
                         onTableSelect={handleTableSelect}
                         onTableListLoaded={setAvailableTables}
                         onTaskSelect={handleTaskSelect}
                         onHistorySelect={handleHistorySelect}
                         onNewTask={handleNewTask}
+                        refreshTrigger={sidebarRefreshKey}
                     />
                     {/* 左侧拖拽条 */}
                     <div
@@ -457,8 +770,12 @@ const DataWorkWorkspace: React.FC = () => {
                                 {/* SQL 编辑器 */}
                                 <div style={{height: editorHeight, minHeight: 200, borderBottom: '1px solid #f0f0f0'}}>
                                     <SQLEditor
-                                        value={sqlContent}
-                                        onChange={setSqlContent}
+                                        value={activeTab.sqlContent}
+                                        onChange={(val) => setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                                            ...t,
+                                            sqlContent: val,
+                                            isModified: true,
+                                        } : t))}
                                         onExecute={handleExecute}
                                         onExecutePlan={handleExecutePlan}
                                         onFormat={handleFormat}
@@ -482,13 +799,16 @@ const DataWorkWorkspace: React.FC = () => {
                                 {/* 结果面板 */}
                                 <div style={{flex: 1, minHeight: 150, overflow: 'hidden'}}>
                                     <DataWorkResultPanel
-                                        loading={loading}
-                                        result={result}
-                                        executionPlan={executionPlan}
-                                        error={error}
-                                        activeTab={resultActiveTab}
-                                        onTabChange={setResultActiveTab}
-                                        logs={logs}
+                                        loading={false}
+                                        result={activeTab.result}
+                                        executionPlan={activeTab.executionPlan}
+                                        error={activeTab.error}
+                                        activeTab={activeTab.resultActiveTab}
+                                        onTabChange={(tab) => setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                                            ...t,
+                                            resultActiveTab: tab,
+                                        } : t))}
+                                        logs={activeTab.logs}
                                     />
                                 </div>
                             </>
@@ -496,9 +816,9 @@ const DataWorkWorkspace: React.FC = () => {
                     </div>
                 </Col>
 
-                {/* 右侧边栏 — 固定 44px，展开面板用绝对定位放在左侧 */}
+                {/* 右侧边栏 */}
                 <Col flex="0 0 44px" style={{ height: '100%', position: 'relative', overflow: 'visible' }}>
-                    {/* 展开面板 — 条件渲染 */}
+                    {/* 展开面板 */}
                     {rightActivePanel && (
                         <div style={{
                             position: 'absolute',
@@ -513,22 +833,32 @@ const DataWorkWorkspace: React.FC = () => {
                             zIndex: 1,
                         }}>
                             <RightSidebar
-                                taskId={currentTask.id}
+                                jobId={activeTab.task.id}
                                 task={{
-                                    name: currentTask.name,
-                                    description: currentTask.description,
-                                    engineType: currentTask.engineType,
+                                    name: activeTab.task.name,
+                                    description: activeTab.task.description,
+                                    engineType: activeTab.task.engineType,
                                 }}
                                 schedule={{
-                                    cronExpression: schedule.cronExpression,
-                                    enabled: schedule.enabled,
+                                    cronExpression: activeTab.schedule.cronExpression,
+                                    enabled: activeTab.schedule.enabled,
                                 }}
-                                onTaskChange={(t) => setCurrentTask(prev => ({...prev, ...t}))}
-                                onScheduleChange={(s) => setSchedule(prev => ({...prev, ...s}))}
+                                onTaskChange={(t) => setTabs(prev => prev.map(tab => tab.tabId === activeTabId ? {
+                                    ...tab,
+                                    task: {...tab.task, ...t},
+                                    isModified: true,
+                                } : t))}
+                                onScheduleChange={(s) => setTabs(prev => prev.map(tab => tab.tabId === activeTabId ? {
+                                    ...tab,
+                                    schedule: {...tab.schedule, ...s},
+                                    isModified: true,
+                                } : t))}
                                 onSave={handleSave}
                                 onExecute={handleExecute}
+                                onDelete={handleDelete}
                                 saving={saving}
                                 executing={executing}
+                                deleting={deleting}
                                 activePanel={rightActivePanel}
                                 panelWidth={rightSiderWidth}
                                 onActivePanelChange={handleRightPanelChange}

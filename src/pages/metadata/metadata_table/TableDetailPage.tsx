@@ -179,7 +179,7 @@ const TableDetailPage: React.FC = () => {
 
     return (
         <Spin spinning={loading}>
-            <div style={{padding: 0}}>
+            <div style={{padding: '16px 20px'}}>
                 {/* 页面头部 */}
                 <div style={{
                     marginBottom: 16,

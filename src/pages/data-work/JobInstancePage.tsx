@@ -1,0 +1,392 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+    Button,
+    Card,
+    Drawer,
+    Empty,
+    message,
+    Pagination,
+    Popconfirm,
+    Space,
+    Spin,
+    Table,
+    Tag,
+    Typography,
+} from 'antd';
+import {
+    ArrowLeftOutlined,
+    ReloadOutlined,
+    EyeOutlined,
+    PlayCircleOutlined,
+    StopOutlined,
+} from '@ant-design/icons';
+import {
+    JobInstanceDTO,
+    JobDTO,
+    pageJobInstances,
+    getJob,
+    getJobInstance,
+    retryJobInstance,
+    terminateJobInstance,
+} from '@/api/DataworksApi';
+
+const { Text } = Typography;
+
+/**
+ * 作业实例列表页面
+ *
+ * <p>独立页面，展示某个 Job 的所有执行实例（JobInstance）。
+ * 对标 Spark 的 Job → Task 实例概念，Flink 任务同样以 JobInstance 记录每次执行快照。</p>
+ */
+const JobInstancePage: React.FC = () => {
+    const { jobId } = useParams<{ jobId: string }>();
+    const navigate = useNavigate();
+
+    const [job, setJob] = useState<JobDTO | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [instances, setInstances] = useState<JobInstanceDTO[]>([]);
+    const [total, setTotal] = useState(0);
+    const [current, setCurrent] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
+
+    const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
+    const [detailInstance, setDetailInstance] = useState<JobInstanceDTO | null>(null);
+    const [detailLoading, setDetailLoading] = useState(false);
+
+    // 加载作业信息
+    const loadJob = useCallback(async () => {
+        if (!jobId) return;
+        try {
+            const data = await getJob(jobId);
+            setJob(data);
+        } catch {
+            // 错误由拦截器处理
+        }
+    }, [jobId]);
+
+    // 加载实例列表
+    const loadInstances = useCallback(async (page: number, size: number, status?: string) => {
+        if (!jobId) return;
+        setLoading(true);
+        try {
+            const resp = await pageJobInstances(jobId, {
+                current: page,
+                size: size,
+                status: status,
+            });
+            setInstances(resp.data || []);
+            setTotal(Number(resp.total) || 0);
+        } catch {
+            // 错误由拦截器处理
+        } finally {
+            setLoading(false);
+        }
+    }, [jobId]);
+
+    useEffect(() => {
+        loadJob();
+    }, [loadJob]);
+
+    useEffect(() => {
+        loadInstances(current, pageSize, statusFilter);
+    }, [loadInstances, current, pageSize, statusFilter]);
+
+    // 查看详情
+    const handleViewDetail = async (instanceId: string) => {
+        setDetailLoading(true);
+        setDetailDrawerOpen(true);
+        try {
+            const data = await getJobInstance(instanceId);
+            setDetailInstance(data);
+        } catch {
+            setDetailDrawerOpen(false);
+        } finally {
+            setDetailLoading(false);
+        }
+    };
+
+    // 重试
+    const handleRetry = async (instanceId: string) => {
+        try {
+            await retryJobInstance(instanceId);
+            message.success('已重新执行');
+            loadInstances(current, pageSize, statusFilter);
+        } catch {
+            // 错误由拦截器处理
+        }
+    };
+
+    // 终止
+    const handleTerminate = async (instanceId: string) => {
+        try {
+            await terminateJobInstance(instanceId);
+            message.success('已终止');
+            loadInstances(current, pageSize, statusFilter);
+        } catch {
+            // 错误由拦截器处理
+        }
+    };
+
+    const statusConfig: Record<string, { color: string; label: string }> = {
+        RUNNING: { color: 'processing', label: '运行中' },
+        SUCCESS: { color: 'success', label: '成功' },
+        FAILED: { color: 'error', label: '失败' },
+    };
+
+    const columns = [
+        {
+            title: '实例ID',
+            dataIndex: 'id',
+            key: 'id',
+            width: 120,
+            render: (id: string) => <Text copyable={{ text: id }} ellipsis style={{ maxWidth: 100 }}>{id}</Text>,
+        },
+        {
+            title: '作业名称',
+            dataIndex: 'jobName',
+            key: 'jobName',
+            width: 160,
+            ellipsis: true,
+        },
+        {
+            title: '引擎',
+            dataIndex: 'engineType',
+            key: 'engineType',
+            width: 100,
+            render: (type: string) => <Tag>{type}</Tag>,
+        },
+        {
+            title: '状态',
+            dataIndex: 'status',
+            key: 'status',
+            width: 100,
+            render: (status: string) => {
+                const cfg = statusConfig[status] || { color: 'default', label: status };
+                return <Tag color={cfg.color}>{cfg.label}</Tag>;
+            },
+        },
+        {
+            title: '耗时',
+            dataIndex: 'costTimeMs',
+            key: 'costTimeMs',
+            width: 100,
+            render: (ms?: number) => ms ? `${ms}ms` : '-',
+        },
+        {
+            title: '执行时间',
+            dataIndex: 'createdAt',
+            key: 'createdAt',
+            width: 170,
+            render: (t?: string) => t || '-',
+        },
+        {
+            title: '操作',
+            key: 'action',
+            width: 180,
+            fixed: 'right' as const,
+            render: (_: any, record: JobInstanceDTO) => (
+                <Space size="small">
+                    <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => handleViewDetail(record.id)}>
+                        详情
+                    </Button>
+                    <Button type="text" size="small" icon={<PlayCircleOutlined />} onClick={() => handleRetry(record.id)}>
+                        重试
+                    </Button>
+                    {record.status === 'RUNNING' && (
+                        <Popconfirm
+                            title="终止实例"
+                            description="确定要终止该运行中实例吗？"
+                            onConfirm={() => handleTerminate(record.id)}
+                            okText="终止"
+                            cancelText="取消"
+                        >
+                            <Button type="text" size="small" danger icon={<StopOutlined />}>
+                                终止
+                            </Button>
+                        </Popconfirm>
+                    )}
+                </Space>
+            ),
+        },
+    ];
+
+    return (
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#f5f5f5' }}>
+            {/* 顶部工具栏 */}
+            <div style={{
+                height: 48,
+                background: '#fff',
+                borderBottom: '1px solid #f0f0f0',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 16px',
+                gap: 12,
+                flexShrink: 0,
+            }}>
+                <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/data-work')}>
+                    返回
+                </Button>
+                <span style={{ fontWeight: 600, fontSize: 14 }}>
+                    {job?.name || '作业'} — 实例列表
+                </span>
+                <Tag color={job?.engineType === 'SPARK' ? 'blue' : 'purple'}>
+                    {job?.engineType}
+                </Tag>
+                <div style={{ flex: 1 }} />
+                <Space>
+                    <Button icon={<ReloadOutlined />} onClick={() => loadInstances(current, pageSize, statusFilter)}>
+                        刷新
+                    </Button>
+                </Space>
+            </div>
+
+            {/* 内容区 */}
+            <div style={{ flex: 1, padding: 16, overflow: 'auto' }}>
+                <Card
+                    title={
+                        <Space>
+                            <span>实例列表</span>
+                            <Space size={4}>
+                                {(['全部', 'RUNNING', 'SUCCESS', 'FAILED'] as const).map((s) => (
+                                    <Button
+                                        key={s}
+                                        type={statusFilter === s || (s === '全部' && !statusFilter) ? 'primary' : 'text'}
+                                        size="small"
+                                        onClick={() => {
+                                            setStatusFilter(s === '全部' ? undefined : s);
+                                            setCurrent(1);
+                                        }}
+                                    >
+                                        {s === '全部' ? '全部' : statusConfig[s]?.label || s}
+                                    </Button>
+                                ))}
+                            </Space>
+                        </Space>
+                    }
+                    variant="borderless"
+                >
+                    <Spin spinning={loading}>
+                        <Table
+                            dataSource={instances}
+                            columns={columns}
+                            rowKey="id"
+                            pagination={false}
+                            size="small"
+                            locale={{ emptyText: <Empty description="暂无实例" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+                            scroll={{ x: 800 }}
+                        />
+                        <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+                            <Pagination
+                                current={current}
+                                pageSize={pageSize}
+                                total={total}
+                                showSizeChanger
+                                showTotal={(t) => `共 ${t} 条`}
+                                onChange={(p, ps) => {
+                                    setCurrent(p);
+                                    if (ps !== pageSize) setPageSize(ps);
+                                }}
+                            />
+                        </div>
+                    </Spin>
+                </Card>
+            </div>
+
+            {/* 详情 Drawer */}
+            <Drawer
+                title="实例详情"
+                width={600}
+                open={detailDrawerOpen}
+                onClose={() => setDetailDrawerOpen(false)}
+            >
+                <Spin spinning={detailLoading}>
+                    {detailInstance && (
+                        <Space direction="vertical" style={{ width: '100%' }} size="large">
+                            <div>
+                                <Text type="secondary">实例ID</Text>
+                                <div><Text copyable>{detailInstance.id}</Text></div>
+                            </div>
+                            <div>
+                                <Text type="secondary">作业ID</Text>
+                                <div><Text copyable>{detailInstance.jobId}</Text></div>
+                            </div>
+                            <div>
+                                <Text type="secondary">作业名称</Text>
+                                <div>{detailInstance.jobName}</div>
+                            </div>
+                            <div>
+                                <Text type="secondary">引擎类型</Text>
+                                <div><Tag>{detailInstance.engineType}</Tag></div>
+                            </div>
+                            <div>
+                                <Text type="secondary">执行状态</Text>
+                                <div>
+                                    <Tag color={statusConfig[detailInstance.status]?.color}>
+                                        {statusConfig[detailInstance.status]?.label}
+                                    </Tag>
+                                </div>
+                            </div>
+                            <div>
+                                <Text type="secondary">耗时</Text>
+                                <div>{detailInstance.costTimeMs ? `${detailInstance.costTimeMs}ms` : '-'}</div>
+                            </div>
+                            <div>
+                                <Text type="secondary">执行时间</Text>
+                                <div>{detailInstance.createdAt || '-'}</div>
+                            </div>
+                            {detailInstance.errorMessage && (
+                                <div>
+                                    <Text type="secondary">错误信息</Text>
+                                    <div style={{
+                                        background: '#fff2f0',
+                                        border: '1px solid #ffccc7',
+                                        borderRadius: 4,
+                                        padding: 8,
+                                        color: '#cf1322',
+                                        fontSize: 12,
+                                        whiteSpace: 'pre-wrap',
+                                        wordBreak: 'break-all',
+                                    }}>
+                                        {detailInstance.errorMessage}
+                                    </div>
+                                </div>
+                            )}
+                            <div>
+                                <Text type="secondary">SQL 内容</Text>
+                                <pre style={{
+                                    background: '#f6f8fa',
+                                    borderRadius: 4,
+                                    padding: 12,
+                                    fontSize: 12,
+                                    overflow: 'auto',
+                                    maxHeight: 300,
+                                }}>
+                                    {detailInstance.sqlContent}
+                                </pre>
+                            </div>
+                            {detailInstance.resultData && (
+                                <div>
+                                    <Text type="secondary">结果数据</Text>
+                                    <pre style={{
+                                        background: '#f6f8fa',
+                                        borderRadius: 4,
+                                        padding: 12,
+                                        fontSize: 12,
+                                        overflow: 'auto',
+                                        maxHeight: 300,
+                                    }}>
+                                        {detailInstance.resultData}
+                                    </pre>
+                                </div>
+                            )}
+                        </Space>
+                    )}
+                </Spin>
+            </Drawer>
+        </div>
+    );
+};
+
+export default JobInstancePage;

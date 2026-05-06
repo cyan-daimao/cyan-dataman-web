@@ -123,7 +123,7 @@ const MetricsDashboard: React.FC = () => {
 
             <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
                 <Col xs={24} lg={12}>
-                    <Card title="主题域分布" bordered={false}>
+                    <Card title="主题域分布" variant="borderless">
                         {stats.subjectDistribution.length === 0 ? (
                             <Empty description="暂无主题域分布数据" />
                         ) : (
@@ -147,7 +147,7 @@ const MetricsDashboard: React.FC = () => {
                 </Col>
 
                 <Col xs={24} lg={12}>
-                    <Card title="最近更新动态" bordered={false}>
+                    <Card title="最近更新动态" variant="borderless">
                         {stats.recentUpdates.length === 0 ? (
                             <Empty description="暂无更新动态" />
                         ) : (

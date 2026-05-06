@@ -18,9 +18,11 @@ import {
     FolderOutlined,
     FolderOpenOutlined,
     FileOutlined,
+    LinkOutlined,
 } from '@ant-design/icons';
-import { DataWorkTaskDTO, pageDataWorkTasks } from '@/api/DataworksApi.ts';
-import { pageTaskExecutions, ExecutionRecordDTO } from '@/api/DataworksApi.ts';
+import { useNavigate } from 'react-router-dom';
+import { JobDTO, pageJobs, pageAllJobInstances } from '@/api/DataworksApi.ts';
+import { pageJobInstances, JobInstanceDTO } from '@/api/DataworksApi.ts';
 import Sidebar, { TableInfoWithColumns } from '@/pages/sql-editor/components/Sidebar';
 
 const { Text } = Typography;
@@ -31,9 +33,10 @@ interface LeftSidebarProps {
     currentTaskId?: string;
     onTableSelect: (table: TableInfoWithColumns, shouldAppend: boolean) => void;
     onTableListLoaded?: (tables: Array<{ name: string; title: string }>) => void;
-    onTaskSelect: (task: DataWorkTaskDTO) => void;
-    onHistorySelect?: (record: ExecutionRecordDTO) => void;
+    onTaskSelect: (task: JobDTO) => void;
+    onHistorySelect?: (record: JobInstanceDTO) => void;
     onNewTask: () => void;
+    refreshTrigger?: number;
 }
 
 // 目录树节点
@@ -42,7 +45,7 @@ interface TreeNode {
     title: string;
     type: 'folder' | 'task';
     children?: TreeNode[];
-    task?: DataWorkTaskDTO;
+    task?: JobDTO;
     icon?: React.ReactNode;
 }
 
@@ -54,23 +57,25 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
     onTaskSelect,
     onHistorySelect,
     onNewTask,
+    refreshTrigger,
 }) => {
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('tasks');
 
     // 任务列表状态
     const [taskLoading, setTaskLoading] = useState(false);
-    const [tasks, setTasks] = useState<DataWorkTaskDTO[]>([]);
+    const [tasks, setTasks] = useState<JobDTO[]>([]);
     const [taskSearch, setTaskSearch] = useState('');
 
     // 执行历史状态
     const [historyLoading, setHistoryLoading] = useState(false);
-    const [historyRecords, setHistoryRecords] = useState<ExecutionRecordDTO[]>([]);
+    const [historyRecords, setHistoryRecords] = useState<JobInstanceDTO[]>([]);
 
     // 加载任务列表
     const loadTasks = useCallback(async (name?: string) => {
         setTaskLoading(true);
         try {
-            const resp = await pageDataWorkTasks({
+            const resp = await pageJobs({
                 current: 1,
                 size: 50,
                 name: name || undefined,
@@ -87,11 +92,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
     const loadHistory = useCallback(async () => {
         setHistoryLoading(true);
         try {
-            if (!currentTaskId) {
-                setHistoryRecords([]);
-                return;
+            let resp;
+            if (currentTaskId) {
+                resp = await pageJobInstances(currentTaskId, { current: 1, size: 20 });
+            } else {
+                resp = await pageAllJobInstances({ current: 1, size: 20 });
             }
-            const resp = await pageTaskExecutions(currentTaskId, { current: 1, size: 20 });
             setHistoryRecords(resp.data || []);
         } catch {
             // 错误由拦截器处理
@@ -116,6 +122,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
         }, 300);
         return () => clearTimeout(timer);
     }, [taskSearch, loadTasks]);
+
+    useEffect(() => {
+        if (refreshTrigger !== undefined) {
+            loadTasks(taskSearch);
+        }
+    }, [refreshTrigger, loadTasks, taskSearch]);
 
     // 将任务列表转换为目录树（按状态分组）
     const taskTreeData: TreeNode[] = [
@@ -174,6 +186,32 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
         }
     };
 
+    // 自定义树节点标题：任务节点右侧增加"实例"跳转链接
+    const titleRender = (nodeData: any) => {
+        const node = nodeData as TreeNode;
+        if (node.type === 'task' && node.task) {
+            return (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {node.title}
+                    </span>
+                    <Button
+                        type="text"
+                        size="small"
+                        style={{ padding: '0 4px', minWidth: 20, height: 20, marginLeft: 4 }}
+                        icon={<LinkOutlined style={{ fontSize: 11 }} />}
+                        title="查看实例"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/data-work/jobs/${node.task!.id}/instances`);
+                        }}
+                    />
+                </div>
+            );
+        }
+        return <span>{node.title}</span>;
+    };
+
     const tabItems = [
         {
             key: 'tasks',
@@ -215,6 +253,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
                                     onSelect={handleTreeSelect}
                                     selectedKeys={currentTaskId ? [currentTaskId] : []}
                                     style={{ fontSize: 13 }}
+                                    titleRender={titleRender}
                                 />
                             ) : (
                                 <Empty description="暂无任务" image={Empty.PRESENTED_IMAGE_SIMPLE} />
@@ -291,7 +330,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
                             />
                         ) : (
                             <Empty
-                                description={currentTaskId ? '暂无执行记录' : '请先选择或创建任务'}
+                                description="暂无执行记录"
                                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                             />
                         )}

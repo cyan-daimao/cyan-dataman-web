@@ -21,6 +21,7 @@ const MetricsConfig = React.lazy(() => import((`@/pages/metrics/config/index.tsx
 const MetricsDimension = React.lazy(() => import((`@/pages/metrics/dimension/index.tsx`)))
 const SQLEditor = React.lazy(() => import((`@/pages/sql-editor/index.tsx`)))
 const DataWork = React.lazy(() => import((`@/pages/data-work/index.tsx`)))
+const JobInstancePage = React.lazy(() => import((`@/pages/data-work/JobInstancePage.tsx`)))
 
 
 // 业务数据库模块
@@ -187,6 +188,9 @@ const routes = createBrowserRouter([
             }, {
                 path: "data-work",
                 element: <DataWork/>,
+            }, {
+                path: "data-work/jobs/:jobId/instances",
+                element: <JobInstancePage/>,
             }, {
                 path: "bi",
                 element: <BiLayout/>,

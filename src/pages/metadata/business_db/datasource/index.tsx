@@ -279,7 +279,7 @@ const DatasourceManagement: React.FC = () => {
                     borderRadius: 12,
                     boxShadow: '0 2px 8px rgba(29, 35, 51, 0.03)',
                 }}
-                bodyStyle={{ padding: '16px 20px' }}
+                styles={{ body: { padding: '16px 20px' } }}
             >
                 <Row justify="space-between" align="middle">
                     <Col>
@@ -315,7 +315,7 @@ const DatasourceManagement: React.FC = () => {
                     boxShadow: '0 2px 8px rgba(29, 35, 51, 0.03)',
                     overflow: 'hidden',
                 }}
-                bodyStyle={{ padding: 0 }}
+                styles={{ body: { padding: 0 } }}
             >
                 <Table
                     columns={columns}

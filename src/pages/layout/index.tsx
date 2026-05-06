@@ -126,13 +126,13 @@ const App: React.FC = () => {
                                 key={item.key}
                                 onClick={() => handleNavClick(item.key)}
                                 style={{
-                                    padding: '8px 16px',
+                                    padding: '6px 16px',
                                     borderRadius: 6,
                                     cursor: 'pointer',
                                     fontSize: 14,
                                     fontWeight: isActive ? 600 : 400,
                                     color: isActive ? '#4F6DF5' : '#4E5566',
-                                    background: isActive ? '#EEF1FF' : 'transparent',
+                                    background: 'transparent',
                                     transition: 'all 0.2s ease',
                                     whiteSpace: 'nowrap',
                                     userSelect: 'none',
@@ -140,31 +140,16 @@ const App: React.FC = () => {
                                 }}
                                 onMouseEnter={(e) => {
                                     if (!isActive) {
-                                        e.currentTarget.style.background = '#F4F6FA';
                                         e.currentTarget.style.color = '#4F6DF5';
                                     }
                                 }}
                                 onMouseLeave={(e) => {
                                     if (!isActive) {
-                                        e.currentTarget.style.background = 'transparent';
                                         e.currentTarget.style.color = '#4E5566';
                                     }
                                 }}
                             >
                                 {item.label}
-                                {isActive && (
-                                    <div
-                                        style={{
-                                            position: 'absolute',
-                                            bottom: -2,
-                                            left: 12,
-                                            right: 12,
-                                            height: 2,
-                                            borderRadius: 1,
-                                            background: '#4F6DF5',
-                                        }}
-                                    />
-                                )}
                             </div>
                         );
                     })}
@@ -225,7 +210,7 @@ const App: React.FC = () => {
                     display: 'flex',
                     flexDirection: 'column',
                     minHeight: 0,
-                    padding: 16,
+                    padding: '16',
                     background: '#F8F9FA',
                 }}
             >

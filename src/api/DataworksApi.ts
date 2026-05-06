@@ -24,7 +24,7 @@ export interface DataWorkTaskDTO {
  */
 export interface ScheduleConfigDTO {
     id: string;
-    taskId: string;
+    jobId: string;
     cronExpression: string;
     enabled: boolean;
     nextExecuteTime?: string;
@@ -121,18 +121,18 @@ export const deleteDataWorkTask = async (id: string): Promise<Response<void>> =>
 // ==================== 调度配置 API ====================
 
 /**
- * 获取任务调度配置
+ * 获取作业调度配置
  */
-export const getTaskSchedule = async (taskId: string): Promise<ScheduleConfigDTO> => {
-    const resp = await dataworksRequest.get(`/api/v1/data-work/tasks/${taskId}/schedule`);
+export const getJobSchedule = async (jobId: string): Promise<ScheduleConfigDTO> => {
+    const resp = await dataworksRequest.get(`/api/v1/data-work/jobs/${jobId}/schedule`);
     return resp.data;
 };
 
 /**
- * 保存任务调度配置
+ * 保存作业调度配置
  */
-export const saveTaskSchedule = async (taskId: string, body: { cronExpression: string; enabled: boolean }): Promise<Response<ScheduleConfigDTO>> => {
-    return await dataworksRequest.put(`/api/v1/data-work/tasks/${taskId}/schedule`, body);
+export const saveJobSchedule = async (jobId: string, body: { cronExpression: string; enabled: boolean }): Promise<Response<ScheduleConfigDTO>> => {
+    return await dataworksRequest.put(`/api/v1/data-work/jobs/${jobId}/schedule`, body);
 };
 
 // ==================== 执行 API ====================
@@ -156,9 +156,139 @@ export const pageTaskExecutions = async (taskId: string, query: ExecutionPageQue
 };
 
 /**
+ * 分页查询全部执行记录
+ */
+export const pageAllExecutions = async (query: ExecutionPageQuery): Promise<Page<ExecutionRecordDTO>> => {
+    const config: AxiosRequestConfig = {
+        params: query
+    };
+    const resp = await dataworksRequest.get('/api/v1/data-work/executions', config);
+    return resp.data;
+};
+
+/**
  * 获取执行记录详情
  */
 export const getExecutionRecord = async (id: string): Promise<ExecutionRecordDTO> => {
     const resp = await dataworksRequest.get(`/api/v1/data-work/executions/${id}`);
     return resp.data;
+};
+
+// ==================== Job / JobInstance API（新领域模型） ====================
+
+/**
+ * 数据加工作业 DTO
+ */
+export interface JobDTO {
+    id: string;
+    folderId?: number;
+    name: string;
+    description?: string;
+    engineType: 'SPARK' | 'FLINK';
+    sqlContent: string;
+    status: 'DRAFT' | 'ONLINE' | 'OFFLINE';
+    createdBy?: string;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+/**
+ * 数据加工作业实例 DTO
+ */
+export interface JobInstanceDTO {
+    id: string;
+    jobId: string;
+    jobName: string;
+    engineType: 'SPARK' | 'FLINK';
+    sqlContent: string;
+    status: 'RUNNING' | 'SUCCESS' | 'FAILED';
+    costTimeMs?: number;
+    resultData?: string;
+    errorMessage?: string;
+    createdAt?: string;
+}
+
+/**
+ * 分页查询作业列表
+ */
+export const pageJobs = async (query: { name?: string; engineType?: string; folderId?: number; current?: number; size?: number }): Promise<Page<JobDTO>> => {
+    const config: AxiosRequestConfig = { params: query };
+    const resp = await dataworksRequest.get('/api/v1/data-work/jobs', config);
+    return resp.data;
+};
+
+/**
+ * 获取作业详情
+ */
+export const getJob = async (id: string): Promise<JobDTO> => {
+    const resp = await dataworksRequest.get(`/api/v1/data-work/jobs/${id}`);
+    return resp.data;
+};
+
+/**
+ * 创建作业
+ */
+export const createJob = async (body: Omit<JobDTO, 'id' | 'status' | 'createdBy' | 'createdAt' | 'updatedAt'>): Promise<Response<JobDTO>> => {
+    return await dataworksRequest.post('/api/v1/data-work/jobs', body);
+};
+
+/**
+ * 更新作业
+ */
+export const updateJob = async (id: string, body: Omit<JobDTO, 'id' | 'status' | 'createdBy' | 'createdAt' | 'updatedAt'>): Promise<Response<JobDTO>> => {
+    return await dataworksRequest.put(`/api/v1/data-work/jobs/${id}`, body);
+};
+
+/**
+ * 删除作业
+ */
+export const deleteJob = async (id: string): Promise<Response<void>> => {
+    return await dataworksRequest.delete(`/api/v1/data-work/jobs/${id}`);
+};
+
+/**
+ * 手动执行作业，生成实例
+ */
+export const executeJob = async (jobId: string): Promise<Response<JobInstanceDTO>> => {
+    return await dataworksRequest.post(`/api/v1/data-work/jobs/${jobId}/execute`);
+};
+
+/**
+ * 分页查询作业实例（按作业）
+ */
+export const pageJobInstances = async (jobId: string, query: { status?: string; current?: number; size?: number }): Promise<Page<JobInstanceDTO>> => {
+    const config: AxiosRequestConfig = { params: query };
+    const resp = await dataworksRequest.get(`/api/v1/data-work/jobs/${jobId}/instances`, config);
+    return resp.data;
+};
+
+/**
+ * 分页查询全部实例
+ */
+export const pageAllJobInstances = async (query: { status?: string; current?: number; size?: number }): Promise<Page<JobInstanceDTO>> => {
+    const config: AxiosRequestConfig = { params: query };
+    const resp = await dataworksRequest.get('/api/v1/data-work/instances', config);
+    return resp.data;
+};
+
+/**
+ * 获取实例详情
+ */
+export const getJobInstance = async (id: string): Promise<JobInstanceDTO> => {
+    const resp = await dataworksRequest.get(`/api/v1/data-work/instances/${id}`);
+    return resp.data;
+};
+
+/**
+ * 重试实例
+ */
+export const retryJobInstance = async (id: string): Promise<Response<JobInstanceDTO>> => {
+    return await dataworksRequest.post(`/api/v1/data-work/instances/${id}/retry`);
+};
+
+/**
+ * 终止实例
+ */
+export const terminateJobInstance = async (id: string): Promise<Response<JobInstanceDTO>> => {
+    return await dataworksRequest.post(`/api/v1/data-work/instances/${id}/terminate`);
 };

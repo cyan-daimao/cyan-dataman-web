@@ -9,12 +9,14 @@ import {
     Space,
     Switch,
     Tag,
+    Popconfirm,
 } from 'antd';
 import {
     SaveOutlined,
     PlayCircleOutlined,
     ThunderboltOutlined,
     CloseOutlined,
+    DeleteOutlined,
 } from '@ant-design/icons';
 
 const engineOptions = [
@@ -36,34 +38,38 @@ interface ScheduleProps {
 type PanelType = 'property' | 'schedule' | 'version' | 'settings' | null;
 
 interface RightSidebarProps {
-    taskId?: string;
+    jobId?: string;
     task: TaskProps;
     schedule: ScheduleProps;
     onTaskChange: (task: TaskProps) => void;
     onScheduleChange: (schedule: ScheduleProps) => void;
     onSave: () => void;
     onExecute: () => void;
+    onDelete?: () => void;
     saving?: boolean;
     executing?: boolean;
+    deleting?: boolean;
     activePanel: PanelType;
     panelWidth: number;
     onActivePanelChange: (panel: PanelType) => void;
 }
 
 const RightSidebar: React.FC<RightSidebarProps> = ({
-    taskId,
+    jobId,
     task,
     schedule,
     onTaskChange,
     onScheduleChange,
     onSave,
     onExecute,
+    onDelete,
     saving = false,
     executing = false,
+    deleting = false,
     activePanel,
     onActivePanelChange,
 }) => {
-    const isNew = !taskId;
+    const isNew = !jobId;
 
     const PropertyPanel = (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -79,7 +85,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                 {isNew ? <Tag color="orange">未保存</Tag> : <Tag color="blue">已保存</Tag>}
             </div>
             <div style={{ flex: 1, overflow: 'auto', padding: '12px 16px' }}>
-                <Card size="small" title="基本信息" bordered={false} style={{ marginBottom: 12 }} bodyStyle={{ padding: '12px 0' }}>
+                <Card size="small" title="基本信息" variant="borderless" style={{ marginBottom: 12 }} styles={{ body: { padding: '12px 0' } }}>
                     <Form layout="vertical" size="small">
                         <Form.Item label="任务名称" required>
                             <Input
@@ -115,7 +121,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
 
                 <Divider style={{ margin: '8px 0' }} />
 
-                <Card size="small" title={<span><ThunderboltOutlined style={{ marginRight: 6 }} />调度配置</span>} bordered={false} style={{ marginBottom: 12 }} bodyStyle={{ padding: '12px 0' }}>
+                <Card size="small" title={<span><ThunderboltOutlined style={{ marginRight: 6 }} />调度配置</span>} variant="borderless" style={{ marginBottom: 12 }} styles={{ body: { padding: '12px 0' } }}>
                     <Form layout="vertical" size="small">
                         <Form.Item label="Cron 表达式" extra={<span style={{ fontSize: 11, color: '#999' }}>例如: 0 0 2 * * ?（每天凌晨2点）</span>}>
                             <Input
@@ -143,6 +149,20 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                     <Button icon={<PlayCircleOutlined />} loading={executing} onClick={onExecute} block>
                         立即执行
                     </Button>
+                    {!isNew && onDelete && (
+                        <Popconfirm
+                            title="删除任务"
+                            description="确定要删除该任务吗？删除后不可恢复。"
+                            onConfirm={onDelete}
+                            okText="删除"
+                            cancelText="取消"
+                            okButtonProps={{ danger: true, loading: deleting }}
+                        >
+                            <Button danger icon={<DeleteOutlined />} loading={deleting} block>
+                                删除任务
+                            </Button>
+                        </Popconfirm>
+                    )}
                 </Space>
             </div>
         </div>

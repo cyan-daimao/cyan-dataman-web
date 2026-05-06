@@ -79,6 +79,7 @@ const createRequest = (service = 'dataman') => {
     request.interceptors.response.use((response) => {
             if (response.data.code !== 200) {
                 message.error(response.data.message || '操作失败').then()
+                return Promise.reject(new Error(response.data.message || '操作失败'));
             }
             return response.data;
         },

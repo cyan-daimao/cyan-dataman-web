@@ -306,7 +306,7 @@ const MetricsDictionary: React.FC = () => {
             <Card
                 title="主题域"
                 style={{ width: 260, minWidth: 260, overflow: 'auto' }}
-                bodyStyle={{ padding: '12px' }}
+                styles={{ body: { padding: '12px' } }}
             >
                 <Button
                     type={selectedSubject === undefined ? 'primary' : 'default'}

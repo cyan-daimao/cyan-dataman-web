@@ -142,23 +142,21 @@ body {
   }
 }
 
-/* 按钮：主按钮渐变效果 */
+/* 按钮：主按钮 */
 .ant-btn-primary {
-  background: linear-gradient(135deg, #4F6DF5 0%, #3D5BD9 100%);
+  background: #4F6DF5;
   border: none;
   box-shadow: 0 2px 8px rgba(79, 109, 245, 0.25);
   font-weight: 500;
-  transition: all 0.25s ease;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 
   &:hover {
-    background: linear-gradient(135deg, #5A7AF7 0%, #4A68E8 100%);
+    background: #3D5BD9;
     box-shadow: 0 4px 12px rgba(79, 109, 245, 0.35);
-    transform: translateY(-1px);
   }
 
   &:active {
-    background: linear-gradient(135deg, #3D5BD9 0%, #2F4ABF 100%);
-    transform: translateY(0);
+    background: #2F4ABF;
     box-shadow: 0 1px 4px rgba(79, 109, 245, 0.2);
   }
 }

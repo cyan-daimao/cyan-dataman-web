@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {Alert, Card, Pagination, Space, Spin, Table, TableProps, Tag, Typography} from "antd";
+import {Alert, Card, Col, Pagination, Space, Spin, Table, TableProps, Tag, Typography} from "antd";
 import {ReloadOutlined} from "@ant-design/icons";
 import {ColumnVO} from "../../../../api/MetadataTableAPI";
 import {previewTableData} from "../../../../api/DataSourceApi";
@@ -57,8 +57,10 @@ const DataPreview: React.FC<DataPreviewProps> = ({columns, catalog, schema, tabl
     const tableColumns: TableProps<Record<string, any>>["columns"] = columns?.map((col) => ({
         title: (
             <Space direction="vertical" size={0}>
-                <Text strong>{col.name}</Text>
-                <Tag color="blue" style={{fontSize: 10}}>{col.type}</Tag>
+                <Col>
+                    <Text strong>{col.name}</Text>
+                    <Tag color="blue" style={{fontSize: 10}}>{col.type}</Tag>
+                </Col>
             </Space>
         ),
         dataIndex: col.name,
@@ -85,7 +87,7 @@ const DataPreview: React.FC<DataPreviewProps> = ({columns, catalog, schema, tabl
     };
 
     return (
-        <Card 
+        <Card
             size="small"
             title={
                 <Space>
@@ -101,13 +103,13 @@ const DataPreview: React.FC<DataPreviewProps> = ({columns, catalog, schema, tabl
                 </Space>
             }
         >
-            <Alert 
-                message="数据预览最多展示前 100 条记录，仅供参考" 
-                type="info" 
-                showIcon 
+            <Alert
+                message="数据预览最多展示前 100 条记录，仅供参考"
+                type="info"
+                showIcon
                 style={{marginBottom: 16}}
             />
-            
+
             <Spin spinning={loading}>
                 <Table
                     dataSource={previewData.rows}
@@ -115,10 +117,10 @@ const DataPreview: React.FC<DataPreviewProps> = ({columns, catalog, schema, tabl
                     rowKey={(_, index) => `row_${index}`}
                     size="small"
                     pagination={false}
-                    scroll={{x: 'max-content', y: 400}}
+                    scroll={{x: 'max-content', y: 500}}
                     bordered
                 />
-                
+
                 <div style={{marginTop: 16, textAlign: 'right'}}>
                     <Pagination
                         current={currentPage}

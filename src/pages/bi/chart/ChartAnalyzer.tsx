@@ -360,7 +360,7 @@ const ChartAnalyzer: React.FC = () => {
                     title="字段列表"
                     size="small"
                     style={{ width: 220, flexShrink: 0, overflow: 'auto' }}
-                    bodyStyle={{ padding: 8 }}
+                    styles={{ body: { padding: 8 } }}
                 >
                     <div style={{ marginBottom: 8, fontWeight: 'bold', color: '#1890ff' }}>维度</div>
                     {dimensionFields.length === 0 && <div style={{ color: '#999', fontSize: 12 }}>暂无维度字段</div>}
@@ -407,7 +407,7 @@ const ChartAnalyzer: React.FC = () => {
                     title="分析配置"
                     size="small"
                     style={{ flex: 1, minWidth: 280, overflow: 'auto' }}
-                    bodyStyle={{ padding: 12 }}
+                    styles={{ body: { padding: 12 } }}
                 >
                     {/* 维度区域 */}
                     <div
@@ -573,7 +573,7 @@ const ChartAnalyzer: React.FC = () => {
                     title="可视化"
                     size="small"
                     style={{ flex: 1.5, minWidth: 320, overflow: 'auto' }}
-                    bodyStyle={{ padding: 12 }}
+                    styles={{ body: { padding: 12 } }}
                     extra={
                         <Select
                             size="small"

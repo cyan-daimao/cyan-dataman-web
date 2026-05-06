@@ -766,7 +766,7 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
                                     <Card
                                         key={index}
                                         size="small"
-                                        bodyStyle={{padding: '8px 12px'}}
+                                        styles={{ body: { padding: '8px 12px' } }}
                                     >
                                         <Space style={{width: '100%', justifyContent: 'space-between'}}>
                                             <Space>

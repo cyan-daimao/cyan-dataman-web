@@ -83,7 +83,14 @@ const App: React.FC = () => {
 
     const selectedKeys = useMemo(() => {
         const key = pathToKeyMap[location.pathname];
-        return key ? [key] : ['bd-datasource'];
+        if (key) return [key];
+        // 前缀匹配，支持详情/编辑等子路由
+        for (const [path, k] of Object.entries(pathToKeyMap)) {
+            if (location.pathname.startsWith(path + '/')) {
+                return [k];
+            }
+        }
+        return ['bd-datasource'];
     }, [location.pathname]);
 
     const handleOpenChange: MenuProps['onOpenChange'] = (keys) => {
