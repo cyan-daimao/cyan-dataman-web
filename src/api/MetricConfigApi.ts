@@ -42,6 +42,7 @@ export interface TimePeriodDTO {
 }
 
 export interface TimePeriodCmd {
+    periodCode?: string;
     periodName: string;
     periodType: PeriodType;
     relativeValue?: number;

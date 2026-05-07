@@ -12,25 +12,25 @@ export interface MetricBiAnalysisCmd {
 }
 
 export interface MetricRef {
-  metricId: string;
+  metricCode: string;
   alias?: string;
 }
 
 export interface DimensionRef {
-  dimId: string;
+  dimCode: string;
   alias?: string;
 }
 
 export interface FilterRef {
-  metricId?: string;
-  dimId?: string;
+  metricCode?: string;
+  dimCode?: string;
   operator: FilterOperator;
   values: string[];
 }
 
 export interface OrderRef {
-  metricId?: string;
-  dimId?: string;
+  metricCode?: string;
+  dimCode?: string;
   direction: OrderDirection;
 }
 

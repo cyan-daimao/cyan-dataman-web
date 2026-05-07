@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Button,
     Card,
@@ -21,6 +21,7 @@ import {
     EyeOutlined,
     PlusOutlined,
     DeleteOutlined,
+    SearchOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
@@ -94,6 +95,12 @@ const ChartAnalyzer: React.FC = () => {
 
     // 用于编辑模式恢复（等待列表加载完成）
     const [pendingMetricCmd, setPendingMetricCmd] = useState<MetricBiAnalysisCmd | null>(null);
+
+    // 搜索状态
+    const [metricSearch, setMetricSearch] = useState('');
+    const [dimSearch, setDimSearch] = useState('');
+    const metricSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const dimSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // ========== 初始化加载指标/维度列表 ==========
     useEffect(() => {
@@ -170,10 +177,10 @@ const ChartAnalyzer: React.FC = () => {
         if (pendingMetricCmd && metricsList.length > 0 && dimensionsList.length > 0) {
             const cmd = pendingMetricCmd;
             const restoredMetrics = cmd.metrics
-                .map((m) => metricsList.find((ml) => ml.id === m.metricId))
+                .map((m) => metricsList.find((ml) => ml.metricCode === m.metricCode))
                 .filter(Boolean) as MetricBiListItem[];
             const restoredDimensions = cmd.dimensions
-                .map((d) => dimensionsList.find((dl) => dl.id === d.dimId))
+                .map((d) => dimensionsList.find((dl) => dl.dimCode === d.dimCode))
                 .filter(Boolean) as DimensionBiListItem[];
             setSelectedMetrics(restoredMetrics);
             setSelectedDimensions(restoredDimensions);
@@ -181,13 +188,13 @@ const ChartAnalyzer: React.FC = () => {
             // 恢复过滤条件（字段名映射回名称）
             if (cmd.filters && cmd.filters.length > 0) {
                 const restoredFilters = cmd.filters.map((f) => {
-                    if (f.metricId) {
-                        const m = metricsList.find((ml) => ml.id === f.metricId);
-                        return { field: m?.metricName || f.metricId, operator: f.operator, values: f.values };
+                    if (f.metricCode) {
+                        const m = metricsList.find((ml) => ml.metricCode === f.metricCode);
+                        return { field: m?.metricName || f.metricCode, operator: f.operator, values: f.values };
                     }
-                    if (f.dimId) {
-                        const d = dimensionsList.find((dl) => dl.id === f.dimId);
-                        return { field: d?.dimName || f.dimId, operator: f.operator, values: f.values };
+                    if (f.dimCode) {
+                        const d = dimensionsList.find((dl) => dl.dimCode === f.dimCode);
+                        return { field: d?.dimName || f.dimCode, operator: f.operator, values: f.values };
                     }
                     return { field: '', operator: f.operator, values: f.values };
                 });
@@ -197,13 +204,13 @@ const ChartAnalyzer: React.FC = () => {
             // 恢复排序
             if (cmd.orders && cmd.orders.length > 0) {
                 const restoredOrders = cmd.orders.map((o) => {
-                    if (o.metricId) {
-                        const m = metricsList.find((ml) => ml.id === o.metricId);
-                        return { field: m?.metricName || o.metricId, direction: o.direction };
+                    if (o.metricCode) {
+                        const m = metricsList.find((ml) => ml.metricCode === o.metricCode);
+                        return { field: m?.metricName || o.metricCode, direction: o.direction };
                     }
-                    if (o.dimId) {
-                        const d = dimensionsList.find((dl) => dl.id === o.dimId);
-                        return { field: d?.dimName || o.dimId, direction: o.direction };
+                    if (o.dimCode) {
+                        const d = dimensionsList.find((dl) => dl.dimCode === o.dimCode);
+                        return { field: d?.dimName || o.dimCode, direction: o.direction };
                     }
                     return { field: '', direction: o.direction };
                 });
@@ -213,6 +220,39 @@ const ChartAnalyzer: React.FC = () => {
             setPendingMetricCmd(null);
         }
     }, [pendingMetricCmd, metricsList, dimensionsList]);
+
+    // ========== 搜索 ==========
+    const doSearchMetrics = async (keyword: string) => {
+        setListLoading(true);
+        try {
+            const res = await metricBiListApi.list({ name: keyword || undefined });
+            if (res.code === 200) {
+                setMetricsList(res.data);
+            } else {
+                message.error(res.message || '搜索指标失败');
+            }
+        } catch {
+            message.error('搜索指标失败');
+        } finally {
+            setListLoading(false);
+        }
+    };
+
+    const doSearchDimensions = async (keyword: string) => {
+        setListLoading(true);
+        try {
+            const res = await dimensionBiListApi.list({ name: keyword || undefined });
+            if (res.code === 200) {
+                setDimensionsList(res.data);
+            } else {
+                message.error(res.message || '搜索维度失败');
+            }
+        } catch {
+            message.error('搜索维度失败');
+        } finally {
+            setListLoading(false);
+        }
+    };
 
     // ========== 兼容模式：切换数据集 ==========
     const handleDatasetChange = (id: string) => {
@@ -320,20 +360,20 @@ const ChartAnalyzer: React.FC = () => {
     const buildMetricCmd = (): MetricBiAnalysisCmd => {
         return {
             chartType,
-            metrics: selectedMetrics.map((m) => ({ metricId: m.id, alias: m.metricName })),
-            dimensions: selectedDimensions.map((d) => ({ dimId: d.id, alias: d.dimName })),
+            metrics: selectedMetrics.map((m) => ({ metricCode: m.metricCode, alias: m.metricName })),
+            dimensions: selectedDimensions.map((d) => ({ dimCode: d.dimCode, alias: d.dimName })),
             filters: filters.map((f) => {
                 const metric = selectedMetrics.find((m) => m.metricName === f.field);
-                if (metric) return { metricId: metric.id, operator: f.operator, values: f.values };
+                if (metric) return { metricCode: metric.metricCode, operator: f.operator, values: f.values };
                 const dim = selectedDimensions.find((d) => d.dimName === f.field);
-                if (dim) return { dimId: dim.id, operator: f.operator, values: f.values };
+                if (dim) return { dimCode: dim.dimCode, operator: f.operator, values: f.values };
                 return { operator: f.operator, values: f.values };
             }),
             orders: orders.map((o) => {
                 const metric = selectedMetrics.find((m) => m.metricName === o.field);
-                if (metric) return { metricId: metric.id, direction: o.direction };
+                if (metric) return { metricCode: metric.metricCode, direction: o.direction };
                 const dim = selectedDimensions.find((d) => d.dimName === o.field);
-                if (dim) return { dimId: dim.id, direction: o.direction };
+                if (dim) return { dimCode: dim.dimCode, direction: o.direction };
                 return { direction: o.direction };
             }),
             limitValue,
@@ -688,7 +728,27 @@ const ChartAnalyzer: React.FC = () => {
                     ) : (
                         // 指标模式：指标库 + 维度库
                         <>
-                            <div style={{ marginBottom: 8, fontWeight: 'bold', color: '#1890ff' }}>指标库</div>
+                            <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ fontWeight: 'bold', color: '#1890ff' }}>指标库</span>
+                                <Input
+                                    size="small"
+                                    placeholder="搜索"
+                                    value={metricSearch}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        setMetricSearch(value);
+                                        if (metricSearchTimer.current) {
+                                            clearTimeout(metricSearchTimer.current);
+                                        }
+                                        metricSearchTimer.current = setTimeout(() => {
+                                            doSearchMetrics(value);
+                                        }, 300);
+                                    }}
+                                    prefix={<SearchOutlined />}
+                                    allowClear
+                                    style={{ width: 90 }}
+                                />
+                            </div>
                             {metricsList.length === 0 && !listLoading && (
                                 <div style={{ color: '#999', fontSize: 12 }}>暂无指标</div>
                             )}
@@ -728,7 +788,27 @@ const ChartAnalyzer: React.FC = () => {
                                 </div>
                             ))}
 
-                            <div style={{ marginTop: 12, marginBottom: 8, fontWeight: 'bold', color: '#52c41a' }}>维度库</div>
+                            <div style={{ marginTop: 12, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ fontWeight: 'bold', color: '#52c41a' }}>维度库</span>
+                                <Input
+                                    size="small"
+                                    placeholder="搜索"
+                                    value={dimSearch}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        setDimSearch(value);
+                                        if (dimSearchTimer.current) {
+                                            clearTimeout(dimSearchTimer.current);
+                                        }
+                                        dimSearchTimer.current = setTimeout(() => {
+                                            doSearchDimensions(value);
+                                        }, 300);
+                                    }}
+                                    prefix={<SearchOutlined />}
+                                    allowClear
+                                    style={{ width: 90 }}
+                                />
+                            </div>
                             {dimensionsList.length === 0 && !listLoading && (
                                 <div style={{ color: '#999', fontSize: 12 }}>暂无维度</div>
                             )}
@@ -786,6 +866,7 @@ const ChartAnalyzer: React.FC = () => {
                                               next.splice(i, 1);
                                               setDimensions(next);
                                           }}
+                                          style={{ backgroundColor: '#f6ffed', borderColor: 'transparent' }}
                                       >
                                           {d.field}
                                       </Tag>
@@ -799,6 +880,7 @@ const ChartAnalyzer: React.FC = () => {
                                               next.splice(i, 1);
                                               setSelectedDimensions(next);
                                           }}
+                                          style={{ backgroundColor: '#f6ffed', borderColor: 'transparent' }}
                                       >
                                           {d.dimName}
                                       </Tag>
@@ -836,6 +918,7 @@ const ChartAnalyzer: React.FC = () => {
                                                   next.splice(i, 1);
                                                   setMetrics(next);
                                               }}
+                                          style={{ backgroundColor: '#e6f7ff', borderColor: 'transparent' }}
                                           >
                                               {m.field}
                                           </Tag>
@@ -861,6 +944,7 @@ const ChartAnalyzer: React.FC = () => {
                                                   next.splice(i, 1);
                                                   setSelectedMetrics(next);
                                               }}
+                                          style={{ backgroundColor: '#e6f7ff', borderColor: 'transparent' }}
                                           >
                                               {m.metricName}
                                               {m.statFunc && (

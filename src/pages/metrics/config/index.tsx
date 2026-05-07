@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     Tabs, Table, Button, Space, Modal, Form, Input, Select, InputNumber, message,
-    Empty, Popconfirm, Tag, Tree, TreeSelect, Spin, Typography, Card,
+    Empty, Popconfirm, Tag, Tree, TreeSelect, Spin, Typography, Card, DatePicker,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import {
@@ -9,6 +9,7 @@ import {
     TimePeriodApi, TimePeriodDTO, TimePeriodCmd,
 } from '@/api/MetricConfigApi';
 import { PeriodType, RelativeUnit } from '@/api/MetricApi';
+import dayjs from 'dayjs';
 import { MetricSubjectApi, MetricSubject, MetricSubjectCmd } from '@/api/MetricSubjectApi';
 
 const { TabPane } = Tabs;
@@ -92,7 +93,6 @@ const ModifierManager: React.FC = () => {
         {
             title: '操作',
             key: 'action',
-            width: 150,
             render: (_: unknown, record: ModifierDTO) => (
                 <Space>
                     <Button
@@ -320,6 +320,13 @@ const TimePeriodManager: React.FC = () => {
                 destroyOnClose
             >
                 <Form form={form} onFinish={handleSave} layout="vertical">
+                    <Form.Item
+                        name="periodCode"
+                        label="周期编码"
+                        rules={[{ required: true, message: '请输入周期编码' }]}
+                    >
+                        <Input placeholder="如：LAST_7D" disabled={!!editing} />
+                    </Form.Item>
                     <Form.Item name="periodName" label="周期名称" rules={[{ required: true }]}>
                         <Input placeholder="如：近7天" />
                     </Form.Item>
@@ -346,11 +353,23 @@ const TimePeriodManager: React.FC = () => {
                     )}
                     {periodType === PeriodType.ABSOLUTE && (
                         <>
-                            <Form.Item name="startDate" label="开始日期" rules={[{ required: true }]}>
-                                <Input type="date" />
+                            <Form.Item
+                                name="startDate"
+                                label="开始日期"
+                                rules={[{ required: true }]}
+                                getValueProps={(value) => ({ value: value ? dayjs(value) : null })}
+                                getValueFromEvent={(date) => date ? date.format('YYYY-MM-DD') : undefined}
+                            >
+                                <DatePicker style={{ width: '100%' }} placeholder="选择开始日期" />
                             </Form.Item>
-                            <Form.Item name="endDate" label="结束日期" rules={[{ required: true }]}>
-                                <Input type="date" />
+                            <Form.Item
+                                name="endDate"
+                                label="结束日期"
+                                rules={[{ required: true }]}
+                                getValueProps={(value) => ({ value: value ? dayjs(value) : null })}
+                                getValueFromEvent={(date) => date ? date.format('YYYY-MM-DD') : undefined}
+                            >
+                                <DatePicker style={{ width: '100%' }} placeholder="选择结束日期" />
                             </Form.Item>
                         </>
                     )}

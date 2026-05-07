@@ -117,7 +117,10 @@ const App: React.FC = () => {
                     padding: '0 24px',
                 }}
             >
-                <div style={{display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0}}>
+                <div
+                    style={{display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, cursor: 'pointer'}}
+                    onClick={() => navigate('/')}
+                >
                     <Logo/>
                 </div>
 
@@ -129,7 +132,7 @@ const App: React.FC = () => {
                         alignItems: 'center',
                         gap: 4,
                         marginLeft: 32,
-                        overflow: 'hidden',
+                        overflow: 'auto',
                     }}
                 >
                     {navItems.map(item => {
