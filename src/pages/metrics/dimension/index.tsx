@@ -341,6 +341,7 @@ const DimensionModal: React.FC<DimensionModalProps> = ({ open, editing, treeData
                     dimType: editing.dimType,
                     dataType: editing.dataType,
                     categoryId: editing.categoryId,
+                    schema: editing.schema,
                     tableName: editing.tableName,
                     columnName: editing.columnName,
                     displayColumn: editing.displayColumn,
@@ -499,7 +500,14 @@ const DimensionModal: React.FC<DimensionModalProps> = ({ open, editing, treeData
                                     value: item.name,
                                     label: `${item.name} - ${item.comment} `,
                                 }))}
+                                onChange={(value) => {
+                                    const selected = dimTableOptions.find(opt => opt.name === value);
+                                    form.setFieldValue('schema', selected?.schema || '');
+                                }}
                             />
+                        </Form.Item>
+                        <Form.Item name="schema" label="维表 Schema">
+                            <Input placeholder="选择维表后自动填充，也可手动修改" />
                         </Form.Item>
                         <Form.Item name="columnName" label="关联字段">
                             <Select
@@ -803,9 +811,12 @@ const DimensionPage: React.FC = () => {
             key: 'tableRef',
             render: (_: unknown, record: DimensionDTO) => {
                 if (!record.tableName) return '-';
-                return record.columnName
-                    ? `${record.tableName}.${record.columnName}`
+                const tableRef = record.schema
+                    ? `${record.schema}.${record.tableName}`
                     : record.tableName;
+                return record.columnName
+                    ? `${tableRef}.${record.columnName}`
+                    : tableRef;
             },
         },
         { title: '描述', dataIndex: 'description', key: 'description', ellipsis: true },

@@ -79,6 +79,7 @@ export interface DimensionDTO {
     dimValues?: string[];
     categoryId?: string;
     categoryName?: string;
+    schema?: string;
     tableName?: string;
     columnName?: string;
     displayColumn?: string;
@@ -92,6 +93,7 @@ export interface DimensionCmd {
     dataType: DataType;
     dimValues?: string[];
     categoryId?: string;
+    schema?: string;
     tableName?: string;
     columnName?: string;
     displayColumn?: string;

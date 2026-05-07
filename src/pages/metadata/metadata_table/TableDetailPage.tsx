@@ -15,6 +15,7 @@ import {
     DatabaseOutlined,
     EyeOutlined,
     FileTextOutlined,
+    LinkOutlined,
     SafetyOutlined,
     TableOutlined
 } from "@ant-design/icons";
@@ -29,6 +30,7 @@ import DataQuality from "./detail/DataQuality";
 import ScheduleInfo from "./detail/AsyncJob.tsx";
 import DataPreview from "./detail/DataPreview";
 import Snapshot from "./detail/Snapshot";
+import TableRelations from "./detail/TableRelations";
 
 const {Title} = Typography;
 
@@ -174,6 +176,23 @@ const TableDetailPage: React.FC = () => {
                 </span>
             ),
             children: <ScheduleInfo tableId={tableId || ''}/>,
+        },
+        {
+            key: 'relations',
+            label: (
+                <span>
+                    <LinkOutlined/>
+                    关联关系
+                </span>
+            ),
+            children: (
+                <TableRelations
+                    catalog={tableData?.table?.catalog || ''}
+                    schema={tableData?.table?.schema || ''}
+                    table={tableData?.name || ''}
+                    columns={tableData?.table?.columns || []}
+                />
+            ),
         },
     ];
 

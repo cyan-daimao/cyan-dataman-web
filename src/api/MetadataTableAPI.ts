@@ -182,3 +182,36 @@ export const rollback = async (fullName: string, snapshotID: string): Promise<Re
 export const maintenance = async (fullName: string): Promise<Response<void>> => {
     return await datamanRequest.post(`/api/v1/metadata/tables/${fullName}/maintenance`)
 }
+
+// 表关联关系 DTO
+export interface TableRelationDTO {
+    id: string;
+    sourceCatalog: string;
+    sourceSchema: string;
+    sourceTable: string;
+    sourceColumn: string;
+    targetCatalog: string;
+    targetSchema: string;
+    targetTable: string;
+    targetColumn: string;
+    joinType: 'LEFT' | 'INNER' | 'RIGHT';
+    description?: string;
+}
+
+// 表关联关系响应
+export interface TableRelationsResponse {
+    outgoing: TableRelationDTO[];
+    incoming: TableRelationDTO[];
+}
+
+// 表关联关系 API
+export const tableRelationApi = {
+    getRelations: (catalog: string, schema: string, table: string): Promise<Response<TableRelationsResponse>> =>
+        datamanRequest.get(`/api/v1/metadata/tables/${catalog}/${schema}/${table}/relations`),
+
+    create: (data: Omit<TableRelationDTO, 'id'>): Promise<Response<TableRelationDTO>> =>
+        datamanRequest.post('/api/v1/metadata/tables/relations', data),
+
+    delete: (id: string): Promise<Response<void>> =>
+        datamanRequest.delete(`/api/v1/metadata/tables/relations/${id}`),
+};
