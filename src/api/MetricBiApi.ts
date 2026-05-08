@@ -1,38 +1,6 @@
 import { datametricRequest } from './Request';
-import { ChartType, FilterOperator, OrderDirection, ChartDataDTO } from './DatabiApi';
+import { ChartType, FilterOperator, OrderDirection, ChartDataDTO, MetricBiAnalysisCmd } from './DatabiApi';
 import { Response } from './Response';
-
-export interface MetricBiAnalysisCmd {
-  chartType: ChartType;
-  metrics: MetricRef[];
-  dimensions: DimensionRef[];
-  filters: FilterRef[];
-  orders: OrderRef[];
-  limitValue?: number;
-}
-
-export interface MetricRef {
-  metricCode: string;
-  alias?: string;
-}
-
-export interface DimensionRef {
-  dimCode: string;
-  alias?: string;
-}
-
-export interface FilterRef {
-  metricCode?: string;
-  dimCode?: string;
-  operator: FilterOperator;
-  values: string[];
-}
-
-export interface OrderRef {
-  metricCode?: string;
-  dimCode?: string;
-  direction: OrderDirection;
-}
 
 export interface MetricBiListItem {
   id: string;

@@ -1,7 +1,6 @@
 import { databiRequest } from './Request';
 import { Response } from './Response';
 import { AxiosRequestConfig } from 'axios';
-import type { MetricBiAnalysisCmd } from './MetricBiApi';
 
 // ==================== 枚举定义 ====================
 
@@ -58,6 +57,40 @@ export enum OrderDirection {
 export enum AnalysisType {
     DATASET = 'DATASET',
     METRICS = 'METRICS',
+}
+
+// ==================== 指标 BI 分析类型 ====================
+
+export interface MetricBiAnalysisCmd {
+    chartType: ChartType;
+    metrics: MetricRef[];
+    dimensions: DimensionRef[];
+    filters: FilterRef[];
+    orders: OrderRef[];
+    limitValue?: number;
+}
+
+export interface MetricRef {
+    metricCode: string;
+    alias?: string;
+}
+
+export interface DimensionRef {
+    dimCode: string;
+    alias?: string;
+}
+
+export interface FilterRef {
+    metricCode?: string;
+    dimCode?: string;
+    operator: FilterOperator;
+    values: string[];
+}
+
+export interface OrderRef {
+    metricCode?: string;
+    dimCode?: string;
+    direction: OrderDirection;
 }
 
 // ==================== 分页类型 ====================

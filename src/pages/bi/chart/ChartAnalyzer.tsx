@@ -42,6 +42,7 @@ import {
     OrderDirection,
     FieldRole,
     AnalysisType,
+    MetricBiAnalysisCmd,
 } from '@/api/DatabiApi';
 import {
     metricBiApi,
@@ -49,7 +50,6 @@ import {
     dimensionBiListApi,
     MetricBiListItem,
     DimensionBiListItem,
-    MetricBiAnalysisCmd,
 } from '@/api/MetricBiApi';
 import EChartsChart from '@/pages/bi/components/EChartsChart';
 
@@ -391,7 +391,7 @@ const ChartAnalyzer: React.FC = () => {
             try {
                 const res = await analysisApi.execute(buildCompatCmd());
                 if (res.code === 200) {
-                    setResult(res.data);
+                    setResult({ ...res.data, rows: res.data.rows.map((row, idx) => ({ ...row, __key: `row-${idx}` })) });
                     if (res.data.status === 'FAILED') {
                         message.error(res.data.errorMessage || '执行失败');
                     }
@@ -412,7 +412,7 @@ const ChartAnalyzer: React.FC = () => {
             try {
                 const res = await metricBiApi.execute(buildMetricCmd());
                 if (res.code === 200) {
-                    setResult(res.data);
+                    setResult({ ...res.data, rows: res.data.rows.map((row, idx) => ({ ...row, __key: `row-${idx}` })) });
                     if (res.data.status === 'FAILED') {
                         message.error(res.data.errorMessage || '执行失败');
                     }
@@ -1060,7 +1060,8 @@ const ChartAnalyzer: React.FC = () => {
                 >
                     {loading && (
                         <div style={{ textAlign: 'center', padding: 40 }}>
-                            <Spin tip="执行中..." />
+                            <Spin size="large" />
+                            <div style={{ marginTop: 12, color: '#999' }}>执行中...</div>
                         </div>
                     )}
 
@@ -1128,6 +1129,7 @@ const ChartAnalyzer: React.FC = () => {
                                     dataSource={result.rows}
                                     columns={resultColumns}
                                     pagination={{ pageSize: 10 }}
+                                    rowKey="__key"
                                 />
                             )}
 
@@ -1152,7 +1154,10 @@ const ChartAnalyzer: React.FC = () => {
                 footer={null}
             >
                 {previewLoading ? (
-                    <Spin tip="生成中..." />
+                    <div style={{ textAlign: 'center', padding: 40 }}>
+                        <Spin size="large" />
+                        <div style={{ marginTop: 12, color: '#999' }}>生成中...</div>
+                    </div>
                 ) : (
                     <div style={{ border: '1px solid #d9d9d9', borderRadius: 6, overflow: 'hidden' }}>
                         <Editor
