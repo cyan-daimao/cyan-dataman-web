@@ -696,7 +696,7 @@ const ChartAnalyzer: React.FC = () => {
                                     style={{
                                         padding: '6px 8px',
                                         marginBottom: 4,
-                                        background: '#e6f7ff',
+                                        background: '#f6ffed',
                                         borderRadius: 4,
                                         cursor: 'grab',
                                         fontSize: 13,
@@ -715,7 +715,7 @@ const ChartAnalyzer: React.FC = () => {
                                     style={{
                                         padding: '6px 8px',
                                         marginBottom: 4,
-                                        background: '#f6ffed',
+                                        background: '#e6f7ff',
                                         borderRadius: 4,
                                         cursor: 'grab',
                                         fontSize: 13,
@@ -841,58 +841,6 @@ const ChartAnalyzer: React.FC = () => {
                     style={{ flex: 1, minWidth: 280, overflow: 'auto' }}
                     styles={{ body: { padding: 12 } }}
                 >
-                    {/* 维度区域 */}
-                    <div
-                        onDrop={compatMode ? handleDropDimensionCompat : handleDropSelectedDimension}
-                        onDragOver={handleDragOver}
-                        style={{
-                            border: '1px dashed #91d5ff',
-                            borderRadius: 4,
-                            padding: 8,
-                            marginBottom: 12,
-                            minHeight: 48,
-                            background: '#f0faff',
-                        }}
-                    >
-                        <div style={{ fontWeight: 'bold', marginBottom: 4, fontSize: 13 }}>维度（X轴）</div>
-                        <Space wrap>
-                            {compatMode
-                                ? dimensions.map((d, i) => (
-                                      <Tag
-                                          key={d.field}
-                                          closable
-                                          onClose={() => {
-                                              const next = [...dimensions];
-                                              next.splice(i, 1);
-                                              setDimensions(next);
-                                          }}
-                                          style={{ backgroundColor: '#f6ffed', borderColor: 'transparent' }}
-                                      >
-                                          {d.field}
-                                      </Tag>
-                                  ))
-                                : selectedDimensions.map((d, i) => (
-                                      <Tag
-                                          key={d.id}
-                                          closable
-                                          onClose={() => {
-                                              const next = [...selectedDimensions];
-                                              next.splice(i, 1);
-                                              setSelectedDimensions(next);
-                                          }}
-                                          style={{ backgroundColor: '#f6ffed', borderColor: 'transparent' }}
-                                      >
-                                          {d.dimName}
-                                      </Tag>
-                                  ))}
-                            {(compatMode ? dimensions : selectedDimensions).length === 0 && (
-                                <span style={{ color: '#999', fontSize: 12 }}>
-                                    {compatMode ? '拖拽维度字段到此处' : '拖拽维度到此处'}
-                                </span>
-                            )}
-                        </Space>
-                    </div>
-
                     {/* 指标区域 */}
                     <div
                         onDrop={compatMode ? handleDropMetricCompat : handleDropSelectedMetric}
@@ -903,7 +851,7 @@ const ChartAnalyzer: React.FC = () => {
                             padding: 8,
                             marginBottom: 12,
                             minHeight: 48,
-                            background: '#f6ffed',
+                            background: '#e6f7ff',
                         }}
                     >
                         <div style={{ fontWeight: 'bold', marginBottom: 4, fontSize: 13 }}>指标（Y轴）</div>
@@ -956,6 +904,58 @@ const ChartAnalyzer: React.FC = () => {
                             {(compatMode ? metrics : selectedMetrics).length === 0 && (
                                 <span style={{ color: '#999', fontSize: 12 }}>
                                     {compatMode ? '拖拽指标字段到此处' : '拖拽指标到此处'}
+                                </span>
+                            )}
+                        </Space>
+                    </div>
+
+                    {/* 维度区域 */}
+                    <div
+                        onDrop={compatMode ? handleDropDimensionCompat : handleDropSelectedDimension}
+                        onDragOver={handleDragOver}
+                        style={{
+                            border: '1px dashed #91d5ff',
+                            borderRadius: 4,
+                            padding: 8,
+                            marginBottom: 12,
+                            minHeight: 48,
+                            background: '#f6ffed',
+                        }}
+                    >
+                        <div style={{ fontWeight: 'bold', marginBottom: 4, fontSize: 13 }}>维度（X轴）</div>
+                        <Space wrap>
+                            {compatMode
+                                ? dimensions.map((d, i) => (
+                                      <Tag
+                                          key={d.field}
+                                          closable
+                                          onClose={() => {
+                                              const next = [...dimensions];
+                                              next.splice(i, 1);
+                                              setDimensions(next);
+                                          }}
+                                          style={{ backgroundColor: '#f6ffed', borderColor: 'transparent' }}
+                                      >
+                                          {d.field}
+                                      </Tag>
+                                  ))
+                                : selectedDimensions.map((d, i) => (
+                                      <Tag
+                                          key={d.id}
+                                          closable
+                                          onClose={() => {
+                                              const next = [...selectedDimensions];
+                                              next.splice(i, 1);
+                                              setSelectedDimensions(next);
+                                          }}
+                                          style={{ backgroundColor: '#f6ffed', borderColor: 'transparent' }}
+                                      >
+                                          {d.dimName}
+                                      </Tag>
+                                  ))}
+                            {(compatMode ? dimensions : selectedDimensions).length === 0 && (
+                                <span style={{ color: '#999', fontSize: 12 }}>
+                                    {compatMode ? '拖拽维度字段到此处' : '拖拽维度到此处'}
                                 </span>
                             )}
                         </Space>
