@@ -190,6 +190,7 @@ const TableDetailPage: React.FC = () => {
                     catalog={tableData?.table?.catalog || ''}
                     schema={tableData?.table?.schema || ''}
                     table={tableData?.name || ''}
+                    tableComment={tableData?.comment}
                     columns={tableData?.table?.columns || []}
                 />
             ),

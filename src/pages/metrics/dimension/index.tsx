@@ -341,7 +341,7 @@ const DimensionModal: React.FC<DimensionModalProps> = ({ open, editing, treeData
                     dimType: editing.dimType,
                     dataType: editing.dataType,
                     categoryId: editing.categoryId,
-                    schema: editing.schema,
+                    schemaName: editing.schemaName,
                     tableName: editing.tableName,
                     columnName: editing.columnName,
                     displayColumn: editing.displayColumn,
@@ -502,11 +502,11 @@ const DimensionModal: React.FC<DimensionModalProps> = ({ open, editing, treeData
                                 }))}
                                 onChange={(value) => {
                                     const selected = dimTableOptions.find(opt => opt.name === value);
-                                    form.setFieldValue('schema', selected?.schema || '');
+                                    form.setFieldValue('schemaName', selected?.schema || '');
                                 }}
                             />
                         </Form.Item>
-                        <Form.Item name="schema" label="维表 Schema">
+                        <Form.Item name="schemaName" label="维表 Schema">
                             <Input placeholder="选择维表后自动填充，也可手动修改" />
                         </Form.Item>
                         <Form.Item name="columnName" label="关联字段">
@@ -811,8 +811,8 @@ const DimensionPage: React.FC = () => {
             key: 'tableRef',
             render: (_: unknown, record: DimensionDTO) => {
                 if (!record.tableName) return '-';
-                const tableRef = record.schema
-                    ? `${record.schema}.${record.tableName}`
+                const tableRef = record.schemaName
+                    ? `${record.schemaName}.${record.tableName}`
                     : record.tableName;
                 return record.columnName
                     ? `${tableRef}.${record.columnName}`

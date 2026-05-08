@@ -51,7 +51,7 @@ import {
     DimensionBiListItem,
     MetricBiAnalysisCmd,
 } from '@/api/MetricBiApi';
-import SimpleCanvasChart from '@/pages/bi/components/SimpleCanvasChart';
+import EChartsChart from '@/pages/bi/components/EChartsChart';
 
 // ==================== 主组件 ====================
 
@@ -1096,7 +1096,7 @@ const ChartAnalyzer: React.FC = () => {
 
                             {chartType !== ChartType.TABLE && chartType !== ChartType.NUMBER && result.rows.length > 0 && (
                                 <div style={{ marginBottom: 16 }}>
-                                    <SimpleCanvasChart
+                                    <EChartsChart
                                         chartType={chartType}
                                         columns={result.columns}
                                         rows={result.rows}

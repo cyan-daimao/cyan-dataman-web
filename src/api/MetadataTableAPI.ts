@@ -196,6 +196,8 @@ export interface TableRelationDTO {
     targetColumn: string;
     joinType: 'LEFT' | 'INNER' | 'RIGHT';
     description?: string;
+    sourceTableComment?: string;
+    targetTableComment?: string;
 }
 
 // 表关联关系响应

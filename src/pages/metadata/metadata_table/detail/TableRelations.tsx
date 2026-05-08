@@ -14,7 +14,7 @@ import {
     TableProps,
     Tag,
 } from "antd";
-import {DeleteOutlined, PlusOutlined} from "@ant-design/icons";
+import {DeleteOutlined, PlusOutlined, PartitionOutlined, TableOutlined} from "@ant-design/icons";
 import {
     ColumnVO,
     getMetadataTableById,
@@ -23,6 +23,7 @@ import {
     tableRelationApi,
     TableRelationDTO,
 } from "../../../../api/MetadataTableAPI";
+import TableRelationGraph from "./TableRelationGraph";
 
 const {Option} = Select;
 const {TextArea} = Input;
@@ -31,16 +32,18 @@ interface TableRelationsProps {
     catalog: string;
     schema: string;
     table: string;
+    tableComment?: string;
     columns: ColumnVO[];
 }
 
-const TableRelations: React.FC<TableRelationsProps> = ({catalog, schema, table, columns}) => {
+const TableRelations: React.FC<TableRelationsProps> = ({catalog, schema, table, tableComment, columns}) => {
     const [loading, setLoading] = useState(false);
     const [outgoing, setOutgoing] = useState<TableRelationDTO[]>([]);
     const [incoming, setIncoming] = useState<TableRelationDTO[]>([]);
     const [modalVisible, setModalVisible] = useState(false);
     const [form] = Form.useForm();
     const [direction, setDirection] = useState<'outgoing' | 'incoming'>('outgoing');
+    const [viewMode, setViewMode] = useState<'list' | 'graph'>('list');
     const [targetTableOptions, setTargetTableOptions] = useState<MetadataTableDTO[]>([]);
     const [targetTableLoading, setTargetTableLoading] = useState(false);
     const [selectedTargetTable, setSelectedTargetTable] = useState<MetadataTableDTO | null>(null);
@@ -250,39 +253,65 @@ const TableRelations: React.FC<TableRelationsProps> = ({catalog, schema, table, 
     return (
         <div>
             <Card size="small" loading={loading}>
-                <div style={{marginBottom: 16, display: 'flex', justifyContent: 'flex-end'}}>
+                <div style={{marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                    <Radio.Group
+                        value={viewMode}
+                        onChange={(e) => setViewMode(e.target.value)}
+                        optionType="button"
+                        buttonStyle="solid"
+                    >
+                        <Radio.Button value="list">
+                            <TableOutlined/> 列表
+                        </Radio.Button>
+                        <Radio.Button value="graph">
+                            <PartitionOutlined/> 关系图谱
+                        </Radio.Button>
+                    </Radio.Group>
                     <Button type="primary" icon={<PlusOutlined/>} onClick={() => setModalVisible(true)}>
                         添加关联
                     </Button>
                 </div>
 
-                <div style={{marginBottom: 24}}>
-                    <h4 style={{marginBottom: 12}}>出向关联（本表 → 其他表）</h4>
-                    <Table
-                        dataSource={outgoing}
-                        columns={outgoingColumns}
-                        rowKey="id"
-                        size="small"
-                        bordered
-                        pagination={false}
-                        scroll={{x: 'max-content'}}
-                        locale={{emptyText: '暂无出向关联'}}
+                {viewMode === 'graph' ? (
+                    <TableRelationGraph
+                        catalog={catalog}
+                        schema={schema}
+                        table={table}
+                        tableComment={tableComment}
+                        outgoing={outgoing}
+                        incoming={incoming}
                     />
-                </div>
+                ) : (
+                    <>
+                        <div style={{marginBottom: 24}}>
+                            <h4 style={{marginBottom: 12}}>出向关联（本表 → 其他表）</h4>
+                            <Table
+                                dataSource={outgoing}
+                                columns={outgoingColumns}
+                                rowKey="id"
+                                size="small"
+                                bordered
+                                pagination={false}
+                                scroll={{x: 'max-content'}}
+                                locale={{emptyText: '暂无出向关联'}}
+                            />
+                        </div>
 
-                <div>
-                    <h4 style={{marginBottom: 12}}>入向关联（其他表 → 本表）</h4>
-                    <Table
-                        dataSource={incoming}
-                        columns={incomingColumns}
-                        rowKey="id"
-                        size="small"
-                        bordered
-                        pagination={false}
-                        scroll={{x: 'max-content'}}
-                        locale={{emptyText: '暂无入向关联'}}
-                    />
-                </div>
+                        <div>
+                            <h4 style={{marginBottom: 12}}>入向关联（其他表 → 本表）</h4>
+                            <Table
+                                dataSource={incoming}
+                                columns={incomingColumns}
+                                rowKey="id"
+                                size="small"
+                                bordered
+                                pagination={false}
+                                scroll={{x: 'max-content'}}
+                                locale={{emptyText: '暂无入向关联'}}
+                            />
+                        </div>
+                    </>
+                )}
             </Card>
 
             <Modal
