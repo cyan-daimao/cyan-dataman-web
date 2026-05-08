@@ -12,6 +12,7 @@ export interface MetricBiListItem {
   statFunc?: string;
   dataType: string;
   description?: string;
+  tableRef?: string;
 }
 
 export interface DimensionBiListItem {

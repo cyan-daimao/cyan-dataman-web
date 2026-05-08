@@ -6,6 +6,7 @@ import {
     Select,
     Space,
     Tag,
+    Tooltip,
     message,
     Table,
     Statistic,
@@ -22,6 +23,7 @@ import {
     PlusOutlined,
     DeleteOutlined,
     SearchOutlined,
+    CopyOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
@@ -408,6 +410,11 @@ const ChartAnalyzer: React.FC = () => {
                 message.warning('请至少选择一个指标');
                 return;
             }
+            const tableRefs = new Set(selectedMetrics.map((m) => m.tableRef).filter(Boolean));
+            if (tableRefs.size >= 2 && selectedDimensions.length === 0) {
+                message.warning('多事实表分析需要至少选择一个维度');
+                return;
+            }
             setLoading(true);
             try {
                 const res = await metricBiApi.execute(buildMetricCmd());
@@ -604,10 +611,25 @@ const ChartAnalyzer: React.FC = () => {
         return map;
     }, [metricsList]);
 
+    // 多事实表判断
+    const multiTableInfo = useMemo(() => {
+        const refs = selectedMetrics.map((m) => m.tableRef).filter(Boolean) as string[];
+        const uniqueRefs = [...new Set(refs)];
+        return {
+            isMultiTable: uniqueRefs.length >= 2,
+            tableCount: uniqueRefs.length,
+        };
+    }, [selectedMetrics]);
+
     // ========== 结果表格列 ==========
     const resultColumns = useMemo(() => {
         if (!result || result.status !== 'SUCCESS') return [];
-        return result.columns.map((col) => ({ title: col, dataIndex: col, key: col }));
+        return result.columns.map((col) => ({
+            title: col,
+            dataIndex: col,
+            key: col,
+            render: (value: unknown) => (value === null || value === undefined ? '-' : value),
+        }));
     }, [result]);
 
     // ========== 图表类型选项 ==========
@@ -783,6 +805,11 @@ const ChartAnalyzer: React.FC = () => {
                                         >
                                             {m.metricName}
                                             {m.statFunc && <span style={{ color: '#999', fontSize: 11 }}> ({m.statFunc})</span>}
+                                            {m.tableRef && (
+                                                <span style={{ color: '#999', fontSize: 11, marginLeft: 4 }}>
+                                                    [{m.tableRef.split('.').pop()}]
+                                                </span>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -841,6 +868,17 @@ const ChartAnalyzer: React.FC = () => {
                     style={{ flex: 1, minWidth: 280, overflow: 'auto' }}
                     styles={{ body: { padding: 12 } }}
                 >
+                    {/* 多事实表提示条 */}
+                    {!compatMode && multiTableInfo.isMultiTable && (
+                        <Alert
+                            type="info"
+                            showIcon
+                            message="多事实表关联分析"
+                            description={`当前选择了来自 ${multiTableInfo.tableCount} 个事实表的指标，系统将自动按公共维度关联分析。请确保已选择的维度是所有事实表的公共维度。`}
+                            style={{ marginBottom: 12 }}
+                        />
+                    )}
+
                     {/* 指标区域 */}
                     <div
                         onDrop={compatMode ? handleDropMetricCompat : handleDropSelectedMetric}
@@ -885,20 +923,27 @@ const ChartAnalyzer: React.FC = () => {
                                   ))
                                 : selectedMetrics.map((m, i) => (
                                       <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                          <Tag
-                                              closable
-                                              onClose={() => {
-                                                  const next = [...selectedMetrics];
-                                                  next.splice(i, 1);
-                                                  setSelectedMetrics(next);
-                                              }}
-                                          style={{ backgroundColor: '#e6f7ff', borderColor: 'transparent' }}
-                                          >
-                                              {m.metricName}
-                                              {m.statFunc && (
-                                                  <span style={{ color: '#999', fontSize: 11 }}> ({m.statFunc})</span>
-                                              )}
-                                          </Tag>
+                                          <Tooltip title={m.tableRef ? `来源：${m.tableRef}` : undefined}>
+                                              <Tag
+                                                  closable
+                                                  onClose={() => {
+                                                      const next = [...selectedMetrics];
+                                                      next.splice(i, 1);
+                                                      setSelectedMetrics(next);
+                                                  }}
+                                              style={{ backgroundColor: '#e6f7ff', borderColor: 'transparent' }}
+                                              >
+                                                  {m.metricName}
+                                                  {m.statFunc && (
+                                                      <span style={{ color: '#999', fontSize: 11 }}> ({m.statFunc})</span>
+                                                  )}
+                                                  {m.tableRef && (
+                                                      <span style={{ color: '#999', fontSize: 11, marginLeft: 4 }}>
+                                                          [{m.tableRef.split('.').pop()}]
+                                                      </span>
+                                                  )}
+                                              </Tag>
+                                          </Tooltip>
                                       </div>
                                   ))}
                             {(compatMode ? metrics : selectedMetrics).length === 0 && (
@@ -908,6 +953,17 @@ const ChartAnalyzer: React.FC = () => {
                             )}
                         </Space>
                     </div>
+
+                    {/* 多事实表维度提示 */}
+                    {!compatMode && multiTableInfo.isMultiTable && (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            message="请选择公共维度"
+                            description="多事实表分析需要选择所有事实表都支持的公共维度。如果选择非公共维度，查询可能会失败。"
+                            style={{ marginBottom: 12 }}
+                        />
+                    )}
 
                     {/* 维度区域 */}
                     <div
@@ -1149,7 +1205,7 @@ const ChartAnalyzer: React.FC = () => {
             <Modal
                 open={previewOpen}
                 title="SQL 预览"
-                width={800}
+                width={1200}
                 onCancel={() => setPreviewOpen(false)}
                 footer={null}
             >
@@ -1159,13 +1215,29 @@ const ChartAnalyzer: React.FC = () => {
                         <div style={{ marginTop: 12, color: '#999' }}>生成中...</div>
                     </div>
                 ) : (
-                    <div style={{ border: '1px solid #d9d9d9', borderRadius: 6, overflow: 'hidden' }}>
-                        <Editor
-                            height={300}
-                            defaultLanguage="sql"
-                            value={previewSql}
-                            options={{ readOnly: true, minimap: { enabled: false } }}
-                        />
+                    <div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                            <Button
+                                icon={<CopyOutlined />}
+                                onClick={() => {
+                                    navigator.clipboard.writeText(previewSql).then(() => {
+                                        message.success('SQL 已复制到剪贴板');
+                                    }).catch(() => {
+                                        message.error('复制失败');
+                                    });
+                                }}
+                            >
+                                复制 SQL
+                            </Button>
+                        </div>
+                        <div style={{ border: '1px solid #d9d9d9', borderRadius: 6, overflow: 'hidden' }}>
+                            <Editor
+                                height={500}
+                                defaultLanguage="sql"
+                                value={previewSql}
+                                options={{ readOnly: true, minimap: { enabled: false } }}
+                            />
+                        </div>
                     </div>
                 )}
             </Modal>
