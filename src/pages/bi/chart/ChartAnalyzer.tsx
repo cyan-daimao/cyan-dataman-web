@@ -50,8 +50,10 @@ import {
     metricBiApi,
     metricBiListApi,
     dimensionBiListApi,
+    dimensionValueApi,
     MetricBiListItem,
     DimensionBiListItem,
+    DimensionValueItem,
 } from '@/api/MetricBiApi';
 import EChartsChart from '@/pages/bi/components/EChartsChart';
 
@@ -85,6 +87,7 @@ const ChartAnalyzer: React.FC = () => {
     const [metrics, setMetrics] = useState<MetricConfig[]>([]);
     const [filters, setFilters] = useState<FilterConfig[]>([]);
     const [orders, setOrders] = useState<OrderConfig[]>([]);
+    const [dimValueMap, setDimValueMap] = useState<Record<string, DimensionValueItem[]>>({});
     const [limitValue, setLimitValue] = useState<number | undefined>(1000);
 
     // ========== 执行结果与交互 ==========
@@ -546,6 +549,19 @@ const ChartAnalyzer: React.FC = () => {
         }
     };
 
+    // ========== 维度值加载 ==========
+    const loadDimValues = async (dimCode: string) => {
+        if (dimValueMap[dimCode]) return;
+        try {
+            const res = await dimensionValueApi.list(dimCode);
+            if (res.code === 200 && res.data) {
+                setDimValueMap((prev) => ({ ...prev, [dimCode]: res.data }));
+            }
+        } catch {
+            // 静默失败，回退到手动输入
+        }
+    };
+
     // ========== 过滤条件操作 ==========
     const addFilter = () => {
         setFilters([...filters, { field: '', operator: FilterOperator.EQ, values: [''] }]);
@@ -558,6 +574,15 @@ const ChartAnalyzer: React.FC = () => {
     const updateFilter = (index: number, key: keyof FilterConfig, value: unknown) => {
         const next = [...filters];
         next[index] = { ...next[index], [key]: value } as FilterConfig;
+        if (key === 'field') {
+            const fieldName = value as string;
+            const dim = selectedDimensions.find((d) => d.dimName === fieldName);
+            if (dim) {
+                loadDimValues(dim.dimCode);
+            }
+            // 切换字段时重置值
+            next[index] = { ...next[index], [key]: value, values: [''] } as FilterConfig;
+        }
         setFilters(next);
     };
 
@@ -801,15 +826,9 @@ const ChartAnalyzer: React.FC = () => {
                                                 cursor: 'grab',
                                                 fontSize: 13,
                                             }}
-                                            title={m.description || `${m.metricName}${m.statFunc ? ` (${m.statFunc})` : ''}`}
+                                            title={m.tableRef ? `${m.metricName} · 来源：${m.tableRef}` : m.description || m.metricName}
                                         >
                                             {m.metricName}
-                                            {m.statFunc && <span style={{ color: '#999', fontSize: 11 }}> ({m.statFunc})</span>}
-                                            {m.tableRef && (
-                                                <span style={{ color: '#999', fontSize: 11, marginLeft: 4 }}>
-                                                    [{m.tableRef.split('.').pop()}]
-                                                </span>
-                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -852,7 +871,7 @@ const ChartAnalyzer: React.FC = () => {
                                         cursor: 'grab',
                                         fontSize: 13,
                                     }}
-                                    title={`${d.dimName}${d.categoryName ? ` · ${d.categoryName}` : ''}`}
+                                    title={`${d.dimName}\n表：${d.tableName || '-'}\n字段：${d.columnName || '-'}\n显示字段：${d.displayColumn || '-'}`}
                                 >
                                     {d.dimName}
                                 </div>
@@ -923,7 +942,7 @@ const ChartAnalyzer: React.FC = () => {
                                   ))
                                 : selectedMetrics.map((m, i) => (
                                       <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                          <Tooltip title={m.tableRef ? `来源：${m.tableRef}` : undefined}>
+                                          <Tooltip title={`${m.metricName}${m.statFunc ? ` (${m.statFunc})` : ''}${m.tableRef ? ` · 来源：${m.tableRef}` : ''}`}>
                                               <Tag
                                                   closable
                                                   onClose={() => {
@@ -934,14 +953,6 @@ const ChartAnalyzer: React.FC = () => {
                                               style={{ backgroundColor: '#e6f7ff', borderColor: 'transparent' }}
                                               >
                                                   {m.metricName}
-                                                  {m.statFunc && (
-                                                      <span style={{ color: '#999', fontSize: 11 }}> ({m.statFunc})</span>
-                                                  )}
-                                                  {m.tableRef && (
-                                                      <span style={{ color: '#999', fontSize: 11, marginLeft: 4 }}>
-                                                          [{m.tableRef.split('.').pop()}]
-                                                      </span>
-                                                  )}
                                               </Tag>
                                           </Tooltip>
                                       </div>
@@ -996,18 +1007,19 @@ const ChartAnalyzer: React.FC = () => {
                                       </Tag>
                                   ))
                                 : selectedDimensions.map((d, i) => (
-                                      <Tag
-                                          key={d.id}
-                                          closable
-                                          onClose={() => {
-                                              const next = [...selectedDimensions];
-                                              next.splice(i, 1);
-                                              setSelectedDimensions(next);
-                                          }}
-                                          style={{ backgroundColor: '#f6ffed', borderColor: 'transparent' }}
-                                      >
-                                          {d.dimName}
-                                      </Tag>
+                                      <Tooltip key={d.id} title={`${d.dimName}\n表：${d.tableName || '-'}\n字段：${d.columnName || '-'}\n显示字段：${d.displayColumn || '-'}`}>
+                                          <Tag
+                                              closable
+                                              onClose={() => {
+                                                  const next = [...selectedDimensions];
+                                                  next.splice(i, 1);
+                                                  setSelectedDimensions(next);
+                                              }}
+                                              style={{ backgroundColor: '#f6ffed', borderColor: 'transparent' }}
+                                          >
+                                              {d.dimName}
+                                          </Tag>
+                                      </Tooltip>
                                   ))}
                             {(compatMode ? dimensions : selectedDimensions).length === 0 && (
                                 <span style={{ color: '#999', fontSize: 12 }}>
@@ -1020,35 +1032,75 @@ const ChartAnalyzer: React.FC = () => {
                     {/* 过滤条件 */}
                     <div style={{ marginBottom: 12 }}>
                         <div style={{ fontWeight: 'bold', marginBottom: 4, fontSize: 13 }}>过滤条件</div>
-                        {filters.map((f, i) => (
-                            <Space key={i} style={{ marginBottom: 8, display: 'flex' }}>
-                                <Select
-                                    size="small"
-                                    style={{ width: 140 }}
-                                    placeholder="字段"
-                                    value={f.field || undefined}
-                                    onChange={(v) => updateFilter(i, 'field', v)}
-                                    options={fieldOptions}
-                                />
-                                <Select
-                                    size="small"
-                                    style={{ width: 140 }}
-                                    value={f.operator}
-                                    onChange={(v) => updateFilter(i, 'operator', v)}
-                                    options={Object.values(FilterOperator).map((op) => ({ label: op, value: op }))}
-                                />
-                                <Input
-                                    size="small"
-                                    style={{ width: 160 }}
-                                    placeholder="值（多个用逗号分隔）"
-                                    value={f.values.join(',')}
-                                    onChange={(e) =>
-                                        updateFilter(i, 'values', e.target.value.split(',').filter(Boolean))
-                                    }
-                                />
-                                <Button size="small" danger icon={<DeleteOutlined />} onClick={() => removeFilter(i)} />
-                            </Space>
-                        ))}
+                        {filters.map((f, i) => {
+                            const isDimField = compatMode
+                                ? currentDataset?.fields?.some((fld) => fld.name === f.field && fld.role === FieldRole.DIMENSION)
+                                : selectedDimensions.some((d) => d.dimName === f.field);
+                            const dim = !compatMode ? selectedDimensions.find((d) => d.dimName === f.field) : null;
+                            const dimValues = dim ? (dimValueMap[dim.dimCode] || []) : [];
+                            const showValueInput = f.operator !== FilterOperator.IS_NULL && f.operator !== FilterOperator.IS_NOT_NULL;
+                            return (
+                                <Space key={i} style={{ marginBottom: 8, display: 'flex' }}>
+                                    <Select
+                                        size="small"
+                                        style={{ width: 140 }}
+                                        placeholder="字段"
+                                        value={f.field || undefined}
+                                        onChange={(v) => updateFilter(i, 'field', v)}
+                                        options={fieldOptions}
+                                    />
+                                    <Select
+                                        size="small"
+                                        style={{ width: 100 }}
+                                        value={f.operator}
+                                        onChange={(v) => updateFilter(i, 'operator', v)}
+                                        options={[
+                                            { label: '=', value: FilterOperator.EQ },
+                                            { label: '!=', value: FilterOperator.NE },
+                                            { label: '>', value: FilterOperator.GT },
+                                            { label: '>=', value: FilterOperator.GTE },
+                                            { label: '<', value: FilterOperator.LT },
+                                            { label: '<=', value: FilterOperator.LTE },
+                                            { label: '包含', value: FilterOperator.LIKE },
+                                            { label: '不包含', value: FilterOperator.NOT_LIKE },
+                                            { label: '在列表', value: FilterOperator.IN },
+                                            { label: '不在列表', value: FilterOperator.NOT_IN },
+                                            { label: '为空', value: FilterOperator.IS_NULL },
+                                            { label: '不为空', value: FilterOperator.IS_NOT_NULL },
+                                            { label: '范围', value: FilterOperator.BETWEEN },
+                                        ]}
+                                    />
+                                    {showValueInput && (
+                                        isDimField && dimValues.length > 0 ? (
+                                            <Select
+                                                mode="tags"
+                                                size="small"
+                                                style={{ width: 200 }}
+                                                placeholder="选择或输入值"
+                                                value={f.values}
+                                                onChange={(v) => updateFilter(i, 'values', v as string[])}
+                                                options={dimValues.map((d) => ({ label: d.label, value: d.value }))}
+                                                showSearch
+                                                filterOption={(input, option) =>
+                                                    (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
+                                                }
+                                            />
+                                        ) : (
+                                            <Input
+                                                size="small"
+                                                style={{ width: 200 }}
+                                                placeholder="值（多个用逗号分隔）"
+                                                value={f.values.join(',')}
+                                                onChange={(e) =>
+                                                    updateFilter(i, 'values', e.target.value.split(',').filter(Boolean))
+                                                }
+                                            />
+                                        )
+                                    )}
+                                    <Button size="small" danger icon={<DeleteOutlined />} onClick={() => removeFilter(i)} />
+                                </Space>
+                            );
+                        })}
                         <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={addFilter}>
                             添加过滤
                         </Button>

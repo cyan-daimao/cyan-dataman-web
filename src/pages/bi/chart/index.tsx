@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Input, Table, Space, Popconfirm, message, Card, Modal, Tag, Select } from 'antd';
+import { Button, Input, Table, Space, Popconfirm, message, Card, Modal, Tag, Select, Statistic, Empty } from 'antd';
 import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { chartApi, ChartDTO, ChartDataDTO, AnalysisType } from '@/api/DatabiApi';
+import { chartApi, ChartDTO, ChartDataDTO, AnalysisType, ChartType } from '@/api/DatabiApi';
+import EChartsChart from '@/pages/bi/components/EChartsChart';
 
 const ChartList: React.FC = () => {
     const navigate = useNavigate();
@@ -11,7 +12,7 @@ const ChartList: React.FC = () => {
     const [searchName, setSearchName] = useState('');
     const [filterType, setFilterType] = useState<AnalysisType | undefined>(undefined);
     const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
-    const [resultModal, setResultModal] = useState<{ open: boolean; title: string; data?: ChartDataDTO }>({
+    const [resultModal, setResultModal] = useState<{ open: boolean; title: string; chart?: ChartDTO; data?: ChartDataDTO }>({
         open: false,
         title: '',
     });
@@ -63,7 +64,7 @@ const ChartList: React.FC = () => {
         try {
             const res = await chartApi.execute(record.id);
             if (res.code === 200) {
-                setResultModal({ open: true, title: `执行结果 - ${record.name}`, data: res.data });
+                setResultModal({ open: true, title: `执行结果 - ${record.name}`, chart: record, data: res.data });
             } else {
                 message.error(res.message || '执行失败');
             }
@@ -208,13 +209,37 @@ const ChartList: React.FC = () => {
                         <div>{resultModal.data.errorMessage || '未知错误'}</div>
                     </div>
                 ) : (
-                    <Table
-                        size="small"
-                        scroll={{ x: 'max-content' }}
-                        dataSource={resultModal.data?.rows || []}
-                        columns={resultColumns}
-                        pagination={{ pageSize: 20 }}
-                    />
+                    <div>
+                        {resultModal.chart?.chartType === ChartType.NUMBER && resultModal.chart?.metrics && resultModal.chart.metrics.length > 0 && (
+                            <div style={{ textAlign: 'center', padding: 24 }}>
+                                <Statistic
+                                    title={resultModal.chart.metrics[0].alias || resultModal.chart.metrics[0].field}
+                                    value={Number(resultModal.data?.rows?.[0]?.[resultModal.chart.metrics[0].field] ?? 0)}
+                                />
+                            </div>
+                        )}
+                        {resultModal.chart?.chartType !== ChartType.NUMBER && resultModal.chart?.chartType !== ChartType.TABLE && (resultModal.data?.rows?.length || 0) > 0 && (
+                            <EChartsChart
+                                chartType={resultModal.chart?.chartType || ChartType.TABLE}
+                                columns={resultModal.data?.columns || []}
+                                rows={resultModal.data?.rows || []}
+                                dimensions={resultModal.chart?.dimensions || []}
+                                metrics={resultModal.chart?.metrics || []}
+                            />
+                        )}
+                        {(resultModal.chart?.chartType === ChartType.TABLE || (resultModal.data?.rows?.length || 0) === 0) && (
+                            <Table
+                                size="small"
+                                scroll={{ x: 'max-content' }}
+                                dataSource={resultModal.data?.rows || []}
+                                columns={resultColumns}
+                                pagination={{ pageSize: 20 }}
+                            />
+                        )}
+                        <div style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+                            耗时: {resultModal.data?.costTimeMs}ms | 返回 {resultModal.data?.rows?.length || 0} 行
+                        </div>
+                    </div>
                 )}
             </Modal>
         </Card>

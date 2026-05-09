@@ -23,6 +23,7 @@ export interface DimensionBiListItem {
   dataType: string;
   tableName?: string;
   columnName: string;
+  displayColumn?: string;
   categoryName?: string;
 }
 
@@ -42,4 +43,14 @@ export const metricBiListApi = {
 export const dimensionBiListApi = {
   list: async (params?: { name?: string; categoryId?: string }): Promise<Response<DimensionBiListItem[]>> =>
     datametricRequest.get('/api/v1/metrics/bi/dimensions', { params }),
+};
+
+export interface DimensionValueItem {
+  value: string;
+  label: string;
+}
+
+export const dimensionValueApi = {
+  list: async (dimCode: string): Promise<Response<DimensionValueItem[]>> =>
+    datametricRequest.get(`/api/v1/metrics/bi/dimensions/${dimCode}/values`),
 };

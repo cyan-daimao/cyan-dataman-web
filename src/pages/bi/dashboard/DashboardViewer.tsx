@@ -22,7 +22,7 @@ import {
     ChartDataDTO,
     ChartType,
 } from '@/api/DatabiApi';
-import SimpleCanvasChart from '@/pages/bi/components/SimpleCanvasChart';
+import EChartsChart from '@/pages/bi/components/EChartsChart';
 
 interface ChartResult {
     chart: ChartDTO;
@@ -180,7 +180,7 @@ const DashboardViewer: React.FC = () => {
                                             />
                                         )}
                                         {chart?.chartType !== ChartType.NUMBER && chart?.chartType !== ChartType.TABLE && data.rows.length > 0 && (
-                                            <SimpleCanvasChart
+                                            <EChartsChart
                                                 chartType={chart.chartType}
                                                 columns={data.columns}
                                                 rows={data.rows}
