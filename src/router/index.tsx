@@ -40,6 +40,7 @@ const ChartAnalyzer = React.lazy(() => import((`@/pages/bi/chart/ChartAnalyzer.t
 const DashboardList = React.lazy(() => import((`@/pages/bi/dashboard/index.tsx`)))
 const DashboardEditor = React.lazy(() => import((`@/pages/bi/dashboard/DashboardEditor.tsx`)))
 const DashboardViewer = React.lazy(() => import((`@/pages/bi/dashboard/DashboardViewer.tsx`)))
+const ChatBI = React.lazy(() => import((`@/pages/bi/chatbi/index.tsx`)))
 
 // 鉴权组件：拦截未登录的访问
 const PrivateRoute = ({children}: { children: React.ReactNode }) => {
@@ -198,6 +199,10 @@ const routes = createBrowserRouter([
                     {
                         path: "dashboard/view/:id",
                         element: <DashboardViewer/>
+                    },
+                    {
+                        path: "chatbi",
+                        element: <ChatBI/>
                     },
                 ]
             }
