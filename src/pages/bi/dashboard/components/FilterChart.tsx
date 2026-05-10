@@ -141,6 +141,8 @@ const FilterChart: React.FC<FilterChartProps> = ({ chart, onChange, style, data:
                     style={{ ...commonSelectStyle, ...style }}
                     placeholder={`请选择${chart.name || ''}`}
                     allowClear
+                    showSearch
+                    optionFilterProp="label"
                     options={options}
                     value={selectedValues[0] || undefined}
                     onChange={(val) => handleChange(val ? [val] : [])}
@@ -153,6 +155,8 @@ const FilterChart: React.FC<FilterChartProps> = ({ chart, onChange, style, data:
                     style={{ ...commonSelectStyle, ...style }}
                     placeholder={`请选择${chart.name || ''}`}
                     allowClear
+                    showSearch
+                    optionFilterProp="label"
                     options={options}
                     value={selectedValues}
                     onChange={handleChange}

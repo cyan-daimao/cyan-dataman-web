@@ -3,7 +3,8 @@ import { Button, Space, message, Spin, Empty, DatePicker } from 'antd';
 import { ArrowLeftOutlined, ReloadOutlined, EditOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { dashboardApi, chartApi, DashboardDTO, DashboardChartItem, ChartDataDTO, ChartType, MetricBiAnalysisCmd, FilterOperator } from '@/api/DatabiApi';
-import GridLayout from 'react-grid-layout';
+import GridLayoutImport from 'react-grid-layout';
+const GridLayout = GridLayoutImport as any;
 import 'react-grid-layout/css/styles.css';
 import EChartsChart from '@/pages/bi/components/EChartsChart';
 import FilterBar from './components/FilterBar';
@@ -32,8 +33,13 @@ const DashboardViewer: React.FC = () => {
     const [chartItems, setChartItems] = useState<DashboardChartItem[]>([]);
     const [results, setResults] = useState<Record<string, ChartResult>>({});
     const [filterValuesMap, setFilterValuesMap] = useState<Record<string, string[]>>({});
+    const filterValuesMapRef = useRef<Record<string, string[]>>({});
     const [loading, setLoading] = useState(false);
     const originalDslMap = useRef<Record<string, MetricBiAnalysisCmd>>({});
+
+    useEffect(() => {
+        filterValuesMapRef.current = filterValuesMap;
+    }, [filterValuesMap]);
     const [canvasWidth, setCanvasWidth] = useState(1200);
 
     useEffect(() => {
@@ -48,12 +54,20 @@ const DashboardViewer: React.FC = () => {
         if (!originalDsl) return null;
         const chartItem = chartItems.find(c => c.chartId === chartId);
         if (!chartItem) return originalDsl;
-        const cascadeFrom = chartItem.cascadeFrom || [];
+        // 收集所有影响该图表的筛选器来源：
+        // 1. 图表自身的 cascadeFrom（正向配置：图表依赖哪些筛选器）
+        // 2. 哪些筛选器的 cascadeFrom 包含该图表（反向配置：筛选器绑定了哪些图表）
+        const sourceIds = new Set<string>(chartItem.cascadeFrom || []);
+        chartItems.filter(item => isFilterChartType(item.chart.chartType)).forEach(filterItem => {
+            if ((filterItem.cascadeFrom || []).includes(chartId)) {
+                sourceIds.add(filterItem.chartId);
+            }
+        });
         const newFilters = [...(originalDsl.filters || [])];
-        for (const sourceChartId of cascadeFrom) {
+        for (const sourceChartId of sourceIds) {
             const sourceChartItem = chartItems.find(c => c.chartId === sourceChartId);
             if (!sourceChartItem || !isFilterChartType(sourceChartItem.chart.chartType)) continue;
-            const values = filterValuesMap[sourceChartId] || [];
+            const values = filterValuesMapRef.current[sourceChartId] || [];
             const dimCode = sourceChartItem.chart.metricAnalysisCmd?.dimensions?.[0]?.dimCode || sourceChartItem.chart.dimensions?.[0]?.field || '';
             if (!dimCode) continue;
             if (values.length === 0) {
@@ -70,7 +84,7 @@ const DashboardViewer: React.FC = () => {
             else newFilters.push({ dimCode, operator, values });
         }
         return { ...originalDsl, filters: newFilters };
-    }, [chartItems, filterValuesMap]);
+    }, [chartItems]);
 
     const executeChart = useCallback(async (chartId: string, dsl?: MetricBiAnalysisCmd) => {
         setResults(prev => ({ ...prev, [chartId]: { ...prev[chartId], loading: true, error: undefined } }));
@@ -120,7 +134,17 @@ const DashboardViewer: React.FC = () => {
 
     const handleFilterChange = useCallback((chartId: string, values: string[]) => {
         setFilterValuesMap(prev => ({ ...prev, [chartId]: values }));
-        const affectedChartIds = chartItems.filter(item => (item.cascadeFrom || []).includes(chartId)).map(item => item.chartId);
+        const sourceItem = chartItems.find(c => c.chartId === chartId);
+        const isSourceFilter = sourceItem ? isFilterChartType(sourceItem.chart.chartType) : false;
+        // 查找受影响图表：
+        // 1. 图表的 cascadeFrom 包含当前筛选器（正向配置）
+        // 2. 当前筛选器的 cascadeFrom 包含该图表，且该图表不是筛选器（反向配置）
+        const affected = chartItems.filter(item => {
+            const forward = (item.cascadeFrom || []).includes(chartId);
+            const reverse = isSourceFilter && !isFilterChartType(item.chart.chartType) && (sourceItem!.cascadeFrom || []).includes(item.chartId);
+            return forward || reverse;
+        });
+        const affectedChartIds = affected.map(item => item.chartId);
         if (affectedChartIds.length === 0) return;
         const timer = setTimeout(() => {
             affectedChartIds.forEach(targetId => {

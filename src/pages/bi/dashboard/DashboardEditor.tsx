@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Button, Input, Space, message, Spin, Empty } from 'antd';
 import { SaveOutlined, ArrowLeftOutlined, EyeOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
-import { dashboardApi, chartApi, DashboardCmd, ChartDTO, ChartRef, ChartDataDTO, ChartType } from '@/api/DatabiApi';
-import GridLayout from 'react-grid-layout';
+import { dashboardApi, chartApi, DashboardCmd, ChartDTO, ChartRef, ChartDataDTO, ChartType, MetricBiAnalysisCmd, FilterOperator } from '@/api/DatabiApi';
+import GridLayoutImport, { Layout } from 'react-grid-layout';
+const GridLayout = GridLayoutImport as any;
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import ChartLibrary from './components/ChartLibrary';
@@ -64,8 +65,15 @@ const DashboardEditor: React.FC = () => {
     const [charts, setCharts] = useState<ChartDTO[]>([]);
     const [chartDataMap, setChartDataMap] = useState<Record<string, ChartDataDTO>>({});
     const [chartLoadingMap, setChartLoadingMap] = useState<Record<string, boolean>>({});
+    const [filterValuesMap, setFilterValuesMap] = useState<Record<string, string[]>>({});
+    const filterValuesMapRef = useRef<Record<string, string[]>>({});
     const [, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const originalDslMap = useRef<Record<string, MetricBiAnalysisCmd>>({});
+
+    useEffect(() => {
+        filterValuesMapRef.current = filterValuesMap;
+    }, [filterValuesMap]);
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [layout, setLayout] = useState<{ i: string; x: number; y: number; w: number; h: number }[]>([]);
     const [leftCollapsed, setLeftCollapsed] = useState(false);
@@ -104,14 +112,72 @@ const DashboardEditor: React.FC = () => {
         return () => window.removeEventListener('resize', updateWidth);
     }, [leftCollapsed, rightCollapsed]);
 
-    // 执行所有图表（无维度日期筛选框跳过 execute）
+    // 构建合并后的 DSL（级联筛选条件）
+    const buildMergedDsl = useCallback((chartId: string): MetricBiAnalysisCmd | null => {
+        const originalDsl = originalDslMap.current[chartId];
+        if (!originalDsl) return null;
+        const ref = chartRefs.find(r => r.chartId === chartId);
+        if (!ref) return originalDsl;
+        // 收集所有影响该图表的筛选器来源：
+        // 1. 图表自身的 cascadeFrom（正向配置）
+        // 2. 哪些筛选器的 cascadeFrom 包含该图表（反向配置）
+        const sourceIds = new Set<string>(ref.cascadeFrom || []);
+        chartRefs.forEach(filterRef => {
+            const filterChart = charts.find(c => c.id === filterRef.chartId);
+            if (filterChart && isFilterChartType(filterChart.chartType) && (filterRef.cascadeFrom || []).includes(chartId)) {
+                sourceIds.add(filterRef.chartId);
+            }
+        });
+        const newFilters = [...(originalDsl.filters || [])];
+        for (const sourceChartId of sourceIds) {
+            const sourceChart = charts.find(c => c.id === sourceChartId);
+            if (!sourceChart || !isFilterChartType(sourceChart.chartType)) continue;
+            const values = filterValuesMapRef.current[sourceChartId] || [];
+            const dimCode = sourceChart.metricAnalysisCmd?.dimensions?.[0]?.dimCode || sourceChart.dimensions?.[0]?.field || '';
+            if (!dimCode) continue;
+            if (values.length === 0) {
+                const idx = newFilters.findIndex(f => f.dimCode === dimCode);
+                if (idx >= 0) newFilters.splice(idx, 1);
+                continue;
+            }
+            let operator: FilterOperator;
+            if (sourceChart.chartType === ChartType.FILTER_DATE_RANGE) operator = FilterOperator.BETWEEN;
+            else if (values.length > 1) operator = FilterOperator.IN;
+            else operator = FilterOperator.EQ;
+            const idx = newFilters.findIndex(f => f.dimCode === dimCode);
+            if (idx >= 0) newFilters[idx] = { dimCode, operator, values };
+            else newFilters.push({ dimCode, operator, values });
+        }
+        return { ...originalDsl, filters: newFilters };
+    }, [charts, chartRefs]);
+
+    // 执行单个图表（支持传入自定义 DSL）
+    const executeChart = useCallback(async (chartId: string, dsl?: MetricBiAnalysisCmd) => {
+        setChartLoadingMap(prev => ({ ...prev, [chartId]: true }));
+        try {
+            const body = dsl ? { metricAnalysisCmd: dsl } : undefined;
+            const res = await chartApi.execute(chartId, body);
+            if (res.code === 200 && res.data.status === 'SUCCESS') {
+                setChartDataMap(prev => ({ ...prev, [chartId]: res.data }));
+            }
+        } catch { /* ignore */ }
+        finally {
+            setChartLoadingMap(prev => ({ ...prev, [chartId]: false }));
+        }
+    }, []);
+
+    // 执行所有图表（无维度日期筛选框跳过 execute，同时保存原始 DSL）
     const executeAllCharts = async (refs: ChartRef[]) => {
         const loadingMap: Record<string, boolean> = {};
         refs.forEach(r => loadingMap[r.chartId] = true);
         setChartLoadingMap(loadingMap);
         const dataMap: Record<string, ChartDataDTO> = {};
+        const dslMap: Record<string, MetricBiAnalysisCmd> = {};
         await Promise.all(refs.map(async ref => {
             const chart = charts.find(c => c.id === ref.chartId);
+            if (chart?.metricAnalysisCmd) {
+                dslMap[ref.chartId] = JSON.parse(JSON.stringify(chart.metricAnalysisCmd));
+            }
             const dimCode = chart?.metricAnalysisCmd?.dimensions?.[0]?.dimCode || chart?.dimensions?.[0]?.field;
             const isDate = chart?.chartType === ChartType.FILTER_DATE || chart?.chartType === ChartType.FILTER_DATE_RANGE;
             if (isDate && !dimCode) return;
@@ -120,12 +186,38 @@ const DashboardEditor: React.FC = () => {
                 if (res.code === 200 && res.data.status === 'SUCCESS') dataMap[ref.chartId] = res.data;
             } catch { /* ignore */ }
         }));
+        originalDslMap.current = dslMap;
         setChartDataMap(dataMap);
         setChartLoadingMap({});
     };
 
-    const handleLayoutChange = useCallback((newLayout: { i: string; x: number; y: number; w: number; h: number }[]) => {
-        setLayout(newLayout);
+    // 筛选框值变化回调
+    const handleFilterChange = useCallback((chartId: string, values: string[]) => {
+        setFilterValuesMap(prev => ({ ...prev, [chartId]: values }));
+        const sourceChart = charts.find(c => c.id === chartId);
+        const isSourceFilter = sourceChart ? isFilterChartType(sourceChart.chartType) : false;
+        // 查找受影响图表：
+        // 1. 图表的 cascadeFrom 包含当前筛选器（正向配置）
+        // 2. 当前筛选器的 cascadeFrom 包含该图表，且该图表不是筛选器（反向配置）
+        const sourceRef = chartRefs.find(r => r.chartId === chartId);
+        const affectedRefs = chartRefs.filter(ref => {
+            const forward = (ref.cascadeFrom || []).includes(chartId);
+            const targetChart = charts.find(c => c.id === ref.chartId);
+            const reverse = isSourceFilter && targetChart && !isFilterChartType(targetChart.chartType) && (sourceRef?.cascadeFrom || []).includes(ref.chartId);
+            return forward || reverse;
+        });
+        if (affectedRefs.length === 0) return;
+        const timer = setTimeout(() => {
+            affectedRefs.forEach(ref => {
+                const mergedDsl = buildMergedDsl(ref.chartId);
+                if (mergedDsl) executeChart(ref.chartId, mergedDsl);
+            });
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [charts, chartRefs, buildMergedDsl, executeChart]);
+
+    const handleLayoutChange = useCallback((newLayout: Layout) => {
+        setLayout(newLayout as { i: string; x: number; y: number; w: number; h: number }[]);
         const nextRefs = chartRefs.map((ref, idx) => {
             const l = newLayout.find(item => item.i === String(idx));
             return l ? { ...ref, x: l.x, y: l.y, w: l.w, h: l.h } : ref;
@@ -147,8 +239,11 @@ const DashboardEditor: React.FC = () => {
         setChartRefs(nextRefs);
         setLayout(nextRefs.map((ref, idx) => ({ i: String(idx), x: ref.x, y: ref.y, w: ref.w, h: ref.h })));
         setSelectedIndex(nextRefs.length - 1);
-        // 执行新图表（无维度日期筛选框跳过）
+        // 执行新图表（无维度日期筛选框跳过，同时保存原始 DSL）
         const chart = charts.find(c => c.id === chartId);
+        if (chart?.metricAnalysisCmd) {
+            originalDslMap.current[chartId] = JSON.parse(JSON.stringify(chart.metricAnalysisCmd));
+        }
         const dimCode = chart?.metricAnalysisCmd?.dimensions?.[0]?.dimCode || chart?.dimensions?.[0]?.field;
         const isDate = chart?.chartType === ChartType.FILTER_DATE || chart?.chartType === ChartType.FILTER_DATE_RANGE;
         if (!(isDate && !dimCode)) {
@@ -232,7 +327,7 @@ const DashboardEditor: React.FC = () => {
         if (isFilterChartType(chart.chartType)) {
             return (
                 <div style={{ padding: '8px 12px', height: '100%' }}>
-                    <FilterChart chart={chart} data={data} />
+                    <FilterChart chart={chart} data={data} onChange={(vals) => handleFilterChange(chart.id, vals)} />
                 </div>
             );
         }
@@ -288,7 +383,7 @@ const DashboardEditor: React.FC = () => {
                         {chartRefs.length === 0 ? (
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 400, color: '#999', fontSize: 14, border: '2px dashed #e8e8e8', borderRadius: 8, margin: 16 }}>请从左侧组件库添加图表到画布</div>
                         ) : (
-                            <GridLayout className="layout" layout={layout} cols={GRID_COLS} rowHeight={ROW_HEIGHT} width={canvasWidth} onLayoutChange={handleLayoutChange} margin={[12, 12]} isBounded={false}>
+                            <GridLayout className="layout" layout={layout as any} cols={GRID_COLS} rowHeight={ROW_HEIGHT} width={canvasWidth} onLayoutChange={handleLayoutChange} margin={[12, 12]} isBounded={false}>
                                 {chartRefs.map((ref, idx) => {
                                     const chart = charts.find(c => c.id === ref.chartId);
                                     const isSelected = selectedIndex === idx;
