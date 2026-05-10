@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Input, Button, Space, Tag } from 'antd';
+import { Input, Button } from 'antd';
 import { SendOutlined, LoadingOutlined } from '@ant-design/icons';
 
 interface ChatInputProps {
@@ -10,7 +10,7 @@ interface ChatInputProps {
 }
 
 const QUICK_QUESTIONS = [
-  '近7天销售额趋势',
+  '我想看城市用户分布',
   '各渠道DAU对比',
   '本月销售额TOP10',
   'Q1各部门费用占比',
@@ -36,45 +36,44 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, loading, value, onChange 
     onSend(q);
   };
 
-  // 自动聚焦
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
   return (
     <div className="chatbi-input-wrapper">
-      <div className="chatbi-quick-questions">
-        <Space wrap size={8}>
-          <span style={{ color: '#999', fontSize: 12 }}>快捷提问：</span>
-          {QUICK_QUESTIONS.map((q) => (
-            <Tag
-              key={q}
-              color="processing"
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleQuickClick(q)}
-            >
-              {q}
-            </Tag>
-          ))}
-        </Space>
+      {/* 快捷提问 */}
+      <div className="chatbi-quick-bar">
+        {QUICK_QUESTIONS.map((q) => (
+          <button
+            key={q}
+            className="chatbi-quick-pill"
+            onClick={() => handleQuickClick(q)}
+            disabled={loading}
+          >
+            {q}
+          </button>
+        ))}
       </div>
-      <div className="chatbi-input-area">
+
+      {/* 输入框 */}
+      <div className="chatbi-input-box">
         <Input.TextArea
           ref={inputRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="输入自然语言提问，例如：近30天各省份销售额排名"
-          autoSize={{ minRows: 1, maxRows: 4 }}
+          autoSize={{ minRows: 1, maxRows: 5 }}
           disabled={loading}
-          style={{ borderRadius: 8, resize: 'none' }}
+          className="chatbi-textarea"
         />
         <Button
           type="primary"
+          className="chatbi-send-btn"
           icon={loading ? <LoadingOutlined /> : <SendOutlined />}
           onClick={handleSend}
           disabled={!value.trim() || loading}
-          style={{ marginLeft: 8, height: 'auto', borderRadius: 8 }}
         >
           {loading ? '分析中' : '发送'}
         </Button>

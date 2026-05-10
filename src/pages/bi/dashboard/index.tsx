@@ -25,7 +25,7 @@ const DashboardList: React.FC = () => {
             } else {
                 message.error(res.message || '获取看板列表失败');
             }
-        } catch (e) {
+        } catch {
             message.error('获取看板列表失败');
         } finally {
             setLoading(false);
@@ -49,7 +49,7 @@ const DashboardList: React.FC = () => {
             } else {
                 message.error(res.message || '删除失败');
             }
-        } catch (e) {
+        } catch {
             message.error('删除失败');
         }
     };

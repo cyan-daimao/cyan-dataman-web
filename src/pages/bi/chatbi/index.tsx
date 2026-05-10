@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Spin, Button, message, Avatar, Typography, Space, Divider } from 'antd';
+import { Spin, Button, message, Avatar, Typography, Space } from 'antd';
 import {
   RobotOutlined,
   UserOutlined,
@@ -7,12 +7,19 @@ import {
   RedoOutlined,
   LoadingOutlined,
   ToolOutlined,
+  CompassOutlined,
+  LineChartOutlined,
+  BarChartOutlined,
+  TableOutlined,
+  NumberOutlined,
 } from '@ant-design/icons';
 import { useChatBIStore, ChatMessage } from './store';
 import ChatInput from './components/ChatInput';
 import QueryLogicCard from './components/QueryLogicCard';
 import ChartRenderer from './components/ChartRenderer';
 import SaveChartModal from './components/SaveChartModal';
+import MarkdownRender from './components/MarkdownRender';
+import ThinkingChain from './components/ThinkingChain';
 import './index.less';
 
 const { Text } = Typography;
@@ -23,64 +30,87 @@ const { Text } = Typography;
 const MessageItem: React.FC<{ msg: ChatMessage }> = ({ msg }) => {
   const isUser = msg.role === 'user';
 
+  // 提取思考过程（如果有）
+  const thinkMatch = msg.content.match(/<think>([\s\S]*?)<\/think>/);
+  const thinkContent = thinkMatch ? thinkMatch[1].trim() : undefined;
+  const displayContent = thinkContent
+    ? msg.content.replace(/<think>[\s\S]*?<\/think>/, '').trim()
+    : msg.content;
+
   return (
-    <div className={`chatbi-message ${isUser ? 'chatbi-message-user' : 'chatbi-message-assistant'}`}>
-      <div className="chatbi-message-avatar">
-        <Avatar
-          icon={isUser ? <UserOutlined /> : <RobotOutlined />}
-          style={{
-            background: isUser ? '#4F6DF5' : '#f0f0f0',
-            color: isUser ? '#fff' : '#666',
-          }}
-        />
+    <div className={`chatbi-msg ${isUser ? 'chatbi-msg-user' : 'chatbi-msg-ai'}`}>
+      {/* 头像 */}
+      <div className="chatbi-msg-avatar">
+        {isUser ? (
+          <Avatar icon={<UserOutlined />} className="chatbi-avatar-user" />
+        ) : (
+          <div className="chatbi-avatar-ai">
+            <RobotOutlined />
+          </div>
+        )}
       </div>
-      <div className="chatbi-message-body">
-        <div className="chatbi-message-role">{isUser ? '我' : 'ChatBI'}</div>
-        <div className="chatbi-message-content">
+
+      {/* 消息体 */}
+      <div className="chatbi-msg-body">
+        {!isUser && <div className="chatbi-msg-label">ChatBI</div>}
+
+        <div className={`chatbi-msg-bubble ${isUser ? 'chatbi-bubble-user' : 'chatbi-bubble-ai'}`}>
+          {/* 思考过程 */}
+          {!isUser && thinkContent && <ThinkingChain content={thinkContent} />}
+
+          {/* 内容 */}
           {msg.loading && !msg.content ? (
             <Space>
               <Spin indicator={<LoadingOutlined spin />} size="small" />
               <Text type="secondary">正在思考...</Text>
             </Space>
+          ) : isUser ? (
+            <Text>{msg.content}</Text>
           ) : (
-            <Text style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</Text>
+            <MarkdownRender content={displayContent} />
           )}
 
-          {/* 工具调用中提示 */}
+          {/* 工具调用中 */}
           {msg.loading && msg.content && (
-            <div style={{ marginTop: 8 }}>
-              <Space>
-                <ToolOutlined spin style={{ color: '#4F6DF5' }} />
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  正在分析数据...
-                </Text>
-              </Space>
+            <div className="chatbi-tool-hint">
+              <ToolOutlined spin />
+              <span>正在查询数据...</span>
             </div>
           )}
 
-          {/* 错误提示 */}
+          {/* 错误 */}
           {msg.error && (
-            <div className="chatbi-message-error">
+            <div className="chatbi-error-box">
               <Text type="danger">{msg.error}</Text>
             </div>
           )}
 
-          {/* 取数逻辑卡片 */}
-          {msg.queryLogic && (
-            <QueryLogicCard queryLogic={msg.queryLogic} sql={msg.sql} />
-          )}
+          {/* 取数逻辑 */}
+          {msg.queryLogic && <QueryLogicCard queryLogic={msg.queryLogic} sql={msg.sql} />}
 
-          {/* 图表渲染 */}
+          {/* 图表 */}
           {msg.chartData && msg.chartType && (
-            <div className="chatbi-message-chart">
+            <div className="chatbi-chart-wrap">
               <ChartRenderer chartData={msg.chartData} chartType={msg.chartType} />
             </div>
           )}
         </div>
+
+
       </div>
     </div>
   );
 };
+
+/**
+ * 欢迎页示例卡片
+ */
+const EXAMPLE_CARDS = [
+  { icon: <BarChartOutlined />, title: '销售排名', desc: '近30天各省份销售额排名' },
+  { icon: <LineChartOutlined />, title: '趋势分析', desc: '对比本月和上月的新增用户数' },
+  { icon: <NumberOutlined />, title: '指标卡', desc: '本月总销售额' },
+  { icon: <TableOutlined />, title: '数据明细', desc: 'Q1各部门费用占比' },
+];
 
 /**
  * ChatBI 主页面
@@ -97,7 +127,6 @@ const ChatBIPage: React.FC = () => {
   const [saveModalVisible, setSaveModalVisible] = useState(false);
   const [saveTargetMsg, setSaveTargetMsg] = useState<ChatMessage | null>(null);
 
-  // 自动滚动到底部
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -127,68 +156,83 @@ const ChatBIPage: React.FC = () => {
         <div className="chatbi-messages">
           {messages.length === 0 ? (
             <div className="chatbi-welcome">
-              <RobotOutlined style={{ fontSize: 48, color: '#4F6DF5', marginBottom: 16 }} />
-              <h2 style={{ marginBottom: 8 }}>欢迎使用 ChatBI</h2>
-              <p style={{ color: '#999', marginBottom: 24 }}>
-                通过自然语言对话完成数据分析，支持多轮追问、图表渲染、一键保存
-              </p>
-              <div style={{ textAlign: 'left', maxWidth: 400 }}>
-                <Text type="secondary">您可以这样问我：</Text>
-                <ul style={{ color: '#666', marginTop: 8, paddingLeft: 20 }}>
-                  <li>"近30天各省份销售额排名"</li>
-                  <li>"对比本月和上月的新增用户数"</li>
-                  <li>"本月总销售额"</li>
-                  <li>"Q1各部门费用占比"</li>
-                </ul>
+              {/* Logo 区域 */}
+              <div className="chatbi-welcome-brand">
+                <div className="chatbi-welcome-icon">
+                  <CompassOutlined />
+                </div>
+                <h1 className="chatbi-welcome-title">ChatBI 智能数据分析</h1>
+                <p className="chatbi-welcome-subtitle">
+                  通过自然语言对话完成数据分析，支持多轮追问、图表渲染、一键保存
+                </p>
+              </div>
+
+              {/* 示例卡片 */}
+              <div className="chatbi-welcome-cards">
+                {EXAMPLE_CARDS.map((card) => (
+                  <div
+                    key={card.title}
+                    className="chatbi-welcome-card"
+                    onClick={() => handleSend(card.desc)}
+                  >
+                    <div className="chatbi-welcome-card-icon">{card.icon}</div>
+                    <div className="chatbi-welcome-card-title">{card.title}</div>
+                    <div className="chatbi-welcome-card-desc">{card.desc}</div>
+                  </div>
+                ))}
               </div>
             </div>
           ) : (
-            messages.map((msg) => (
-              <div key={msg.id}>
-                <MessageItem msg={msg} />
-                {/* 保存按钮 - 仅在 assistant 消息且 saveable 时显示 */}
-                {!msg.loading && msg.role === 'assistant' && msg.saveable && msg.dsl && (
-                  <div className="chatbi-message-actions">
-                    <Button
-                      type="link"
-                      size="small"
-                      icon={<SaveOutlined />}
-                      onClick={() => handleSaveChart(msg)}
-                    >
-                      保存为图表
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ))
+            <div className="chatbi-msg-list">
+              {messages.map((msg) => (
+                <div key={msg.id} className="chatbi-msg-outer">
+                  <MessageItem msg={msg} />
+                  {!msg.loading && msg.role === 'assistant' && msg.saveable && msg.dsl && (
+                    <div className="chatbi-msg-actions-outer">
+                      <Button
+                        type="link"
+                        size="small"
+                        icon={<SaveOutlined />}
+                        className="chatbi-save-btn"
+                        onClick={() => handleSaveChart(msg)}
+                      >
+                        保存为图表
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
           )}
-          <div ref={messagesEndRef} />
         </div>
 
         {/* 底部输入区 */}
         <div className="chatbi-footer">
-          <Divider style={{ margin: '0 0 12px 0' }} />
-          <div className="chatbi-footer-toolbar">
-            <Button
-              type="text"
-              size="small"
-              icon={<RedoOutlined />}
-              onClick={handleReset}
-              disabled={isLoading || messages.length === 0}
-            >
-              新对话
-            </Button>
+          <div className="chatbi-footer-inner">
+            {/* 工具栏 */}
+            <div className="chatbi-footer-toolbar">
+              <Button
+                type="text"
+                size="small"
+                icon={<RedoOutlined />}
+                onClick={handleReset}
+                disabled={isLoading || messages.length === 0}
+                className="chatbi-reset-btn"
+              >
+                新对话
+              </Button>
+            </div>
+            <ChatInput
+              value={inputValue}
+              onChange={setInputValue}
+              onSend={handleSend}
+              loading={isLoading}
+            />
           </div>
-          <ChatInput
-            value={inputValue}
-            onChange={setInputValue}
-            onSend={handleSend}
-            loading={isLoading}
-          />
         </div>
       </div>
 
-      {/* 保存图表弹窗 */}
       <SaveChartModal
         visible={saveModalVisible}
         messageData={saveTargetMsg}

@@ -7,8 +7,10 @@ import {
     MenuFoldOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
-import { Menu, theme } from 'antd';
+import { Button, Layout, Menu, theme } from 'antd';
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+
+const { Sider } = Layout;
 
 // 用于追踪组件嵌套层级的 Context
 const BiLevelContext = createContext(0);
@@ -81,62 +83,91 @@ const BiPage: React.FC = () => {
     }
 
     return (
-        <div style={{ width: '100%', height: '100%', display: 'flex', background: token.colorBgContainer, borderRadius: token.borderRadiusLG }}>
-            <aside
+        <div style={{ width: '100%', height: '100%' }}>
+            <Layout
                 style={{
-                    width: collapsed ? 80 : 200,
-                    minWidth: collapsed ? 80 : 200,
                     background: token.colorBgContainer,
+                    borderRadius: token.borderRadiusLG,
+                    width: '100%',
                     height: '100%',
-                    position: 'relative',
-                    flexShrink: 0,
-                    transition: 'width 0.2s',
-                    borderRight: `1px solid ${token.colorBorder}`,
-                    overflow: 'hidden',
                 }}
             >
-                {/* 折叠按钮 */}
-                <div
+                <Sider
+                    trigger={null}
+                    collapsible
+                    collapsed={collapsed}
+                    width={200}
                     style={{
-                        position: 'absolute',
-                        top: '20px',
-                        right: '-12px',
-                        zIndex: 10,
-                        width: '24px',
-                        height: '24px',
-                        borderRadius: '50%',
-                        background: token.colorBgContainer,
-                        border: `1px solid ${token.colorBorder}`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                        transition: 'all 0.2s'
+                        background: '#FFFFFF',
+                        height: '100%',
+                        boxShadow: '2px 0 8px rgba(29, 35, 51, 0.04)',
+                        zIndex: 2,
                     }}
-                    onClick={() => setCollapsed(!collapsed)}
                 >
-                    {collapsed ?
-                        <MenuUnfoldOutlined style={{ color: token.colorPrimary, fontSize: 12 }} /> :
-                        <MenuFoldOutlined style={{ color: token.colorPrimary, fontSize: 12 }} />
-                    }
-                </div>
+                    {/* 侧边栏标题 */}
+                    <div
+                        style={{
+                            height: 56,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: collapsed ? 'center' : 'space-between',
+                            padding: collapsed ? '0 8px' : '0 16px',
+                            borderBottom: '1px solid #F4F6FA',
+                            flexShrink: 0,
+                        }}
+                    >
+                        {!collapsed && (
+                            <span
+                                style={{
+                                    fontSize: 14,
+                                    fontWeight: 600,
+                                    color: '#1D2333',
+                                    letterSpacing: 0.5,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                }}
+                            >
+                                智能分析
+                            </span>
+                        )}
+                        <Button
+                            type="text"
+                            size="small"
+                            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                            onClick={() => setCollapsed(!collapsed)}
+                            style={{ color: '#8B909A', padding: '4px 8px' }}
+                        />
+                    </div>
 
-                <Menu
-                    mode="inline"
-                    style={{ height: '100%', borderRight: 0, paddingTop: '16px' }}
-                    items={items}
-                    selectedKeys={selectedKeys}
-                    inlineCollapsed={collapsed}
-                    onClick={handleMenuClick}
-                />
-            </aside>
+                    <Menu
+                        mode="inline"
+                        style={{
+                            height: 'calc(100% - 56px)',
+                            borderRight: 0,
+                            paddingTop: 8,
+                            background: 'transparent',
+                        }}
+                        items={items}
+                        selectedKeys={selectedKeys}
+                        inlineCollapsed={collapsed}
+                        onClick={handleMenuClick}
+                    />
+                </Sider>
 
-            <main style={{ flex: 1, height: '100%', overflow: 'auto', padding: 16 }}>
-                <BiLevelContext.Provider value={level + 1}>
-                    <Outlet />
-                </BiLevelContext.Provider>
-            </main>
+                <Layout.Content
+                    style={{
+                        padding: 16,
+                        height: '100%',
+                        overflow: 'auto',
+                        background: '#F8F9FA',
+                    }}
+                >
+                    <BiLevelContext.Provider value={level + 1}>
+                        <Outlet />
+                    </BiLevelContext.Provider>
+                </Layout.Content>
+            </Layout>
         </div>
     );
 };

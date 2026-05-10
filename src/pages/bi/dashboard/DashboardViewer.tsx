@@ -1,214 +1,205 @@
-import React, { useEffect, useState } from 'react';
-import {
-    Button,
-    Card,
-    Space,
-    message,
-    Table,
-    Statistic,
-    Spin,
-    Empty,
-} from 'antd';
-import {
-    ArrowLeftOutlined,
-    ReloadOutlined,
-} from '@ant-design/icons';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { Button, Space, message, Spin, Empty, DatePicker } from 'antd';
+import { ArrowLeftOutlined, ReloadOutlined, EditOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-    dashboardApi,
-    chartApi,
-    DashboardDTO,
-    ChartDTO,
-    ChartDataDTO,
-    ChartType,
-} from '@/api/DatabiApi';
+import { dashboardApi, chartApi, DashboardDTO, DashboardChartItem, ChartDataDTO, ChartType, MetricBiAnalysisCmd, FilterOperator } from '@/api/DatabiApi';
+import GridLayout from 'react-grid-layout';
+import 'react-grid-layout/css/styles.css';
 import EChartsChart from '@/pages/bi/components/EChartsChart';
+import FilterBar from './components/FilterBar';
+import PanelCard from './components/PanelCard';
 
-interface ChartResult {
-    chart: ChartDTO;
-    data?: ChartDataDTO;
-    loading: boolean;
-}
+interface ChartResult { data?: ChartDataDTO; loading: boolean; error?: string; }
+
+const isFilterChartType = (chartType?: ChartType) => {
+    return chartType === ChartType.FILTER_SELECT || chartType === ChartType.FILTER_MULTI ||
+        chartType === ChartType.FILTER_DATE || chartType === ChartType.FILTER_DATE_RANGE;
+};
+
+/** 日期类筛选框且无绑定维度时，不需要后端 execute */
+const needsExecute = (item: DashboardChartItem) => {
+    const dimCode = item.chart.metricAnalysisCmd?.dimensions?.[0]?.dimCode || item.chart.dimensions?.[0]?.field;
+    const isDate = item.chart.chartType === ChartType.FILTER_DATE || item.chart.chartType === ChartType.FILTER_DATE_RANGE;
+    return !(isDate && !dimCode);
+};
+
+const ROW_HEIGHT = 50;
 
 const DashboardViewer: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
     const [dashboard, setDashboard] = useState<DashboardDTO | null>(null);
-    const [charts, setCharts] = useState<Record<string, ChartDTO>>({});
+    const [chartItems, setChartItems] = useState<DashboardChartItem[]>([]);
     const [results, setResults] = useState<Record<string, ChartResult>>({});
+    const [filterValuesMap, setFilterValuesMap] = useState<Record<string, string[]>>({});
     const [loading, setLoading] = useState(false);
+    const originalDslMap = useRef<Record<string, MetricBiAnalysisCmd>>({});
+    const [canvasWidth, setCanvasWidth] = useState(1200);
 
-    const loadDashboard = async () => {
+    useEffect(() => {
+        const updateWidth = () => setCanvasWidth(Math.max(800, window.innerWidth - 48));
+        updateWidth();
+        window.addEventListener('resize', updateWidth);
+        return () => window.removeEventListener('resize', updateWidth);
+    }, []);
+
+    const buildMergedDsl = useCallback((chartId: string): MetricBiAnalysisCmd | null => {
+        const originalDsl = originalDslMap.current[chartId];
+        if (!originalDsl) return null;
+        const chartItem = chartItems.find(c => c.chartId === chartId);
+        if (!chartItem) return originalDsl;
+        const cascadeFrom = chartItem.cascadeFrom || [];
+        const newFilters = [...(originalDsl.filters || [])];
+        for (const sourceChartId of cascadeFrom) {
+            const sourceChartItem = chartItems.find(c => c.chartId === sourceChartId);
+            if (!sourceChartItem || !isFilterChartType(sourceChartItem.chart.chartType)) continue;
+            const values = filterValuesMap[sourceChartId] || [];
+            const dimCode = sourceChartItem.chart.metricAnalysisCmd?.dimensions?.[0]?.dimCode || sourceChartItem.chart.dimensions?.[0]?.field || '';
+            if (!dimCode) continue;
+            if (values.length === 0) {
+                const idx = newFilters.findIndex(f => f.dimCode === dimCode);
+                if (idx >= 0) newFilters.splice(idx, 1);
+                continue;
+            }
+            let operator: FilterOperator;
+            if (sourceChartItem.chart.chartType === ChartType.FILTER_DATE_RANGE) operator = FilterOperator.BETWEEN;
+            else if (values.length > 1) operator = FilterOperator.IN;
+            else operator = FilterOperator.EQ;
+            const idx = newFilters.findIndex(f => f.dimCode === dimCode);
+            if (idx >= 0) newFilters[idx] = { dimCode, operator, values };
+            else newFilters.push({ dimCode, operator, values });
+        }
+        return { ...originalDsl, filters: newFilters };
+    }, [chartItems, filterValuesMap]);
+
+    const executeChart = useCallback(async (chartId: string, dsl?: MetricBiAnalysisCmd) => {
+        setResults(prev => ({ ...prev, [chartId]: { ...prev[chartId], loading: true, error: undefined } }));
+        try {
+            const body = dsl ? { metricAnalysisCmd: dsl } : undefined;
+            const res = await chartApi.execute(chartId, body);
+            if (res.code === 200) {
+                setResults(prev => ({ ...prev, [chartId]: { data: res.data, loading: false } }));
+            } else {
+                setResults(prev => ({ ...prev, [chartId]: { data: { status: 'FAILED', costTimeMs: 0, columns: [], rows: [], sql: '', errorMessage: res.message }, loading: false } }));
+            }
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : '执行失败';
+            setResults(prev => ({ ...prev, [chartId]: { data: { status: 'FAILED', costTimeMs: 0, columns: [], rows: [], sql: '', errorMessage: msg }, loading: false } }));
+        }
+    }, []);
+
+    const loadDashboard = useCallback(async () => {
         if (!id) return;
         setLoading(true);
         try {
-            const res = await dashboardApi.getById(id);
-            if (res.code === 200) {
-                setDashboard(res.data);
-                const refs = res.data.chartRefs || [];
-                // 预加载图表元数据
-                const chartMap: Record<string, ChartDTO> = {};
-                const resultMap: Record<string, ChartResult> = {};
-                await Promise.all(
-                    refs.map(async (ref) => {
-                        try {
-                            const cRes = await chartApi.getById(ref.chartId);
-                            if (cRes.code === 200) {
-                                chartMap[ref.chartId] = cRes.data;
-                                resultMap[ref.chartId] = { chart: cRes.data, loading: true };
-                            }
-                        } catch {
-                            // ignore
-                        }
-                    })
-                );
-                setCharts(chartMap);
-                setResults(resultMap);
-                // 并行执行所有图表
-                await Promise.all(
-                    refs.map(async (ref) => {
-                        if (!chartMap[ref.chartId]) return;
-                        try {
-                            const eRes = await chartApi.execute(ref.chartId);
-                            if (eRes.code === 200) {
-                                resultMap[ref.chartId] = {
-                                    chart: chartMap[ref.chartId],
-                                    data: eRes.data,
-                                    loading: false,
-                                };
-                            } else {
-                                resultMap[ref.chartId] = {
-                                    chart: chartMap[ref.chartId],
-                                    data: { status: 'FAILED', costTimeMs: 0, columns: [], rows: [], sql: '', errorMessage: eRes.message },
-                                    loading: false,
-                                };
-                            }
-                        } catch (e: unknown) {
-                            const msg = e instanceof Error ? e.message : '执行失败';
-                            resultMap[ref.chartId] = {
-                                chart: chartMap[ref.chartId],
-                                data: { status: 'FAILED', costTimeMs: 0, columns: [], rows: [], sql: '', errorMessage: msg },
-                                loading: false,
-                            };
-                        }
-                    })
-                );
-                setResults({ ...resultMap });
-            } else {
-                message.error(res.message || '加载看板失败');
+            const dashRes = await dashboardApi.getById(id);
+            if (dashRes.code !== 200) { message.error(dashRes.message || '加载看板失败'); return; }
+            setDashboard(dashRes.data);
+            const chartsRes = await dashboardApi.getDashboardCharts(id);
+            if (chartsRes.code !== 200) { message.error(chartsRes.message || '加载图表失败'); return; }
+            const items = chartsRes.data || [];
+            setChartItems(items);
+            const dslMap: Record<string, MetricBiAnalysisCmd> = {};
+            const resultMap: Record<string, ChartResult> = {};
+            for (const item of items) {
+                if (item.chart.metricAnalysisCmd) dslMap[item.chartId] = JSON.parse(JSON.stringify(item.chart.metricAnalysisCmd));
+                if (needsExecute(item)) {
+                    resultMap[item.chartId] = { loading: true };
+                } else {
+                    resultMap[item.chartId] = { loading: false, data: { status: 'SUCCESS', costTimeMs: 0, columns: [], rows: [], sql: '', errorMessage: '' } };
+                }
             }
-        } catch (e) {
-            message.error('加载看板失败');
-        } finally {
-            setLoading(false);
-        }
+            originalDslMap.current = dslMap;
+            setResults(resultMap);
+            await Promise.all(items.filter(needsExecute).map(async item => { await executeChart(item.chartId); }));
+        } catch { message.error('加载看板失败'); }
+        finally { setLoading(false); }
+    }, [id, executeChart]);
+
+    useEffect(() => { loadDashboard(); }, [loadDashboard]);
+
+    const handleFilterChange = useCallback((chartId: string, values: string[]) => {
+        setFilterValuesMap(prev => ({ ...prev, [chartId]: values }));
+        const affectedChartIds = chartItems.filter(item => (item.cascadeFrom || []).includes(chartId)).map(item => item.chartId);
+        if (affectedChartIds.length === 0) return;
+        const timer = setTimeout(() => {
+            affectedChartIds.forEach(targetId => {
+                const mergedDsl = buildMergedDsl(targetId);
+                if (mergedDsl) executeChart(targetId, mergedDsl);
+            });
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [chartItems, buildMergedDsl, executeChart]);
+
+    const handleReset = () => {
+        setFilterValuesMap({});
+        chartItems.filter(item => !isFilterChartType(item.chart.chartType)).forEach(item => {
+            const originalDsl = originalDslMap.current[item.chartId];
+            if (originalDsl) executeChart(item.chartId, { ...originalDsl, filters: originalDsl.filters || [] });
+        });
     };
 
-    useEffect(() => {
-        loadDashboard();
-    }, [id]);
+    const handleRefresh = () => { setFilterValuesMap({}); loadDashboard(); };
 
-    const handleRefresh = () => {
-        loadDashboard();
-    };
-
-    const chartRefs = dashboard?.chartRefs || [];
+    const dataChartItems = chartItems.filter(item => !isFilterChartType(item.chart.chartType));
+    const gridLayout = dataChartItems.map(item => ({ i: item.chartId, x: item.x, y: item.y, w: item.w, h: item.h }));
 
     return (
-        <div style={{ height: '100%', overflow: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h2 style={{ margin: 0 }}>{dashboard?.name || '看板详情'}</h2>
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#f0f2f5' }}>
+            {/* 顶部工具栏 */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: '#fff', borderBottom: '1px solid #e8e8e8', flexShrink: 0 }}>
                 <Space>
-                    <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={loading}>
-                        刷新
-                    </Button>
-                    <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/bi/dashboard')}>
-                        返回
-                    </Button>
+                    <Button icon={<ArrowLeftOutlined />} size="small" onClick={() => navigate('/bi/dashboard')}>返回</Button>
+                    <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{dashboard?.name || '看板详情'}</h2>
+                </Space>
+                <Space>
+                    <DatePicker.RangePicker size="small" placeholder={['开始时间', '结束时间']} style={{ width: 240 }} />
+                    <Button icon={<ReloadOutlined />} size="small" onClick={handleRefresh} loading={loading}>刷新</Button>
+                    {id && <Button icon={<EditOutlined />} size="small" onClick={() => navigate(`/bi/dashboard/edit/${id}`)}>编辑</Button>}
                 </Space>
             </div>
 
-            {loading && chartRefs.length === 0 && (
-                <div style={{ textAlign: 'center', padding: 60 }}>
-                    <Spin tip="加载中..." />
-                </div>
-            )}
+            {/* 筛选栏 */}
+            <FilterBar chartItems={chartItems} filterValuesMap={filterValuesMap} onFilterChange={handleFilterChange} onReset={handleReset} />
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0 }}>
-                {chartRefs.map((ref) => {
-                    const result = results[ref.chartId];
-                    const chart = result?.chart;
-                    const data = result?.data;
-                    const widthPct = `${(ref.w / 24) * 100}%`;
-
-                    return (
-                        <div
-                            key={ref.chartId}
-                            style={{
-                                width: widthPct,
-                                height: ref.h,
-                                padding: 8,
-                                boxSizing: 'border-box',
-                            }}
-                        >
-                            <Card
-                                size="small"
-                                title={chart?.name || ref.chartId}
-                                style={{ height: '100%', overflow: 'auto' }}
-                                extra={
-                                    result?.loading ? (
-                                        <Spin size="small" />
-                                    ) : (
-                                        <span style={{ fontSize: 12, color: '#999' }}>
-                                            {data ? `${data.costTimeMs}ms` : ''}
-                                        </span>
-                                    )
-                                }
-                            >
-                                {result?.loading && <Spin size="small" tip="加载中..." />}
-                                {!result?.loading && data?.status === 'FAILED' && (
-                                    <div style={{ color: '#cf1322', fontSize: 12 }}>
-                                        {data.errorMessage || '加载失败'}
-                                    </div>
-                                )}
-                                {!result?.loading && data?.status === 'SUCCESS' && (
-                                    <div>
-                                        {chart?.chartType === ChartType.NUMBER && chart?.metrics && chart.metrics.length > 0 && (
-                                            <Statistic
-                                                title={chart.metrics[0].alias || chart.metrics[0].field}
-                                                value={Number(data.rows[0]?.[chart.metrics[0].field] ?? 0)}
-                                            />
+            {/* 画布 */}
+            <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
+                {loading && dataChartItems.length === 0 ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 400 }}><Spin size="large" tip="加载中..." /></div>
+                ) : dataChartItems.length === 0 ? (
+                    <Empty description="该看板尚未添加数据图表" style={{ marginTop: 100 }} />
+                ) : (
+                    <GridLayout className="layout" layout={gridLayout} cols={12} rowHeight={ROW_HEIGHT} width={canvasWidth} margin={[12, 12]} isDraggable={false} isResizable={false}>
+                        {dataChartItems.map(item => {
+                            const result = results[item.chartId];
+                            const chart = item.chart;
+                            const data = result?.data;
+                            const ref = dashboard?.chartRefs?.find(r => r.chartId === item.chartId);
+                            return (
+                                <div key={item.chartId}>
+                                    <PanelCard title={chart.name} titleVisible={ref?.titleVisible !== false} bgColor={ref?.bgColor || undefined} borderStyle={ref?.borderStyle} extra={result?.loading ? undefined : data ? `${data.costTimeMs}ms` : undefined}>
+                                        {result?.loading && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Spin size="small" tip="加载中..." /></div>}
+                                        {!result?.loading && data?.status === 'FAILED' && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><div style={{ color: '#cf1322', fontSize: 12, textAlign: 'center' }}><div style={{ fontSize: 24, marginBottom: 8 }}>⚠️</div>{data.errorMessage || '加载失败'}</div></div>}
+                                        {!result?.loading && data?.status === 'SUCCESS' && (
+                                            <div style={{ width: '100%', height: '100%' }}>
+                                                {chart.chartType === ChartType.NUMBER && chart.metrics?.length ? (
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><div style={{ textAlign: 'center' }}><div style={{ fontSize: 36, fontWeight: 600, color: '#4F6DF5' }}>{Number(data.rows[0]?.[chart.metrics[0].field] ?? 0).toLocaleString()}</div><div style={{ fontSize: 14, color: '#999', marginTop: 4 }}>{chart.metrics[0].alias || chart.metrics[0].field}</div></div></div>
+                                                ) : chart.chartType === ChartType.TABLE ? (
+                                                    <div style={{ height: '100%', overflow: 'auto' }}><table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}><thead><tr>{data.columns.map(col => <th key={col} style={{ borderBottom: '1px solid #f0f0f0', padding: '4px 8px', textAlign: 'left', fontWeight: 500, background: '#fafafa' }}>{col}</th>)}</tr></thead><tbody>{data.rows.map((row, idx) => <tr key={idx}>{data.columns.map(col => <td key={col} style={{ borderBottom: '1px solid #f0f0f0', padding: '4px 8px' }}>{String(row[col] ?? '')}</td>)}</tr>)}</tbody></table></div>
+                                                ) : data.rows.length > 0 ? (
+                                                    <EChartsChart chartType={chart.chartType} columns={data.columns} rows={data.rows} dimensions={chart.dimensions || []} metrics={chart.metrics || []} />
+                                                ) : (
+                                                    <Empty description="暂无数据" imageStyle={{ height: 40 }} />
+                                                )}
+                                            </div>
                                         )}
-                                        {chart?.chartType !== ChartType.NUMBER && chart?.chartType !== ChartType.TABLE && data.rows.length > 0 && (
-                                            <EChartsChart
-                                                chartType={chart.chartType}
-                                                columns={data.columns}
-                                                rows={data.rows}
-                                                dimensions={chart.dimensions || []}
-                                                metrics={chart.metrics || []}
-                                            />
-                                        )}
-                                        {(chart?.chartType === ChartType.TABLE || !chart?.chartType || data.rows.length === 0) && (
-                                            <Table
-                                                size="small"
-                                                scroll={{ x: 'max-content' }}
-                                                dataSource={data.rows}
-                                                columns={data.columns.map((col) => ({ title: col, dataIndex: col, key: col }))}
-                                                pagination={{ pageSize: 10 }}
-                                            />
-                                        )}
-                                    </div>
-                                )}
-                                {!result && !result?.loading && <Empty description="无数据" imageStyle={{ height: 40 }} />}
-                            </Card>
-                        </div>
-                    );
-                })}
+                                    </PanelCard>
+                                </div>
+                            );
+                        })}
+                    </GridLayout>
+                )}
             </div>
-
-            {chartRefs.length === 0 && !loading && (
-                <Empty description="该看板尚未添加图表" />
-            )}
         </div>
     );
 };

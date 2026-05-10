@@ -22,6 +22,10 @@ export enum ChartType {
     SCATTER = 'SCATTER',
     AREA = 'AREA',
     NUMBER = 'NUMBER',
+    FILTER_SELECT = 'FILTER_SELECT',
+    FILTER_MULTI = 'FILTER_MULTI',
+    FILTER_DATE = 'FILTER_DATE',
+    FILTER_DATE_RANGE = 'FILTER_DATE_RANGE',
 }
 
 export enum AggregateType {
@@ -199,6 +203,10 @@ export interface ChartRef {
     y: number;
     w: number;
     h: number;
+    titleVisible?: boolean;
+    borderStyle?: string;
+    bgColor?: string | null;
+    cascadeFrom?: string[];
 }
 
 export interface DashboardDTO {
@@ -219,6 +227,19 @@ export interface DashboardCmd {
     chartRefs?: ChartRef[];
 }
 
+export interface DashboardChartItem {
+    chartId: string;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    titleVisible?: boolean;
+    borderStyle?: string;
+    bgColor?: string | null;
+    cascadeFrom?: string[];
+    chart: ChartDTO;
+}
+
 // ==================== 分析执行类型 ====================
 
 export interface AnalysisCmd {
@@ -237,6 +258,8 @@ export interface ChartDataDTO {
     columns: string[];
     rows: Record<string, unknown>[];
     sql: string;
+    /** 图表类型，execute 时后端返回，便于前端识别数据对应的图表类型 */
+    chartType?: ChartType;
     errorMessage?: string;
 }
 
@@ -294,7 +317,7 @@ export const chartApi = {
     /**
      * 分页查询图表
      */
-    page: async (params?: { name?: string; datasetId?: string; analysisType?: AnalysisType; current?: number; size?: number }): Promise<Response<Page<ChartDTO>>> => {
+    page: async (params?: { name?: string; datasetId?: string; analysisType?: AnalysisType; chartType?: ChartType; current?: number; size?: number }): Promise<Response<Page<ChartDTO>>> => {
         const config: AxiosRequestConfig = { params };
         return databiRequest.get('/api/v1/charts', config);
     },
@@ -302,8 +325,8 @@ export const chartApi = {
     /**
      * 列表查询图表
      */
-    list: async (name?: string, datasetId?: string, analysisType?: AnalysisType): Promise<Response<ChartDTO[]>> => {
-        const config: AxiosRequestConfig = { params: { name, datasetId, analysisType } };
+    list: async (name?: string, datasetId?: string, analysisType?: AnalysisType, chartType?: ChartType): Promise<Response<ChartDTO[]>> => {
+        const config: AxiosRequestConfig = { params: { name, datasetId, analysisType, chartType } };
         return databiRequest.get('/api/v1/charts/list', config);
     },
 
@@ -337,9 +360,11 @@ export const chartApi = {
 
     /**
      * 执行图表分析
+     * @param id 图表ID
+     * @param body 可选自定义DSL（用于级联筛选场景）
      */
-    execute: async (id: string): Promise<Response<ChartDataDTO>> => {
-        return databiRequest.post(`/api/v1/charts/${id}/execute`);
+    execute: async (id: string, body?: { metricAnalysisCmd?: MetricBiAnalysisCmd }): Promise<Response<ChartDataDTO>> => {
+        return databiRequest.post(`/api/v1/charts/${id}/execute`, body);
     },
 
     /**
@@ -395,6 +420,13 @@ export const dashboardApi = {
      */
     delete: async (id: string): Promise<Response<void>> => {
         return databiRequest.delete(`/api/v1/dashboards/${id}`);
+    },
+
+    /**
+     * 查询看板内图表详情列表（含布局信息和图表完整元数据）
+     */
+    getDashboardCharts: async (id: string): Promise<Response<DashboardChartItem[]>> => {
+        return databiRequest.get(`/api/v1/dashboards/${id}/charts`);
     },
 };
 

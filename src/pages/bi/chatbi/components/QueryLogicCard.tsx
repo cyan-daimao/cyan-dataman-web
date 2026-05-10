@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { Card, Tag, Button, Space } from 'antd';
 import {
-  FundOutlined,
+  BarChartOutlined,
   PartitionOutlined,
   FilterOutlined,
   SortAscendingOutlined,
   EyeOutlined,
   EyeInvisibleOutlined,
-  CodeOutlined,
 } from '@ant-design/icons';
 import { QueryLogic } from '../store';
 
@@ -22,63 +21,63 @@ const QueryLogicCard: React.FC<QueryLogicCardProps> = ({ queryLogic, sql }) => {
   return (
     <Card
       size="small"
-      className="chatbi-query-logic-card"
-      style={{ marginBottom: 12, background: '#f6f8ff', border: '1px solid #e0e6ff' }}
+      className="chatbi-query-card"
+      style={{ marginTop: 16 }}
     >
-      <div style={{ fontWeight: 600, marginBottom: 8, color: '#4F6DF5' }}>
-        <PartitionOutlined style={{ marginRight: 6 }} />
-        取数逻辑
+      <div className="chatbi-query-title">
+        <PartitionOutlined />
+        <span>取数逻辑</span>
       </div>
 
-      <Space direction="vertical" size={4} style={{ width: '100%' }}>
+      <Space direction="vertical" size={6} style={{ width: '100%' }}>
         {queryLogic.metrics.length > 0 && (
-          <div>
-            <Tag color="blue" icon={<FundOutlined />}>
-              指标
+          <div className="chatbi-query-row">
+            <Tag color="processing" className="chatbi-query-tag">
+              <BarChartOutlined /> 指标
             </Tag>
-            <span style={{ marginLeft: 8 }}>
+            <span className="chatbi-query-value">
               {queryLogic.metrics.map((m) => m.label).join('、')}
             </span>
           </div>
         )}
 
         {queryLogic.dimensions.length > 0 && (
-          <div>
-            <Tag color="cyan" icon={<PartitionOutlined />}>
-              维度
+          <div className="chatbi-query-row">
+            <Tag color="cyan" className="chatbi-query-tag">
+              <PartitionOutlined /> 维度
             </Tag>
-            <span style={{ marginLeft: 8 }}>
+            <span className="chatbi-query-value">
               {queryLogic.dimensions.map((d) => d.label).join('、')}
             </span>
           </div>
         )}
 
         {queryLogic.filters.length > 0 && (
-          <div>
-            <Tag color="orange" icon={<FilterOutlined />}>
-              过滤
+          <div className="chatbi-query-row">
+            <Tag color="warning" className="chatbi-query-tag">
+              <FilterOutlined /> 过滤
             </Tag>
-            <span style={{ marginLeft: 8 }}>
+            <span className="chatbi-query-value">
               {queryLogic.filters.map((f) => f.value).join('；')}
             </span>
           </div>
         )}
 
         {queryLogic.orders.length > 0 && (
-          <div>
-            <Tag color="purple" icon={<SortAscendingOutlined />}>
-              排序
+          <div className="chatbi-query-row">
+            <Tag color="purple" className="chatbi-query-tag">
+              <SortAscendingOutlined /> 排序
             </Tag>
-            <span style={{ marginLeft: 8 }}>
+            <span className="chatbi-query-value">
               {queryLogic.orders.map((o) => `${o.label} ${o.value}`).join('、')}
             </span>
           </div>
         )}
 
         {queryLogic.limit && (
-          <div>
-            <Tag color="default">限制</Tag>
-            <span style={{ marginLeft: 8 }}>TOP {queryLogic.limit}</span>
+          <div className="chatbi-query-row">
+            <Tag className="chatbi-query-tag">限制</Tag>
+            <span className="chatbi-query-value">TOP {queryLogic.limit}</span>
           </div>
         )}
       </Space>
@@ -90,26 +89,13 @@ const QueryLogicCard: React.FC<QueryLogicCardProps> = ({ queryLogic, sql }) => {
             size="small"
             icon={showSql ? <EyeInvisibleOutlined /> : <EyeOutlined />}
             onClick={() => setShowSql(!showSql)}
-            style={{ padding: 0 }}
+            style={{ padding: 0, fontSize: 12 }}
           >
             {showSql ? '隐藏 SQL' : '查看 SQL'}
           </Button>
           {showSql && (
-            <pre
-              style={{
-                marginTop: 8,
-                padding: 12,
-                background: '#1e1e1e',
-                color: '#d4d4d4',
-                borderRadius: 6,
-                fontSize: 12,
-                overflowX: 'auto',
-                maxHeight: 200,
-                overflowY: 'auto',
-              }}
-            >
-              <CodeOutlined style={{ marginRight: 6, color: '#4F6DF5' }} />
-              {sql}
+            <pre className="chatbi-sql-block">
+              <code>{sql}</code>
             </pre>
           )}
         </div>

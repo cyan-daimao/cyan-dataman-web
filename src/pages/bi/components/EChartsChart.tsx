@@ -9,6 +9,7 @@ interface EChartsChartProps {
     rows: Record<string, unknown>[];
     dimensions: DimensionConfig[];
     metrics: MetricConfig[];
+    style?: React.CSSProperties;
 }
 
 const CHART_COLORS = [
@@ -22,6 +23,7 @@ const EChartsChart: React.FC<EChartsChartProps> = ({
     rows,
     dimensions,
     metrics,
+    style,
 }) => {
     const option: EChartsOption = useMemo(() => {
         if (!rows || rows.length === 0) {
@@ -30,17 +32,30 @@ const EChartsChart: React.FC<EChartsChartProps> = ({
             };
         }
 
-        const dimFields = dimensions.map((d) => d.alias || d.field);
-        const metricFields = metrics.map((m) => m.alias || m.field);
+        // 后端返回的数据列名可能是 alias（JOIN查询）或 field（单表查询/筛选框）
+        // 优先用 alias 匹配，fallback 到 field
+        const resolveColumnName = (field: string, alias?: string): string => {
+            if (alias && columns.includes(alias)) return alias;
+            if (columns.includes(field)) return field;
+            return alias || field;
+        };
+
+        const dimFields = dimensions.map((d) => resolveColumnName(d.field, d.alias));
+        const dimLabels = dimensions.map((d) => d.alias || d.field);
+        const metricFields = metrics.map((m) => resolveColumnName(m.field, m.alias));
+        const metricLabels = metrics.map((m) => m.alias || m.field);
 
         // 如果没有指定维度/指标，用 columns 推导
         const xField = dimFields[0] || columns[0];
+        const xLabel = dimLabels[0] || columns[0];
         const yFields = metricFields.length > 0 ? metricFields : [columns[1] || columns[0]];
+        const yLabels = metricLabels.length > 0 ? metricLabels : [columns[1] || columns[0]];
 
         const xData = rows.map((r) => String(r[xField] ?? ''));
 
         if (chartType === ChartType.PIE) {
             const yField = yFields[0];
+            const yLabel = yLabels[0];
             const pieData = rows.map((r) => ({
                 name: String(r[xField] ?? ''),
                 value: Number(r[yField] ?? 0),
@@ -65,6 +80,7 @@ const EChartsChart: React.FC<EChartsChartProps> = ({
 
         if (chartType === ChartType.SCATTER) {
             const yField = yFields[0];
+            const yLabel = yLabels[0];
             const scatterData = rows.map((r) => [
                 Number(r[xField] ?? 0),
                 Number(r[yField] ?? 0),
@@ -73,8 +89,8 @@ const EChartsChart: React.FC<EChartsChartProps> = ({
                 color: CHART_COLORS,
                 tooltip: { trigger: 'item' },
                 grid: { left: '10%', right: '10%', bottom: '15%', top: '15%', containLabel: true },
-                xAxis: { type: 'value', name: xField, splitLine: { lineStyle: { type: 'dashed' } } },
-                yAxis: { type: 'value', name: yField, splitLine: { lineStyle: { type: 'dashed' } } },
+                xAxis: { type: 'value', name: xLabel, splitLine: { lineStyle: { type: 'dashed' } } },
+                yAxis: { type: 'value', name: yLabel, splitLine: { lineStyle: { type: 'dashed' } } },
                 series: [{
                     type: 'scatter',
                     symbolSize: 12,
@@ -88,7 +104,7 @@ const EChartsChart: React.FC<EChartsChartProps> = ({
         const isArea = chartType === ChartType.AREA;
 
         const series = yFields.map((yField, idx) => ({
-            name: yField,
+            name: yLabels[idx] || yField,
             type: isBar ? 'bar' : 'line',
             stack: undefined as string | undefined,
             smooth: !isBar,
@@ -104,11 +120,12 @@ const EChartsChart: React.FC<EChartsChartProps> = ({
                 trigger: 'axis',
                 axisPointer: { type: isBar ? 'shadow' : 'line' },
             },
-            legend: { type: 'scroll', bottom: 0, data: yFields },
+            legend: { type: 'scroll', bottom: 0, data: yLabels },
             grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
             xAxis: {
                 type: 'category',
                 data: xData,
+                name: xLabel,
                 axisLabel: { interval: 0, rotate: xData.length > 10 ? 30 : 0, overflow: 'truncate', width: 80 },
                 axisTick: { alignWithLabel: true },
             },
@@ -121,7 +138,7 @@ const EChartsChart: React.FC<EChartsChartProps> = ({
     return (
         <ReactECharts
             option={option}
-            style={{ width: '100%', height: 420 }}
+            style={{ width: '100%', height: '100%', ...style }}
             opts={{ renderer: 'canvas' }}
             notMerge
         />

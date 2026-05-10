@@ -1204,7 +1204,7 @@ const ChartAnalyzer: React.FC = () => {
                                 )}
 
                             {chartType !== ChartType.TABLE && chartType !== ChartType.NUMBER && result.rows.length > 0 && (
-                                <div style={{ marginBottom: 16 }}>
+                                <div style={{ height: 'calc(100vh - 380px)', minHeight: 400 }}>
                                     <EChartsChart
                                         chartType={chartType}
                                         columns={result.columns}
