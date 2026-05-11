@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useRef, useCallback } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsOption } from "echarts";
 import { TableRelationDTO } from "../../../../api/MetadataTableAPI";
@@ -36,6 +36,30 @@ const TableRelationGraph: React.FC<TableRelationGraphProps> = ({
     layerCode,
 }) => {
     const centerFullName = `${catalog}.${schema}.${table}`;
+    const chartInstanceRef = useRef<any>(null);
+
+    /**
+     * 用户拖拽节点后将被拖拽节点固定，避免力导向布局继续牵引导致漂移
+     */
+    const onEvents = useMemo(() => ({
+        dragend: (params: { dataIndex?: number }) => {
+            if (chartInstanceRef.current && params.dataIndex != null) {
+                chartInstanceRef.current.setOption({
+                    series: [{
+                        data: {
+                            [params.dataIndex]: {
+                                fixed: true,
+                            },
+                        },
+                    }],
+                });
+            }
+        },
+    }), []);
+
+    const onChartReady = useCallback((instance: any) => {
+        chartInstanceRef.current = instance;
+    }, []);
 
     const option: EChartsOption = useMemo(() => {
         const nodes: Record<string, unknown>[] = [];
@@ -243,6 +267,8 @@ const TableRelationGraph: React.FC<TableRelationGraphProps> = ({
                 option={option}
                 style={{ width: '100%', height: '100%' }}
                 opts={{ renderer: 'canvas' }}
+                onChartReady={onChartReady}
+                onEvents={onEvents}
             />
         </div>
     );
