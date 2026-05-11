@@ -1,7 +1,8 @@
 import {Response} from "./Response";
 import axios from "axios";
+import { getBaseURL } from "./Request";
 
-const LOGIN_URL = 'http://cyan-employee-prod.cyan.com/login'
+const LOGIN_URL = getBaseURL('employee') + '/login'
 
 export interface LoginCmd  {
     passport: string,
