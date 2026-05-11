@@ -377,13 +377,16 @@ const ChartList: React.FC = () => {
                                 {resultModal.chart?.chartType !== ChartType.NUMBER &&
                                     resultModal.chart?.chartType !== ChartType.TABLE &&
                                     (resultModal.data?.rows?.length || 0) > 0 && (
-                                        <EChartsChart
-                                            chartType={resultModal.chart?.chartType || ChartType.TABLE}
-                                            columns={resultModal.data?.columns || []}
-                                            rows={resultModal.data?.rows || []}
-                                            dimensions={resultModal.chart?.dimensions || []}
-                                            metrics={resultModal.chart?.metrics || []}
-                                        />
+                                        <div style={{ width: '100%', height: 400 }}>
+                                            <EChartsChart
+                                                chartType={resultModal.chart?.chartType || ChartType.TABLE}
+                                                columns={resultModal.data?.columns || []}
+                                                rows={resultModal.data?.rows || []}
+                                                dimensions={resultModal.chart?.dimensions || []}
+                                                metrics={resultModal.chart?.metrics || []}
+                                                style={{ height: '100%' }}
+                                            />
+                                        </div>
                                     )}
                                 {(resultModal.chart?.chartType === ChartType.TABLE ||
                                     (resultModal.data?.rows?.length || 0) === 0) && (

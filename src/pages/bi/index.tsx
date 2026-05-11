@@ -40,10 +40,13 @@ const BiPage: React.FC = () => {
 
     const [collapsed, setCollapsed] = useState(false);
 
-    // 根据路径计算选中的菜单 key
+    // 根据路径计算选中的菜单 key（支持子路由前缀匹配）
     const selectedKeys = useMemo(() => {
-        const key = pathToKeyMap[location.pathname];
-        return key ? [key] : ['bi-chart'];
+        const pathname = location.pathname;
+        if (pathname.startsWith('/bi/dashboard')) return ['bi-dashboard'];
+        if (pathname.startsWith('/bi/chatbi')) return ['bi-chatbi'];
+        if (pathname.startsWith('/bi/chart')) return ['bi-chart'];
+        return ['bi-chart'];
     }, [location.pathname]);
 
     // 菜单项定义（放在组件内部，确保响应式更新）
