@@ -48,6 +48,21 @@ function deriveChartConfig(
   };
 }
 
+/**
+ * 根据图表类型和数据量计算自适应高度
+ */
+function calcChartHeight(chartType: ChartType, rowCount: number): number {
+  const baseHeight = 320;
+  if (chartType === ChartType.PIE || chartType === ChartType.SCATTER) {
+    return 360;
+  }
+  // BAR / LINE / AREA：数据点多时增加高度，避免拥挤
+  if (rowCount <= 10) return baseHeight;
+  if (rowCount <= 20) return baseHeight + 60;
+  if (rowCount <= 40) return baseHeight + 120;
+  return baseHeight + 180;
+}
+
 const ChartRenderer: React.FC<ChartRendererProps> = ({ chartData, chartType }) => {
   const { columns, rows } = chartData;
 
@@ -95,6 +110,8 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ chartData, chartType }) =
   // BAR / LINE → EChartsChart
   const { dimensions, metrics } = deriveChartConfig(columns, chartType);
 
+  const chartHeight = calcChartHeight(chartType, rows.length);
+
   return (
     <EChartsChart
       chartType={chartType}
@@ -102,6 +119,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ chartData, chartType }) =
       rows={rows}
       dimensions={dimensions}
       metrics={metrics}
+      style={{ height: chartHeight }}
     />
   );
 };
