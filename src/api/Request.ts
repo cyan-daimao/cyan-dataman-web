@@ -12,6 +12,7 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         datametric: "http://localhost:8080/",
         databi: "http://localhost:8085",
         dataworks: "http://localhost:8086",
+        dify: "http://10.0.0.2:20080",
     },
     "pre": {
         dataman: "http://cyan-dataman-pre.cyan.com/",
@@ -20,6 +21,7 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         datametric: "http://cyan-datametric-pre.cyan.com/",
         databi: "http://cyan-databi-pre.cyan.com/",
         dataworks: "http://cyan-dataworks-pre.cyan.com/",
+        dify: "http://10.0.0.2:20080",
     },
     "prod":  {
         // dataman: "http://cyan-dataman-prod.cyan.com/",
@@ -34,6 +36,7 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         databi: "http://8.130.24.136:9106",
         // dataworks: "http://cyan-dataworks-prod.cyan.com/",
         dataworks: "http://8.130.24.136:9108/",
+        dify: "http://8.130.24.136:20080",
     },
     // vite preview 默认使用 production mode
     "production":  {
@@ -43,11 +46,12 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         datametric: "http://localhost:8080/",
         databi: "http://localhost:8085",
         dataworks: "http://localhost:8086",
+        dify: "http://10.0.0.2:20080",
     },
 };
 
 // 获取当前环境的基础URL（默认使用dataman）
-const getBaseURL = (service = 'dataman') => {
+export const getBaseURL = (service = 'dataman') => {
     const currentMode = import.meta.env.MODE;
     // 容错：如果当前环境配置不存在，使用默认地址
     return envURL[currentMode]?.[service] || `http://localhost:8080`;

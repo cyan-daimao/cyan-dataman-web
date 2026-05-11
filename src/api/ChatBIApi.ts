@@ -1,6 +1,7 @@
 import { MetricBiAnalysisCmd } from './DatabiApi';
+import { getBaseURL } from './Request';
 
-const DIFY_BASE_URL = 'http://10.0.0.2:20080';
+const DIFY_BASE_URL = getBaseURL('dify');
 const DIFY_API_KEY = 'app-lI3162I3aXSc1jrkjIa4y7PN';
 
 export interface DifyStreamEvent {

@@ -275,7 +275,7 @@ EOF
             script {
                 // 核心：生成构建描述，在历史列表中显示参数
                 def buildDesc = """
-                环境:(${params.SPRING_PROFILE})
+                环境:(${params.env})
                 分支:(${params.BRANCH})
                 """.stripIndent().replaceAll('\n', ' ')
                 currentBuild.description = buildDesc
