@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {message, Spin, Button, Space, Divider, Row, Col, Tooltip} from 'antd';
+import {message, Spin, Button, Space, Divider, Row, Col, Tooltip, Modal} from 'antd';
 import {
     PlayCircleOutlined,
     SaveOutlined,
@@ -102,6 +102,53 @@ const getTabLabel = (tab: TabData): string => {
     return tab.task.name || '未命名任务';
 };
 
+// localStorage keys（使用新 key 避免与旧数据结构冲突）
+const STORAGE_KEY = 'data_work_workspace_tabs_v2';
+const ACTIVE_TAB_KEY = 'data_work_workspace_active_tab_v2';
+
+// 持久化时只保存可序列化的基本信息，不保存运行时结果
+interface PersistedTab {
+    tabId: string;
+    task: JobDTO;
+    schedule: ScheduleConfigDTO;
+    sqlContent: string;
+    isModified: boolean;
+    resultActiveTab: string;
+}
+
+const loadTabsFromStorage = (): { tabs: TabData[]; activeTabId: string } => {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        const savedActive = localStorage.getItem(ACTIVE_TAB_KEY);
+        if (saved) {
+            const persisted: PersistedTab[] = JSON.parse(saved);
+            // 防御性校验：只恢复字段完整的 tab，避免旧数据/脏数据导致崩溃
+            const tabs = persisted
+                .filter((p): p is PersistedTab => !!p && typeof p.tabId === 'string' && !!p.task)
+                .map((p) => ({
+                    ...p,
+                    schedule: p.schedule || createEmptySchedule(p.task.id),
+                    sqlContent: p.sqlContent ?? '',
+                    resultActiveTab: p.resultActiveTab || 'result',
+                    result: null,
+                    executionPlan: null,
+                    error: null,
+                    logs: [],
+                }));
+            if (tabs.length > 0) {
+                const activeTabId = savedActive && tabs.some((t) => t.tabId === savedActive)
+                    ? savedActive
+                    : tabs[0].tabId;
+                return { tabs, activeTabId };
+            }
+        }
+    } catch (e) {
+        console.error('加载数据加工 tabs 失败:', e);
+    }
+    const defaultTab = createNewTab();
+    return { tabs: [defaultTab], activeTabId: defaultTab.tabId };
+};
+
 let tempIdCounter = 0;
 
 const DataWorkWorkspace: React.FC = () => {
@@ -113,15 +160,30 @@ const DataWorkWorkspace: React.FC = () => {
             .catch(() => setEditorInitializing(false));
     }, []);
 
-    // ========== Tab 状态 ==========
-    const [tabs, setTabs] = useState<TabData[]>([createNewTab()]);
-    const [activeTabId, setActiveTabId] = useState<string>(tabs[0].tabId);
+    // ========== Tab 状态（从 localStorage 恢复）==========
+    const initialState = React.useMemo(() => loadTabsFromStorage(), []);
+    const [tabs, setTabs] = useState<TabData[]>(initialState.tabs);
+    const [activeTabId, setActiveTabId] = useState<string>(initialState.activeTabId);
 
     const activeTab = tabs.find(t => t.tabId === activeTabId) || tabs[0];
 
     const updateActiveTab = useCallback((updater: (tab: TabData) => TabData) => {
         setTabs(prev => prev.map(t => t.tabId === activeTabId ? updater({...t}) : t));
     }, [activeTabId]);
+
+    // 持久化 tabs 到 localStorage（只保存基本信息，不保存运行时结果）
+    useEffect(() => {
+        const toSave: PersistedTab[] = tabs.map(t => ({
+            tabId: t.tabId,
+            task: t.task,
+            schedule: t.schedule,
+            sqlContent: t.sqlContent,
+            isModified: t.isModified,
+            resultActiveTab: t.resultActiveTab,
+        }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+        localStorage.setItem(ACTIVE_TAB_KEY, activeTabId);
+    }, [tabs, activeTabId]);
 
     // ========== 操作状态 ==========
     const [saving, setSaving] = useState(false);
@@ -236,7 +298,7 @@ const DataWorkWorkspace: React.FC = () => {
     }, []);
 
     // ========== 关闭 Tab ==========
-    const handleCloseTab = useCallback((tabId: string) => {
+    const doCloseTab = useCallback((tabId: string) => {
         setTabs(prev => {
             const idx = prev.findIndex(t => t.tabId === tabId);
             if (prev.length <= 1) {
@@ -254,6 +316,21 @@ const DataWorkWorkspace: React.FC = () => {
             return next;
         });
     }, [activeTabId]);
+
+    const handleCloseTab = useCallback((tabId: string) => {
+        const tab = tabs.find(t => t.tabId === tabId);
+        if (tab?.isModified) {
+            Modal.confirm({
+                title: '确认关闭',
+                content: `「${tab.task.name || '未命名任务'}」有未保存的修改，关闭后将丢失更改，是否继续？`,
+                okText: '关闭',
+                cancelText: '取消',
+                onOk: () => doCloseTab(tabId),
+            });
+        } else {
+            doCloseTab(tabId);
+        }
+    }, [tabs, doCloseTab]);
 
     // ========== 保存任务 ==========
     const handleSave = useCallback(async () => {
