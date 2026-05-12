@@ -18,20 +18,39 @@ const routeKeyMap: Record<string, string> = {
     '/sql-editor': '3',
     '/data-work': '4',
     '/bi': '5',
+    '/auth': '6',
 };
 
 interface NavItem {
     label: string;
     key: string;
+    permission?: string;
 }
 
-const navItems: NavItem[] = [
-    { label: '元数据平台', key: '1' },
-    { label: '指标平台', key: '2' },
-    { label: 'SQL查询', key: '3' },
-    { label: '数据加工', key: '4' },
-    { label: '智能分析', key: '5' },
+const allNavItems: NavItem[] = [
+    { label: '元数据平台', key: '1', permission: 'meta' },
+    { label: '指标平台', key: '2', permission: 'metrics' },
+    { label: 'SQL查询', key: '3', permission: 'sql-editor' },
+    { label: '数据加工', key: '4', permission: 'data-work' },
+    { label: '智能分析', key: '5', permission: 'bi' },
+    { label: '权限管理', key: '6', permission: 'auth' },
 ];
+
+// Phase 1：根据本地缓存的功能权限动态过滤导航项，无缓存则显示全部
+const getVisibleNavItems = (): NavItem[] => {
+    const cached = localStorage.getItem('user_function_permissions');
+    if (!cached) return allNavItems;
+    try {
+        const permissions = JSON.parse(cached) as string[];
+        if (permissions.includes('*')) return allNavItems;
+        return allNavItems.filter(item => {
+            if (!item.permission) return true;
+            return permissions.includes(item.permission);
+        });
+    } catch {
+        return allNavItems;
+    }
+};
 
 const App: React.FC = () => {
     const location = useLocation();
@@ -135,7 +154,7 @@ const App: React.FC = () => {
                         overflow: 'auto',
                     }}
                 >
-                    {navItems.map(item => {
+                    {getVisibleNavItems().map(item => {
                         const isActive = activeKey === item.key;
                         return (
                             <div

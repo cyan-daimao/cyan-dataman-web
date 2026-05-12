@@ -12,6 +12,7 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         datametric: "http://localhost:8080/",
         databi: "http://localhost:8085",
         dataworks: "http://localhost:8086",
+        dataauth: "http://localhost:8087",
         dify: "http://10.0.0.2:20080",
     },
     "pre": {
@@ -21,6 +22,7 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         datametric: "http://cyan-datametric-pre.cyan.com/",
         databi: "http://cyan-databi-pre.cyan.com/",
         dataworks: "http://cyan-dataworks-pre.cyan.com/",
+        dataauth: "http://cyan-dataauth-pre.cyan.com/",
         dify: "http://10.0.0.2:20080",
     },
     "prod":  {
@@ -36,6 +38,7 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         databi: "http://8.130.24.136:9106",
         // dataworks: "http://cyan-dataworks-prod.cyan.com/",
         dataworks: "http://8.130.24.136:9108/",
+        dataauth: "http://8.130.24.136:9109/",
         dify: "http://8.130.24.136:20080",
     },
     // vite preview 默认使用 production mode
@@ -46,6 +49,7 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         datametric: "http://localhost:8080/",
         databi: "http://localhost:8085",
         dataworks: "http://localhost:8086",
+        dataauth: "http://localhost:8087",
         dify: "http://10.0.0.2:20080",
     },
 };
@@ -131,6 +135,7 @@ export const datagatewayRequest = createRequest('datagateway');
 export const datametricRequest = createRequest('datametric');
 export const databiRequest = createRequest('databi');
 export const dataworksRequest = createRequest('dataworks');
+export const dataauthRequest = createRequest('dataauth');
 
 // 也可以导出创建函数，支持后续扩展更多业务线
 export const createCustomRequest = createRequest;

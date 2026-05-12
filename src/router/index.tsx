@@ -33,6 +33,18 @@ const TableSchemaEdit = React.lazy(() => import((`@/pages/metadata/business_db/t
 const TableSchemaDetail = React.lazy(() => import((`@/pages/metadata/business_db/table_schema/TableSchemaDetail.tsx`)))
 const BusinessDsSql = React.lazy(() => import((`@/pages/metadata/business_db/sql/index.tsx`)))
 
+// 权限管理模块
+const AuthLayout = React.lazy(() => import((`@/pages/auth/index.tsx`)))
+const AuthRole = React.lazy(() => import((`@/pages/auth/role/index.tsx`)))
+const AuthUser = React.lazy(() => import((`@/pages/auth/user/index.tsx`)))
+const AuthMetric = React.lazy(() => import((`@/pages/auth/metric/index.tsx`)))
+const AuthApproval = React.lazy(() => import((`@/pages/auth/approval/index.tsx`)))
+const AuthAudit = React.lazy(() => import((`@/pages/auth/audit/index.tsx`)))
+const AuthMy = React.lazy(() => import((`@/pages/auth/my/index.tsx`)))
+
+// 403 页面
+const ForbiddenPage = React.lazy(() => import((`@/pages/auth/ForbiddenPage.tsx`)))
+
 // 智能分析（BI）模块
 const BiLayout = React.lazy(() => import((`@/pages/bi/index.tsx`)))
 const ChartList = React.lazy(() => import((`@/pages/bi/chart/index.tsx`)))
@@ -48,6 +60,27 @@ const PrivateRoute = ({children}: { children: React.ReactNode }) => {
     if (!hasToken) {
         // 核心：跳转到登录页时，传递当前页面地址（location.pathname）
         return <Navigate to="/login" state={{from: window.location.pathname}} replace/>;
+    }
+    return <>{children}</>;
+};
+
+// 权限守卫组件：检查功能权限（Phase 1 使用本地 mock，后续切换为真实 API）
+const PermissionGuard = ({ permission, children }: { permission: string; children: React.ReactNode }) => {
+    // Phase 1：从 localStorage 获取用户功能权限缓存，若无缓存则默认放行（避免阻塞）
+    const cachedPermissions = localStorage.getItem('user_function_permissions');
+    if (cachedPermissions) {
+        try {
+            const permissions = JSON.parse(cachedPermissions) as string[];
+            // 超级管理员通配符
+            if (permissions.includes('*')) {
+                return <>{children}</>;
+            }
+            if (!permissions.includes(permission)) {
+                return <Navigate to="/403" replace />;
+            }
+        } catch {
+            // parse 失败默认放行
+        }
     }
     return <>{children}</>;
 };
@@ -205,12 +238,50 @@ const routes = createBrowserRouter([
                         element: <ChatBI/>
                     },
                 ]
+            },
+            {
+                path: "auth",
+                element: <PermissionGuard permission="auth"><AuthLayout/></PermissionGuard>,
+                children: [
+                    {
+                        index: true,
+                        element: <Navigate to="/auth/role" replace />
+                    },
+                    {
+                        path: "role",
+                        element: <PermissionGuard permission="auth:role"><AuthRole/></PermissionGuard>,
+                    },
+                    {
+                        path: "user",
+                        element: <PermissionGuard permission="auth:user"><AuthUser/></PermissionGuard>,
+                    },
+                    {
+                        path: "metric",
+                        element: <PermissionGuard permission="auth:metric"><AuthMetric/></PermissionGuard>,
+                    },
+                    {
+                        path: "approval",
+                        element: <PermissionGuard permission="auth:approval"><AuthApproval/></PermissionGuard>,
+                    },
+                    {
+                        path: "audit",
+                        element: <PermissionGuard permission="auth:audit"><AuthAudit/></PermissionGuard>,
+                    },
+                    {
+                        path: "my",
+                        element: <AuthMy/>,
+                    },
+                ]
             }
         ]
     },
     {
         path: "/login",
         element: <Login/>
+    },
+    {
+        path: "/403",
+        element: <ForbiddenPage/>
     },
     {
         path: "/about",
