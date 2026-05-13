@@ -20,6 +20,7 @@ const MetricsDictionary = React.lazy(() => import((`@/pages/metrics/dictionary/i
 const MetricsAnalysis = React.lazy(() => import((`@/pages/metrics/analysis/index.tsx`)))
 const MetricsConfig = React.lazy(() => import((`@/pages/metrics/config/index.tsx`)))
 const MetricsDimension = React.lazy(() => import((`@/pages/metrics/dimension/index.tsx`)))
+const MetricsAiChat = React.lazy(() => import((`@/pages/metrics/ai-chat/index.tsx`)))
 const SQLEditor = React.lazy(() => import((`@/pages/sql-editor/index.tsx`)))
 const DataWork = React.lazy(() => import((`@/pages/data-work/index.tsx`)))
 const JobInstancePage = React.lazy(() => import((`@/pages/data-work/JobInstancePage.tsx`)))
@@ -194,6 +195,10 @@ const routes = createBrowserRouter([
                     {
                         path: "dimension",
                         element: <MetricsDimension/>
+                    },
+                    {
+                        path: "ai-chat",
+                        element: <MetricsAiChat/>
                     },
                 ]
             }, {

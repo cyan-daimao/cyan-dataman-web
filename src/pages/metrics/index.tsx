@@ -8,6 +8,7 @@ import {
     MenuFoldOutlined,
     AppstoreOutlined,
     TagOutlined,
+    RobotOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { Layout, Menu, theme } from 'antd';
@@ -27,6 +28,7 @@ const pathToKeyMap: Record<string, string> = {
     '/metrics/analysis': 'metrics-analysis',
     '/metrics/config': 'metrics-config',
     '/metrics/dimension': 'metrics-dimension',
+    '/metrics/ai-chat': 'metrics-ai-chat',
 };
 
 const items: MenuProps['items'] = [
@@ -60,6 +62,11 @@ const items: MenuProps['items'] = [
         label: <Link to={'/metrics/config'}>指标配置</Link>,
         icon: <SettingOutlined />,
     },
+    {
+        key: 'metrics-ai-chat',
+        label: <Link to={'/metrics/ai-chat'}>AI 创建</Link>,
+        icon: <RobotOutlined />,
+    },
 ];
 
 const MetricsPage: React.FC = () => {
@@ -72,6 +79,9 @@ const MetricsPage: React.FC = () => {
 
     const [collapsed, setCollapsed] = useState(false);
     const [openKeys, setOpenKeys] = useState<string[]>(['metrics-overview']);
+
+    // 是否是全屏对话页面（不需要 padding）
+    const isChatPage = location.pathname === '/metrics/ai-chat';
 
     // 根据路径计算选中的菜单 key
     const selectedKeys = useMemo(() => {
@@ -110,7 +120,7 @@ const MetricsPage: React.FC = () => {
                     width={200}
                     style={{
                         background: token.colorBgContainer,
-                        height: '100vh',
+                        height: '100%',
                         position: 'relative'
                     }}
                 >
@@ -152,7 +162,7 @@ const MetricsPage: React.FC = () => {
                     />
                 </Sider>
 
-                <Layout.Content style={{ padding: 16, height: '100vh', overflow: 'auto' }}>
+                <Layout.Content style={isChatPage ? { height: '100%', overflow: 'hidden', padding: 0 } : { padding: 16, height: '100%', overflow: 'auto' }}>
                     <MetricsLevelContext.Provider value={level + 1}>
                         <Outlet />
                     </MetricsLevelContext.Provider>

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Spin, Button, message, Avatar, Typography, Space } from 'antd';
+import { Spin, Button, message, Avatar, Typography, Space, Popconfirm } from 'antd';
 import {
   RobotOutlined,
   UserOutlined,
@@ -12,6 +12,12 @@ import {
   BarChartOutlined,
   TableOutlined,
   NumberOutlined,
+  PlusOutlined,
+  DeleteOutlined,
+  MessageOutlined,
+  HistoryOutlined,
+  MenuUnfoldOutlined,
+  MenuFoldOutlined,
 } from '@ant-design/icons';
 import { useChatBIStore, ChatMessage } from './store';
 import ChatInput from './components/ChatInput';
@@ -31,10 +37,10 @@ const MessageItem: React.FC<{ msg: ChatMessage }> = ({ msg }) => {
   const isUser = msg.role === 'user';
 
   // 提取思考过程（如果有）
-  const thinkMatch = msg.content.match(/<think>([\s\S]*?)<\/think>/);
+  const thinkMatch = msg.content.match(/<tool_call>([\s\S]*?)<\/think>/);
   const thinkContent = thinkMatch ? thinkMatch[1].trim() : undefined;
   const displayContent = thinkContent
-    ? msg.content.replace(/<think>[\s\S]*?<\/think>/, '').trim()
+    ? msg.content.replace(/<tool_call>[\s\S]*?<\/think>/, '').trim()
     : msg.content;
 
   return (
@@ -113,6 +119,69 @@ const EXAMPLE_CARDS = [
 ];
 
 /**
+ * 历史对话侧边栏
+ */
+const ConversationSidebar: React.FC = () => {
+  const conversations = useChatBIStore((s) => s.conversations);
+  const activeConversationId = useChatBIStore((s) => s.activeConversationId);
+  const switchConversation = useChatBIStore((s) => s.switchConversation);
+  const deleteConversation = useChatBIStore((s) => s.deleteConversation);
+  const newConversation = useChatBIStore((s) => s.newConversation);
+
+  return (
+    <div className="chatbi-sidebar">
+      <div className="chatbi-sidebar-header">
+        <span className="chatbi-sidebar-title">
+          <HistoryOutlined style={{ marginRight: 6 }} />
+          历史对话
+        </span>
+        <Button
+          type="text"
+          size="small"
+          icon={<PlusOutlined />}
+          className="chatbi-sidebar-new-btn"
+          onClick={newConversation}
+        >
+          新对话
+        </Button>
+      </div>
+      <div className="chatbi-sidebar-list">
+        {conversations.map((conv) => (
+          <div
+            key={conv.id}
+            className={`chatbi-sidebar-item ${conv.id === activeConversationId ? 'chatbi-sidebar-item-active' : ''}`}
+            onClick={() => switchConversation(conv.id)}
+          >
+            <MessageOutlined className="chatbi-sidebar-item-icon" />
+            <span className="chatbi-sidebar-item-title">{conv.title}</span>
+            <Popconfirm
+              title="确定删除此对话？"
+              onConfirm={(e) => {
+                e?.stopPropagation();
+                deleteConversation(conv.id);
+              }}
+              onCancel={(e) => e?.stopPropagation()}
+              okText="删除"
+              cancelText="取消"
+            >
+              <DeleteOutlined
+                className="chatbi-sidebar-item-delete"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </Popconfirm>
+          </div>
+        ))}
+        {conversations.length === 0 && (
+          <div className="chatbi-sidebar-empty">
+            <Text type="secondary">暂无对话记录</Text>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/**
  * ChatBI 主页面
  */
 const ChatBIPage: React.FC = () => {
@@ -126,6 +195,7 @@ const ChatBIPage: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [saveModalVisible, setSaveModalVisible] = useState(false);
   const [saveTargetMsg, setSaveTargetMsg] = useState<ChatMessage | null>(null);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -146,89 +216,105 @@ const ChatBIPage: React.FC = () => {
 
   const handleReset = () => {
     resetChat();
-    message.success('对话已重置');
+    message.success('新对话已创建');
   };
 
   return (
     <div className="chatbi-page">
-      <div className="chatbi-content">
-        {/* 消息列表 */}
-        <div className="chatbi-messages">
-          {messages.length === 0 ? (
-            <div className="chatbi-welcome">
-              {/* Logo 区域 */}
-              <div className="chatbi-welcome-brand">
-                <div className="chatbi-welcome-icon">
-                  <CompassOutlined />
-                </div>
-                <h1 className="chatbi-welcome-title">ChatBI 智能数据分析</h1>
-                <p className="chatbi-welcome-subtitle">
-                  通过自然语言对话完成数据分析，支持多轮追问、图表渲染、一键保存
-                </p>
-              </div>
+      {/* 历史对话侧边栏 */}
+      {sidebarVisible && <ConversationSidebar />}
 
-              {/* 示例卡片 */}
-              <div className="chatbi-welcome-cards">
-                {EXAMPLE_CARDS.map((card) => (
-                  <div
-                    key={card.title}
-                    className="chatbi-welcome-card"
-                    onClick={() => handleSend(card.desc)}
-                  >
-                    <div className="chatbi-welcome-card-icon">{card.icon}</div>
-                    <div className="chatbi-welcome-card-title">{card.title}</div>
-                    <div className="chatbi-welcome-card-desc">{card.desc}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="chatbi-msg-list">
-              {messages.map((msg) => (
-                <div key={msg.id} className="chatbi-msg-outer">
-                  <MessageItem msg={msg} />
-                  {!msg.loading && msg.role === 'assistant' && msg.saveable && msg.dsl && (
-                    <div className="chatbi-msg-actions-outer">
-                      <Button
-                        type="link"
-                        size="small"
-                        icon={<SaveOutlined />}
-                        className="chatbi-save-btn"
-                        onClick={() => handleSaveChart(msg)}
-                      >
-                        保存为图表
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
+      <div className="chatbi-main">
+        {/* 侧边栏切换按钮 */}
+        <div className="chatbi-sidebar-toggle">
+          <Button
+            type="text"
+            size="small"
+            icon={sidebarVisible ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+            onClick={() => setSidebarVisible(!sidebarVisible)}
+            className="chatbi-toggle-btn"
+          />
         </div>
 
-        {/* 底部输入区 */}
-        <div className="chatbi-footer">
-          <div className="chatbi-footer-inner">
-            {/* 工具栏 */}
-            <div className="chatbi-footer-toolbar">
-              <Button
-                type="text"
-                size="small"
-                icon={<RedoOutlined />}
-                onClick={handleReset}
-                disabled={isLoading || messages.length === 0}
-                className="chatbi-reset-btn"
-              >
-                新对话
-              </Button>
+        <div className="chatbi-content">
+          {/* 消息列表 */}
+          <div className="chatbi-messages">
+            {messages.length === 0 ? (
+              <div className="chatbi-welcome">
+                {/* Logo 区域 */}
+                <div className="chatbi-welcome-brand">
+                  <div className="chatbi-welcome-icon">
+                    <CompassOutlined />
+                  </div>
+                  <h1 className="chatbi-welcome-title">ChatBI 智能数据分析</h1>
+                  <p className="chatbi-welcome-subtitle">
+                    通过自然语言对话完成数据分析，支持多轮追问、图表渲染、一键保存
+                  </p>
+                </div>
+
+                {/* 示例卡片 */}
+                <div className="chatbi-welcome-cards">
+                  {EXAMPLE_CARDS.map((card) => (
+                    <div
+                      key={card.title}
+                      className="chatbi-welcome-card"
+                      onClick={() => handleSend(card.desc)}
+                    >
+                      <div className="chatbi-welcome-card-icon">{card.icon}</div>
+                      <div className="chatbi-welcome-card-title">{card.title}</div>
+                      <div className="chatbi-welcome-card-desc">{card.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="chatbi-msg-list">
+                {messages.map((msg) => (
+                  <div key={msg.id} className="chatbi-msg-outer">
+                    <MessageItem msg={msg} />
+                    {!msg.loading && msg.role === 'assistant' && msg.saveable && msg.dsl && (
+                      <div className="chatbi-msg-actions-outer">
+                        <Button
+                          type="link"
+                          size="small"
+                          icon={<SaveOutlined />}
+                          className="chatbi-save-btn"
+                          onClick={() => handleSaveChart(msg)}
+                        >
+                          保存为图表
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
+          </div>
+
+          {/* 底部输入区 */}
+          <div className="chatbi-footer">
+            <div className="chatbi-footer-inner">
+              {/* 工具栏 */}
+              <div className="chatbi-footer-toolbar">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<RedoOutlined />}
+                  onClick={handleReset}
+                  disabled={isLoading}
+                  className="chatbi-reset-btn"
+                >
+                  新对话
+                </Button>
+              </div>
+              <ChatInput
+                value={inputValue}
+                onChange={setInputValue}
+                onSend={handleSend}
+                loading={isLoading}
+              />
             </div>
-            <ChatInput
-              value={inputValue}
-              onChange={setInputValue}
-              onSend={handleSend}
-              loading={isLoading}
-            />
           </div>
         </div>
       </div>

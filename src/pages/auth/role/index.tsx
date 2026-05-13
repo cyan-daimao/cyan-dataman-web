@@ -63,6 +63,7 @@ const FUNCTION_PERMISSION_TREE = [
             { title: '指标分析', value: 'metrics:analysis' },
             { title: '指标配置', value: 'metrics:config' },
             { title: '维度管理', value: 'metrics:dimension' },
+            { title: 'AI 创建', value: 'metrics:ai-chat' },
         ],
     },
     {

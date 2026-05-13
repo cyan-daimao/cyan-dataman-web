@@ -57,6 +57,7 @@ const MetaDataManagement: React.FC = () => {
     const [selectedThemeKey, setSelectedThemeKey] = useState<string>('all'); // 选中的主题key
     const [tableData, setTableData] = useState<TableMeta[]>([]); // 表数据
     const [loading, setLoading] = useState(true); // 加载状态
+    const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
     // 从 URL 参数初始化搜索值
     const [searchValue, setSearchValue] = useState(() => {
         const search = searchParams.get('search');
@@ -191,22 +192,24 @@ const columns: TableColumnsType<TableMeta> = [
 ];
 
 // 获取表数据（调用真实 API）
-const fetchTableData = async (subjectCode: string = 'all') => {
+const fetchTableData = async (subjectCode: string = 'all', page = 1, pageSize = 20) => {
     setLoading(true);
     try {
         const query = {
             subjectCode: subjectCode === 'all' ? undefined : subjectCode,
             content: searchValue || undefined,
-            current: 1,
-            size: 100
+            current: page,
+            size: pageSize
         };
 
-        const page = await pageMetadataTables(query);
-        setTableData(page.data || []);
+        const res = await pageMetadataTables(query);
+        setTableData(res.data || []);
+        setPagination({ current: res.current || page, pageSize: res.size || pageSize, total: res.total || 0 });
     } catch (error) {
         console.error('获取表数据失败:', error);
         message.error('获取表数据失败');
         setTableData([]);
+        setPagination({ current: 1, pageSize: 20, total: 0 });
     } finally {
         setLoading(false);
     }
@@ -217,18 +220,18 @@ const fetchTableData = async (subjectCode: string = 'all') => {
 const onTreeSelect: TreeProps['onSelect'] = (selectedKeys) => {
     const key = selectedKeys[0] || 'all';
     setSelectedThemeKey(key);
-    fetchTableData(key).then();
+    fetchTableData(key, 1, pagination.pageSize).then();
 };
 
 // 搜索表
 const handleSearch = () => {
-    fetchTableData(selectedThemeKey).then();
+    fetchTableData(selectedThemeKey, 1, pagination.pageSize).then();
 };
 
 // 重置搜索
 const handleReset = () => {
     setSearchValue('');
-    fetchTableData(selectedThemeKey).then();
+    fetchTableData(selectedThemeKey, 1, pagination.pageSize).then();
 };
 
 
@@ -254,7 +257,7 @@ const handleDelete = async (record: TableMeta) => {
             try {
                 await deleteMetadataTable(record.id);
                 message.success('删除成功');
-                fetchTableData(selectedThemeKey).then();
+                fetchTableData(selectedThemeKey, pagination.current, pagination.pageSize).then();
             } catch (error) {
                 console.error('删除表失败:', error);
                 message.error('删除表失败');
@@ -400,9 +403,14 @@ return (
                             dataSource={tableData}
                             rowKey="id"
                             pagination={{
-                                pageSize: 10,
+                                current: pagination.current,
+                                pageSize: pagination.pageSize,
+                                total: pagination.total,
                                 showSizeChanger: true,
-                                showTotal: (total) => `共 ${total} 条记录`
+                                showTotal: (total) => `共 ${total} 条记录`,
+                                onChange: (page, pageSize) => {
+                                    fetchTableData(selectedThemeKey, page, pageSize).then();
+                                },
                             }}
                             scroll={{x: 'max-content'}}
                         />

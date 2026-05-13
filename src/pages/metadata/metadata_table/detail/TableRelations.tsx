@@ -402,7 +402,7 @@ const TableRelations: React.FC<TableRelationsProps> = ({catalog, schema, table, 
                             <Option value="RIGHT">RIGHT JOIN</Option>
                         </Select>
                     </Form.Item>
-                    <Form.Item name="description" label="描述">
+                    <Form.Item name="description" label="描述" rules={[{required: true}]}>
                         <TextArea rows={3} placeholder="请输入关联描述"/>
                     </Form.Item>
                 </Form>

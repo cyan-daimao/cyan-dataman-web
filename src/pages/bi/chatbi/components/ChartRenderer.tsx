@@ -1,5 +1,6 @@
-import React from 'react';
-import { Table, Statistic, Empty } from 'antd';
+import React, { useState } from 'react';
+import { Table, Statistic, Empty, Button, Modal } from 'antd';
+import { ExpandOutlined } from '@ant-design/icons';
 import { ChartDataDTO, ChartType, DimensionConfig, MetricConfig } from '@/api/DatabiApi';
 import EChartsChart from '@/pages/bi/components/EChartsChart';
 
@@ -21,15 +22,13 @@ function buildTableColumns(columns: string[]) {
 }
 
 /**
- * 从 ChartDataDTO 推导 dimensions / metrics 配置（用于 EChartsChart）
- * 优先用 columns 前 N 个作为维度，后面的作为指标
+ * 从 ChartDataDTO 推导 dimensions / metrics 配置
  */
 function deriveChartConfig(
   columns: string[],
   chartType: ChartType
 ): { dimensions: DimensionConfig[]; metrics: MetricConfig[] } {
   if (chartType === ChartType.NUMBER) {
-    // NUMBER 类型：第一个 column 作为指标
     return {
       dimensions: [],
       metrics: columns.slice(0, 1).map((c) => ({ field: c, aggregate: 'SUM' as const, alias: c })),
@@ -40,7 +39,6 @@ function deriveChartConfig(
     return { dimensions: [], metrics: [] };
   }
 
-  // BAR / LINE：第一个 column 作为维度（X轴），其余作为指标（Y轴）
   const dimCount = 1;
   return {
     dimensions: columns.slice(0, dimCount).map((c) => ({ field: c, alias: c })),
@@ -51,12 +49,20 @@ function deriveChartConfig(
 /**
  * 根据图表类型和数据量计算自适应高度
  */
-function calcChartHeight(chartType: ChartType, rowCount: number): number {
+function calcChartHeight(chartType: ChartType, rowCount: number, expanded = false): number {
+  if (expanded) {
+    // 放大模式下使用更大的高度
+    if (chartType === ChartType.PIE || chartType === ChartType.SCATTER) return 500;
+    if (rowCount <= 10) return 450;
+    if (rowCount <= 20) return 550;
+    if (rowCount <= 40) return 650;
+    return 750;
+  }
+
   const baseHeight = 320;
   if (chartType === ChartType.PIE || chartType === ChartType.SCATTER) {
     return 360;
   }
-  // BAR / LINE / AREA：数据点多时增加高度，避免拥挤
   if (rowCount <= 10) return baseHeight;
   if (rowCount <= 20) return baseHeight + 60;
   if (rowCount <= 40) return baseHeight + 120;
@@ -65,6 +71,7 @@ function calcChartHeight(chartType: ChartType, rowCount: number): number {
 
 const ChartRenderer: React.FC<ChartRendererProps> = ({ chartData, chartType }) => {
   const { columns, rows } = chartData;
+  const [expanded, setExpanded] = useState(false);
 
   if (chartData.status !== 'SUCCESS') {
     return (
@@ -83,36 +90,94 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ chartData, chartType }) =
   if (chartType === ChartType.NUMBER) {
     const valueField = columns[0];
     const value = Number(rows[0]?.[valueField] ?? 0);
-    return (
+    const statisticContent = (
       <div style={{ padding: 24, textAlign: 'center' }}>
         <Statistic
           title={valueField}
           value={value}
-          valueStyle={{ fontSize: 36, color: '#4F6DF5' }}
+          valueStyle={{ fontSize: expanded ? 48 : 36, color: '#4F6DF5' }}
         />
       </div>
+    );
+    return (
+      <>
+        {statisticContent}
+        <Button
+          type="text"
+          size="small"
+          icon={<ExpandOutlined />}
+          className="chatbi-chart-expand-btn"
+          onClick={() => setExpanded(true)}
+        >
+          放大
+        </Button>
+        <Modal
+          title="指标详情"
+          open={expanded}
+          onCancel={() => setExpanded(false)}
+          footer={null}
+          width={600}
+          className="chatbi-chart-expand-modal"
+          destroyOnClose
+        >
+          <div className="chatbi-chart-expand-content">
+            {statisticContent}
+          </div>
+        </Modal>
+      </>
     );
   }
 
   // TABLE 类型 → Table
   if (chartType === ChartType.TABLE) {
-    return (
+    const tableContent = (
       <Table
         size="small"
         dataSource={rows.map((r, idx) => ({ ...r, key: idx }))}
         columns={buildTableColumns(columns)}
-        pagination={{ pageSize: 10, showSizeChanger: true }}
+        pagination={{ pageSize: expanded ? 20 : 10, showSizeChanger: true }}
         scroll={{ x: 'max-content' }}
       />
+    );
+    return (
+      <>
+        {tableContent}
+        <Button
+          type="text"
+          size="small"
+          icon={<ExpandOutlined />}
+          className="chatbi-chart-expand-btn"
+          onClick={() => setExpanded(true)}
+        >
+          放大
+        </Button>
+        <Modal
+          title="数据明细"
+          open={expanded}
+          onCancel={() => setExpanded(false)}
+          footer={null}
+          width={expanded ? 900 : 600}
+          className="chatbi-chart-expand-modal"
+          destroyOnClose
+        >
+          <div className="chatbi-chart-expand-content">
+            <Table
+              dataSource={rows.map((r, idx) => ({ ...r, key: idx }))}
+              columns={buildTableColumns(columns)}
+              pagination={{ pageSize: 20, showSizeChanger: true }}
+              scroll={{ x: 'max-content' }}
+            />
+          </div>
+        </Modal>
+      </>
     );
   }
 
   // BAR / LINE → EChartsChart
   const { dimensions, metrics } = deriveChartConfig(columns, chartType);
-
   const chartHeight = calcChartHeight(chartType, rows.length);
 
-  return (
+  const chartElement = (
     <EChartsChart
       chartType={chartType}
       columns={columns}
@@ -121,6 +186,43 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ chartData, chartType }) =
       metrics={metrics}
       style={{ height: chartHeight }}
     />
+  );
+
+  const expandedHeight = calcChartHeight(chartType, rows.length, true);
+
+  return (
+    <>
+      {chartElement}
+      <Button
+        type="text"
+        size="small"
+        icon={<ExpandOutlined />}
+        className="chatbi-chart-expand-btn"
+        onClick={() => setExpanded(true)}
+      >
+        放大
+      </Button>
+      <Modal
+        title="图表详情"
+        open={expanded}
+        onCancel={() => setExpanded(false)}
+        footer={null}
+        width={900}
+        className="chatbi-chart-expand-modal"
+        destroyOnClose
+      >
+        <div className="chatbi-chart-expand-content">
+          <EChartsChart
+            chartType={chartType}
+            columns={columns}
+            rows={rows}
+            dimensions={dimensions}
+            metrics={metrics}
+            style={{ height: expandedHeight }}
+          />
+        </div>
+      </Modal>
+    </>
   );
 };
 
