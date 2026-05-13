@@ -182,7 +182,7 @@
 }
 
 .form-header {
-  margin-bottom: 32px;
+  margin-bottom: 28px;
 
   .form-title {
     margin: 0 0 6px 0 !important;
@@ -194,6 +194,59 @@
   .form-subtitle {
     font-size: 14px;
     color: #8B909A;
+    display: block;
+    margin-bottom: 12px;
+  }
+
+  .contact-info {
+    background: #F7F8FC;
+    border-radius: 10px;
+    padding: 14px 16px;
+    border: 1px solid #ECEFF8;
+
+    .contact-tip {
+      font-size: 12px;
+      color: #8B909A;
+      margin-bottom: 10px;
+      font-weight: 500;
+    }
+
+    .contact-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 8px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+
+      .contact-icon {
+        font-size: 14px;
+        margin-top: 3px;
+        flex-shrink: 0;
+
+        &.wechat {
+          color: #07C160;
+        }
+
+        &.email {
+          color: #4F6DF5;
+        }
+      }
+
+      .contact-emails {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .contact-text {
+        font-size: 13px;
+        color: #4E5566;
+        line-height: 1.4;
+      }
+    }
   }
 }
 

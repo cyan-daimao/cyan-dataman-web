@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Form, Input, Button, Typography, message } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined, WechatOutlined, MailOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { login } from "../../api/LoginApi";
 import { currentEmployee } from "../../api/EmployeeApi";
@@ -92,6 +92,20 @@ const LoginPage: React.FC = () => {
                             <Text type="secondary" className="form-subtitle">
                                 请登录您的账号以继续
                             </Text>
+                            <div className="contact-info">
+                                <div className="contact-tip">联系我获得账号密码</div>
+                                <div className="contact-item">
+                                    <WechatOutlined className="contact-icon wechat" />
+                                    <Text className="contact-text">DAIMAO500</Text>
+                                </div>
+                                <div className="contact-item">
+                                    <MailOutlined className="contact-icon email" />
+                                    <div className="contact-emails">
+                                        <Text className="contact-text">a1624000875@163.com</Text>
+                                        <Text className="contact-text">daimao2817@gmail.com</Text>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <Form
