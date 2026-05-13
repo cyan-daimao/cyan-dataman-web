@@ -1,7 +1,8 @@
-import {Card, Empty, Spin, Table, TableProps, Tabs, Tag, Typography, Space} from 'antd';
+import {Card, Empty, Spin, Table, TableProps, Tabs, Tag, Typography, Space, Button} from 'antd';
 import {useState} from 'react';
 import {
     ClockCircleOutlined,
+    DownloadOutlined,
     FileSearchOutlined,
     InfoCircleOutlined,
     TableOutlined
@@ -40,6 +41,37 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
             current: newPagination.current,
             pageSize: newPagination.pageSize
         });
+    };
+
+    // 下载 CSV
+    const downloadCSV = () => {
+        if (!result) return;
+
+        const headers = result.columns;
+        const rows = result.rows.map(row => {
+            return result.columns.map(col => {
+                const value = row[col];
+                if (value === null || value === undefined) {
+                    return '';
+                }
+                const str = String(value);
+                if (str.includes(',') || str.includes('\n') || str.includes('"')) {
+                    return `"${str.replace(/"/g, '""')}"`;
+                }
+                return str;
+            }).join(',');
+        });
+
+        const csvContent = [headers.join(','), ...rows].join('\n');
+        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `query_result_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     };
 
     // 为每行数据添加唯一索引，用于 rowKey
@@ -123,13 +155,17 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                                     background: '#f5f5f5',
                                     marginBottom: 8,
                                     borderRadius: 4,
-                                    flexShrink: 0
+                                    flexShrink: 0,
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
                                 }}>
                                     <Space split={<span>|</span>}>
                                         <span><ClockCircleOutlined/> 耗时：{result.duration}ms</span>
                                         <span>返回行数：{result.rows.length}</span>
                                         <span>总行数：{result.total}</span>
                                     </Space>
+                                    <Button type="link" size="small" icon={<DownloadOutlined/>} onClick={downloadCSV}>下载CSV</Button>
                                 </div>
                                 <div style={{flex: 1, minHeight: 0, overflow: 'auto'}}>
                                     <Table

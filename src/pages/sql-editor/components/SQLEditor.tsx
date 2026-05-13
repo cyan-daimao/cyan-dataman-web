@@ -76,9 +76,10 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
 
     // 当外部 value 变化时（如点击左侧表、格式化、切换标签页），同步到编辑器
     // 使用 defaultValue 避免受控模式导致的光标跳动
+    // 仅在编辑器没有焦点时同步，防止打字过程中光标飞走
     useEffect(() => {
         const editor = editorRef.current;
-        if (editor && value !== editor.getValue()) {
+        if (editor && value !== editor.getValue() && !editor.hasTextFocus()) {
             editor.setValue(value);
         }
     }, [value]);
