@@ -22,7 +22,6 @@ import {
     EyeOutlined,
     PlusOutlined,
     DeleteOutlined,
-    SearchOutlined,
     CopyOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -87,8 +86,6 @@ const ChartAnalyzer: React.FC = () => {
     // 搜索状态
     const [metricSearch, setMetricSearch] = useState('');
     const [dimSearch, setDimSearch] = useState('');
-    const metricSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const dimSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // ========== 初始化加载指标/维度列表 ==========
     useEffect(() => {
@@ -542,22 +539,14 @@ const ChartAnalyzer: React.FC = () => {
                     <>
                         <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <span style={{ fontWeight: 'bold', color: '#1890ff' }}>指标库</span>
-                            <Input
+                            <Input.Search
                                 size="small"
                                 placeholder="搜索"
                                 value={metricSearch}
-                                onChange={(e) => {
-                                    const value = e.target.value;
-                                    setMetricSearch(value);
-                                    if (metricSearchTimer.current) {
-                                        clearTimeout(metricSearchTimer.current);
-                                    }
-                                    metricSearchTimer.current = setTimeout(() => {
-                                        doSearchMetrics(value);
-                                    }, 300);
-                                }}
-                                prefix={<SearchOutlined />}
+                                onChange={(e) => setMetricSearch(e.target.value)}
+                                onSearch={(value) => doSearchMetrics(value)}
                                 allowClear
+                                enterButton={false}
                                 style={{ width: 90 }}
                             />
                         </div>
@@ -601,22 +590,14 @@ const ChartAnalyzer: React.FC = () => {
 
                         <div style={{ marginTop: 12, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <span style={{ fontWeight: 'bold', color: '#52c41a' }}>维度库</span>
-                            <Input
+                            <Input.Search
                                 size="small"
                                 placeholder="搜索"
                                 value={dimSearch}
-                                onChange={(e) => {
-                                    const value = e.target.value;
-                                    setDimSearch(value);
-                                    if (dimSearchTimer.current) {
-                                        clearTimeout(dimSearchTimer.current);
-                                    }
-                                    dimSearchTimer.current = setTimeout(() => {
-                                        doSearchDimensions(value);
-                                    }, 300);
-                                }}
-                                prefix={<SearchOutlined />}
+                                onChange={(e) => setDimSearch(e.target.value)}
+                                onSearch={(value) => doSearchDimensions(value)}
                                 allowClear
+                                enterButton={false}
                                 style={{ width: 90 }}
                             />
                         </div>
