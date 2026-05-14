@@ -920,12 +920,12 @@ const ChartAnalyzer: React.FC = () => {
                                         chartType={chartType}
                                         columns={result.columns}
                                         rows={result.rows}
-                                        dimensions={selectedDimensions.map((d) => ({
-                                            field: d.dimName,
+                                        dimensions={selectedDimensions.map((d, i) => ({
+                                            field: result.columns[i] || d.dimName,
                                             alias: d.dimName,
                                         }))}
-                                        metrics={selectedMetrics.map((m) => ({
-                                            field: m.metricName,
+                                        metrics={selectedMetrics.map((m, i) => ({
+                                            field: result.columns[selectedDimensions.length + i] || m.metricName,
                                             aggregate: AggregateType.SUM,
                                             alias: m.metricName,
                                         }))}

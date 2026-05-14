@@ -131,7 +131,7 @@ const EChartsChart: React.FC<EChartsChartProps> = ({
                 axisPointer: { type: isBar ? 'shadow' : 'line' },
             },
             legend: { type: 'scroll', bottom: 0, data: yLabels },
-            grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
+            grid: { left: '3%', right: '4%', bottom: '20%', top: '10%', containLabel: true },
             xAxis: {
                 type: 'category',
                 data: xData,
