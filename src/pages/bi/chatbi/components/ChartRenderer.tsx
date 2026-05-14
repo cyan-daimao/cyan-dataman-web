@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Table, Statistic, Empty, Button, Modal } from 'antd';
 import { ExpandOutlined } from '@ant-design/icons';
-import { ChartDataDTO, ChartType, DimensionConfig, MetricConfig, MetricBiAnalysisCmd } from '@/api/DatabiApi';
+import { ChartDataDTO, ChartType, DimensionConfig, MetricConfig, MetricBiAnalysisCmd, AggregateType } from '@/api/DatabiApi';
 import EChartsChart from '@/pages/bi/components/EChartsChart';
 
 interface ChartRendererProps {
@@ -19,13 +19,13 @@ function buildColumnAliasMap(columns: string[], dsl?: MetricBiAnalysisCmd): Reco
   let colIdx = 0;
   for (const dim of dsl.dimensions || []) {
     if (colIdx < columns.length) {
-      map[columns[colIdx]] = dim.alias || dim.dimCode || columns[colIdx];
+      map[columns[colIdx]] = dim.dimName || dim.alias || dim.dimCode || columns[colIdx];
       colIdx++;
     }
   }
   for (const metric of dsl.metrics || []) {
     if (colIdx < columns.length) {
-      map[columns[colIdx]] = metric.alias || metric.metricCode || columns[colIdx];
+      map[columns[colIdx]] = metric.metricName || metric.alias || metric.metricCode || columns[colIdx];
       colIdx++;
     }
   }
@@ -58,7 +58,7 @@ function deriveChartConfig(
     const field = columns[0];
     return {
       dimensions: [],
-      metrics: [{ field, aggregate: 'SUM' as const, alias: metric?.alias || metric?.metricCode || field }],
+      metrics: [{ field, aggregate: AggregateType.SUM, alias: metric?.metricName || metric?.alias || metric?.metricCode || field }],
     };
   }
 
@@ -70,12 +70,12 @@ function deriveChartConfig(
     return {
       dimensions: dsl.dimensions.map((d, i) => ({
         field: columns[i] || d.dimCode,
-        alias: d.alias || d.dimCode,
+        alias: d.dimName || d.alias || d.dimCode,
       })),
       metrics: dsl.metrics.map((m, i) => ({
         field: columns[(dsl.dimensions?.length || 0) + i] || m.metricCode,
-        aggregate: 'SUM' as const,
-        alias: m.alias || m.metricCode,
+        aggregate: AggregateType.SUM,
+        alias: m.metricName || m.alias || m.metricCode,
       })),
     };
   }
@@ -83,7 +83,7 @@ function deriveChartConfig(
   const dimCount = 1;
   return {
     dimensions: columns.slice(0, dimCount).map((c) => ({ field: c, alias: c })),
-    metrics: columns.slice(dimCount).map((c) => ({ field: c, aggregate: 'SUM' as const, alias: c })),
+    metrics: columns.slice(dimCount).map((c) => ({ field: c, aggregate: AggregateType.SUM, alias: c })),
   };
 }
 
@@ -132,7 +132,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ chartData, chartType, dsl
     const valueField = columns[0];
     const value = Number(rows[0]?.[valueField] ?? 0);
     const aliasMap = buildColumnAliasMap(columns, dsl);
-    const title = aliasMap[valueField] || valueField;
+    const title = dsl?.metrics?.[0]?.metricName || aliasMap[valueField] || valueField;
     const statisticContent = (
       <div style={{ padding: 24, textAlign: 'center' }}>
         <Statistic

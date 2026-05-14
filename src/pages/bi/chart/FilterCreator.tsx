@@ -96,10 +96,6 @@ const FilterCreator: React.FC<FilterCreatorProps> = ({ open, onCancel, onSuccess
             return;
         }
 
-        const dimensionList = selectedDim
-            ? [{ field: selectedDim.dimCode, alias: selectedDim.dimName }]
-            : [];
-
         const cmd: ChartCmd = {
             name: values.name,
             description: values.description,
@@ -114,11 +110,6 @@ const FilterCreator: React.FC<FilterCreatorProps> = ({ open, onCancel, onSuccess
                 orders: [],
                 limitValue: 1000,
             },
-            dimensions: dimensionList,
-            metrics: [],
-            filters: [],
-            orders: [],
-            limitValue: 1000,
         };
 
         setSubmitting(true);

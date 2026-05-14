@@ -62,11 +62,15 @@ export interface MetricBiAnalysisCmd {
 export interface MetricRef {
     metricCode: string;
     alias?: string;
+    /** 指标显示名称 */
+    metricName?: string;
 }
 
 export interface DimensionRef {
     dimCode: string;
     alias?: string;
+    /** 维度显示名称 */
+    dimName?: string;
 }
 
 export interface FilterRef {
@@ -121,12 +125,6 @@ export interface ChartDTO {
     description?: string;
     metricAnalysisCmd?: MetricBiAnalysisCmd;
     chartType: ChartType;
-    dimensions?: DimensionConfig[];
-    metrics?: MetricConfig[];
-    filters?: FilterConfig[];
-    orders?: OrderConfig[];
-    limitValue?: number;
-    sqlContent?: string;
     createdBy?: string;
     updatedAt?: string;
     createdAt?: string;
@@ -137,12 +135,6 @@ export interface ChartCmd {
     description?: string;
     metricAnalysisCmd?: MetricBiAnalysisCmd;
     chartType: ChartType;
-    dimensions?: DimensionConfig[];
-    metrics?: MetricConfig[];
-    filters?: FilterConfig[];
-    orders?: OrderConfig[];
-    limitValue?: number;
-    sqlContent?: string;
 }
 
 // ==================== 看板类型 ====================
@@ -201,6 +193,8 @@ export interface ChartDataDTO {
     /** 图表类型，execute 时后端返回，便于前端识别数据对应的图表类型 */
     chartType?: ChartType;
     errorMessage?: string;
+    /** enriched DSL（包含 dimName/metricName） */
+    dsl?: MetricBiAnalysisCmd;
 }
 
 // ==================== 图表 API ====================

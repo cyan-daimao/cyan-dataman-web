@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     Button,
     Card,
@@ -116,9 +116,9 @@ const ChartAnalyzer: React.FC = () => {
                     const c = res.data;
                     setChartName(c.name);
                     setChartType(c.chartType);
-                    setFilters(c.filters || []);
-                    setOrders(c.orders || []);
-                    setLimitValue(c.limitValue);
+                    setFilters([]);
+                    setOrders([]);
+                    setLimitValue(undefined);
 
                     if (c.metricAnalysisCmd) {
                         setPendingMetricCmd(c.metricAnalysisCmd);
@@ -256,8 +256,8 @@ const ChartAnalyzer: React.FC = () => {
     const buildMetricCmd = (): MetricBiAnalysisCmd => {
         return {
             chartType,
-            metrics: selectedMetrics.map((m) => ({ metricCode: m.metricCode, alias: m.metricName })),
-            dimensions: selectedDimensions.map((d) => ({ dimCode: d.dimCode, alias: d.dimName })),
+            metrics: selectedMetrics.map((m) => ({ metricCode: m.metricCode, alias: m.metricName, metricName: m.metricName })),
+            dimensions: selectedDimensions.map((d) => ({ dimCode: d.dimCode, alias: d.dimName, dimName: d.dimName })),
             filters: filters.map((f) => {
                 const metric = selectedMetrics.find((m) => m.metricName === f.field);
                 if (metric) return { metricCode: metric.metricCode, operator: f.operator, values: f.values };
@@ -343,16 +343,6 @@ const ChartAnalyzer: React.FC = () => {
             name: chartName.trim(),
             metricAnalysisCmd: buildMetricCmd(),
             chartType,
-            dimensions: selectedDimensions.map((d) => ({ field: d.dimName, alias: d.dimName })),
-            metrics: selectedMetrics.map((m) => ({
-                field: m.metricName,
-                aggregate: AggregateType.SUM,
-                alias: m.metricName,
-            })),
-            filters: filters.length ? filters : undefined,
-            orders: orders.length ? orders : undefined,
-            limitValue,
-            sqlContent: result?.sql,
         };
 
         setSaving(true);
@@ -467,14 +457,24 @@ const ChartAnalyzer: React.FC = () => {
     // ========== 结果表格列 ==========
     const resultColumns = useMemo(() => {
         if (!result || result.status !== 'SUCCESS') return [];
+        const dsl = result.dsl;
         return result.columns.map((col, idx) => {
             let title = col;
-            // 维度列在前，指标列在后
-            if (idx < selectedDimensions.length) {
-                title = selectedDimensions[idx].dimName;
-            } else if (idx < selectedDimensions.length + selectedMetrics.length) {
-                const metricIdx = idx - selectedDimensions.length;
-                title = selectedMetrics[metricIdx].metricName;
+            if (dsl) {
+                if (idx < dsl.dimensions.length) {
+                    title = dsl.dimensions[idx].dimName || dsl.dimensions[idx].alias || dsl.dimensions[idx].dimCode;
+                } else if (idx < dsl.dimensions.length + dsl.metrics.length) {
+                    const metricIdx = idx - dsl.dimensions.length;
+                    title = dsl.metrics[metricIdx].metricName || dsl.metrics[metricIdx].alias || dsl.metrics[metricIdx].metricCode;
+                }
+            } else {
+                // 维度列在前，指标列在后
+                if (idx < selectedDimensions.length) {
+                    title = selectedDimensions[idx].dimName;
+                } else if (idx < selectedDimensions.length + selectedMetrics.length) {
+                    const metricIdx = idx - selectedDimensions.length;
+                    title = selectedMetrics[metricIdx].metricName;
+                }
             }
             return {
                 title,
@@ -901,15 +901,26 @@ const ChartAnalyzer: React.FC = () => {
                                         chartType={chartType}
                                         columns={result.columns}
                                         rows={result.rows}
-                                        dimensions={selectedDimensions.map((d, i) => ({
-                                            field: result.columns[i] || d.dimName,
-                                            alias: d.dimName,
-                                        }))}
-                                        metrics={selectedMetrics.map((m, i) => ({
-                                            field: result.columns[selectedDimensions.length + i] || m.metricName,
-                                            aggregate: AggregateType.SUM,
-                                            alias: m.metricName,
-                                        }))}
+                                        dimensions={result.dsl?.dimensions
+                                            ? result.dsl.dimensions.map((d, i) => ({
+                                                field: result.columns[i] || d.dimCode,
+                                                alias: d.dimName || d.alias || d.dimCode,
+                                            }))
+                                            : selectedDimensions.map((d, i) => ({
+                                                field: result.columns[i] || d.dimName,
+                                                alias: d.dimName,
+                                            }))}
+                                        metrics={result.dsl?.metrics
+                                            ? result.dsl.metrics.map((m, i) => ({
+                                                field: result.columns[(result.dsl?.dimensions?.length || 0) + i] || m.metricCode,
+                                                aggregate: AggregateType.SUM,
+                                                alias: m.metricName || m.alias || m.metricCode,
+                                            }))
+                                            : selectedMetrics.map((m, i) => ({
+                                                field: result.columns[selectedDimensions.length + i] || m.metricName,
+                                                aggregate: AggregateType.SUM,
+                                                alias: m.metricName,
+                                            }))}
                                     />
                                 </div>
                             )}

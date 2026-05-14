@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, Form, Input, message } from 'antd';
-import { ChartCmd, DimensionConfig, MetricConfig, FilterConfig, OrderConfig } from '@/api/DatabiApi';
+import { ChartCmd } from '@/api/DatabiApi';
 import { chartApi } from '@/api/DatabiApi';
 import { ChatMessage } from '../store';
 
@@ -23,39 +23,6 @@ function generateDefaultName(msg: ChatMessage): string {
   return 'ChatBI 分析图表';
 }
 
-/**
- * 将 DSL 中的 ref 转换为 config（用于 ChartCmd）
- */
-function dslToChartConfig(dsl: ChatMessage['dsl']): {
-  dimensions?: DimensionConfig[];
-  metrics?: MetricConfig[];
-  filters?: FilterConfig[];
-  orders?: OrderConfig[];
-} {
-  if (!dsl) return {};
-
-  return {
-    dimensions: dsl.dimensions.map((d) => ({
-      field: d.dimCode,
-      alias: d.alias || d.dimCode,
-    })),
-    metrics: dsl.metrics.map((m) => ({
-      field: m.metricCode,
-      alias: m.alias || m.metricCode,
-      aggregate: 'SUM' as const,
-    })),
-    filters: dsl.filters.map((f) => ({
-      field: (f.dimCode || f.metricCode) as string,
-      operator: f.operator,
-      values: f.values,
-    })),
-    orders: dsl.orders.map((o) => ({
-      field: (o.dimCode || o.metricCode) as string,
-      direction: o.direction,
-    })),
-  };
-}
-
 const SaveChartModal: React.FC<SaveChartModalProps> = ({ visible, messageData, onCancel, onSuccess }) => {
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
@@ -67,15 +34,11 @@ const SaveChartModal: React.FC<SaveChartModalProps> = ({ visible, messageData, o
       const values = await form.validateFields();
       setSaving(true);
 
-      const config = dslToChartConfig(messageData.dsl);
       const cmd: ChartCmd = {
         name: values.name,
         description: values.description,
         metricAnalysisCmd: messageData.dsl,
         chartType: messageData.dsl.chartType,
-        ...config,
-        limitValue: messageData.dsl.limitValue,
-        sqlContent: messageData.sql,
       };
 
       await chartApi.create(cmd);

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Button, Space, message, Spin, Empty, DatePicker } from 'antd';
 import { ArrowLeftOutlined, ReloadOutlined, EditOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
-import { dashboardApi, chartApi, DashboardDTO, DashboardChartItem, ChartDataDTO, ChartType, MetricBiAnalysisCmd, FilterOperator } from '@/api/DatabiApi';
+import { dashboardApi, chartApi, DashboardDTO, DashboardChartItem, ChartDataDTO, ChartType, MetricBiAnalysisCmd, FilterOperator, AggregateType } from '@/api/DatabiApi';
 import GridLayoutImport from 'react-grid-layout';
 const GridLayout = GridLayoutImport as any;
 import 'react-grid-layout/css/styles.css';
@@ -19,7 +19,7 @@ const isFilterChartType = (chartType?: ChartType) => {
 
 /** 日期类筛选框且无绑定维度时，不需要后端 execute */
 const needsExecute = (item: DashboardChartItem) => {
-    const dimCode = item.chart.metricAnalysisCmd?.dimensions?.[0]?.dimCode || item.chart.dimensions?.[0]?.field;
+    const dimCode = item.chart.metricAnalysisCmd?.dimensions?.[0]?.dimCode;
     const isDate = item.chart.chartType === ChartType.FILTER_DATE || item.chart.chartType === ChartType.FILTER_DATE_RANGE;
     return !(isDate && !dimCode);
 };
@@ -68,7 +68,7 @@ const DashboardViewer: React.FC = () => {
             const sourceChartItem = chartItems.find(c => c.chartId === sourceChartId);
             if (!sourceChartItem || !isFilterChartType(sourceChartItem.chart.chartType)) continue;
             const values = filterValuesMapRef.current[sourceChartId] || [];
-            const dimCode = sourceChartItem.chart.metricAnalysisCmd?.dimensions?.[0]?.dimCode || sourceChartItem.chart.dimensions?.[0]?.field || '';
+            const dimCode = sourceChartItem.chart.metricAnalysisCmd?.dimensions?.[0]?.dimCode || '';
             if (!dimCode) continue;
             if (values.length === 0) {
                 const idx = newFilters.findIndex(f => f.dimCode === dimCode);
@@ -206,17 +206,17 @@ const DashboardViewer: React.FC = () => {
                                         {!result?.loading && data?.status === 'FAILED' && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><div style={{ color: '#cf1322', fontSize: 12, textAlign: 'center' }}><div style={{ fontSize: 24, marginBottom: 8 }}>⚠️</div>{data.errorMessage || '加载失败'}</div></div>}
                                         {!result?.loading && data?.status === 'SUCCESS' && (
                                             <div style={{ width: '100%', height: '100%' }}>
-                                                {chart.chartType === ChartType.NUMBER && chart.metrics?.length ? (
-                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><div style={{ textAlign: 'center' }}><div style={{ fontSize: 36, fontWeight: 600, color: '#4F6DF5' }}>{Number(data.rows[0]?.[chart.metrics[0].field] ?? 0).toLocaleString()}</div><div style={{ fontSize: 14, color: '#999', marginTop: 4 }}>{chart.metrics[0].alias || chart.metrics[0].field}</div></div></div>
+                                                {chart.chartType === ChartType.NUMBER && chart.metricAnalysisCmd?.metrics?.length ? (
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><div style={{ textAlign: 'center' }}><div style={{ fontSize: 36, fontWeight: 600, color: '#4F6DF5' }}>{Number(data.rows[0]?.[chart.metricAnalysisCmd.metrics[0].metricCode] ?? 0).toLocaleString()}</div><div style={{ fontSize: 14, color: '#999', marginTop: 4 }}>{chart.metricAnalysisCmd.metrics[0].metricName || chart.metricAnalysisCmd.metrics[0].alias || chart.metricAnalysisCmd.metrics[0].metricCode}</div></div></div>
                                                 ) : chart.chartType === ChartType.TABLE ? (
                                                     (() => {
                                                         const aliasMap: Record<string, string> = {};
-                                                        chart.dimensions?.forEach(d => { if (d.field) aliasMap[d.field] = d.alias || d.field; });
-                                                        chart.metrics?.forEach(m => { if (m.field) aliasMap[m.field] = m.alias || m.field; });
+                                                        chart.metricAnalysisCmd?.dimensions?.forEach(d => { aliasMap[d.dimCode] = d.dimName || d.alias || d.dimCode; });
+                                                        chart.metricAnalysisCmd?.metrics?.forEach(m => { aliasMap[m.metricCode] = m.metricName || m.alias || m.metricCode; });
                                                         return <div style={{ height: '100%', overflow: 'auto' }}><table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}><thead><tr>{data.columns.map(col => <th key={col} style={{ borderBottom: '1px solid #f0f0f0', padding: '4px 8px', textAlign: 'left', fontWeight: 500, background: '#fafafa' }}>{aliasMap[col] || col}</th>)}</tr></thead><tbody>{data.rows.map((row, idx) => <tr key={idx}>{data.columns.map(col => <td key={col} style={{ borderBottom: '1px solid #f0f0f0', padding: '4px 8px' }}>{String(row[col] ?? '')}</td>)}</tr>)}</tbody></table></div>;
                                                     })()
                                                 ) : data.rows.length > 0 ? (
-                                                    <EChartsChart chartType={chart.chartType} columns={data.columns} rows={data.rows} dimensions={chart.dimensions || []} metrics={chart.metrics || []} />
+                                                    <EChartsChart chartType={chart.chartType} columns={data.columns} rows={data.rows} dimensions={chart.metricAnalysisCmd?.dimensions?.map(d => ({ field: d.dimCode, alias: d.dimName || d.alias || d.dimCode })) || []} metrics={chart.metricAnalysisCmd?.metrics?.map(m => ({ field: m.metricCode, aggregate: AggregateType.SUM, alias: m.metricName || m.alias || m.metricCode })) || []} />
                                                 ) : (
                                                     <Empty description="暂无数据" imageStyle={{ height: 40 }} />
                                                 )}

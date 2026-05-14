@@ -146,8 +146,16 @@ function normalizeOperator(op: string): FilterOperator {
 function normalizeDsl(dsl: Record<string, unknown>): MetricBiAnalysisCmd | null {
   try {
     const chartType = (dsl.chartType as string) || 'TABLE';
-    const metrics = (dsl.metrics as MetricRef[]) || [];
-    const dimensions = (dsl.dimensions as DimensionRef[]) || [];
+    const metrics = ((dsl.metrics as Array<Record<string, unknown>>) || []).map((m) => ({
+      metricCode: (m.metricCode as string) || '',
+      alias: (m.alias as string) || undefined,
+      metricName: (m.metricName as string) || undefined,
+    })) as MetricRef[];
+    const dimensions = ((dsl.dimensions as Array<Record<string, unknown>>) || []).map((d) => ({
+      dimCode: (d.dimCode as string) || '',
+      alias: (d.alias as string) || undefined,
+      dimName: (d.dimName as string) || undefined,
+    })) as DimensionRef[];
     const filters = ((dsl.filters as Array<Record<string, unknown>>) || []).map((f) => ({
       metricCode: (f.metricCode as string) || undefined,
       dimCode: (f.dimCode as string) || undefined,
@@ -180,19 +188,19 @@ function normalizeDsl(dsl: Record<string, unknown>): MetricBiAnalysisCmd | null 
 function buildQueryLogic(dsl: MetricBiAnalysisCmd): QueryLogic {
   return {
     metrics: dsl.metrics.map((m) => ({
-      label: m.alias || m.metricCode,
+      label: m.metricName || m.alias || m.metricCode,
       value: m.metricCode,
     })),
     dimensions: dsl.dimensions.map((d) => ({
-      label: d.alias || d.dimCode,
+      label: d.dimName || d.alias || d.dimCode,
       value: d.dimCode,
     })),
     filters: dsl.filters.map((f) => ({
-      label: f.alias || f.dimCode || f.metricCode || '未知字段',
+      label: f.dimCode || f.metricCode || '未知字段',
       value: `${f.dimCode || f.metricCode} ${f.operator} ${f.values.join(', ')}`,
     })),
     orders: dsl.orders.map((o) => ({
-      label: o.alias || o.dimCode || o.metricCode || '未知字段',
+      label: o.dimCode || o.metricCode || '未知字段',
       value: `${o.direction}`,
     })),
     limit: dsl.limitValue,

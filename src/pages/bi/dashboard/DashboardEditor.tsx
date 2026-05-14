@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Button, Input, Space, message, Spin, Empty } from 'antd';
 import { SaveOutlined, ArrowLeftOutlined, EyeOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
-import { dashboardApi, chartApi, DashboardCmd, ChartDTO, ChartRef, ChartDataDTO, ChartType, MetricBiAnalysisCmd, FilterOperator } from '@/api/DatabiApi';
+import { dashboardApi, chartApi, DashboardCmd, ChartDTO, ChartRef, ChartDataDTO, ChartType, MetricBiAnalysisCmd, FilterOperator, AggregateType } from '@/api/DatabiApi';
 import GridLayoutImport, { Layout } from 'react-grid-layout';
 const GridLayout = GridLayoutImport as any;
 import 'react-grid-layout/css/styles.css';
@@ -133,7 +133,7 @@ const DashboardEditor: React.FC = () => {
             const sourceChart = charts.find(c => c.id === sourceChartId);
             if (!sourceChart || !isFilterChartType(sourceChart.chartType)) continue;
             const values = filterValuesMapRef.current[sourceChartId] || [];
-            const dimCode = sourceChart.metricAnalysisCmd?.dimensions?.[0]?.dimCode || sourceChart.dimensions?.[0]?.field || '';
+            const dimCode = sourceChart.metricAnalysisCmd?.dimensions?.[0]?.dimCode || '';
             if (!dimCode) continue;
             if (values.length === 0) {
                 const idx = newFilters.findIndex(f => f.dimCode === dimCode);
@@ -178,7 +178,7 @@ const DashboardEditor: React.FC = () => {
             if (chart?.metricAnalysisCmd) {
                 dslMap[ref.chartId] = JSON.parse(JSON.stringify(chart.metricAnalysisCmd));
             }
-            const dimCode = chart?.metricAnalysisCmd?.dimensions?.[0]?.dimCode || chart?.dimensions?.[0]?.field;
+            const dimCode = chart?.metricAnalysisCmd?.dimensions?.[0]?.dimCode;
             const isDate = chart?.chartType === ChartType.FILTER_DATE || chart?.chartType === ChartType.FILTER_DATE_RANGE;
             if (isDate && !dimCode) return;
             try {
@@ -244,7 +244,7 @@ const DashboardEditor: React.FC = () => {
         if (chart?.metricAnalysisCmd) {
             originalDslMap.current[chartId] = JSON.parse(JSON.stringify(chart.metricAnalysisCmd));
         }
-        const dimCode = chart?.metricAnalysisCmd?.dimensions?.[0]?.dimCode || chart?.dimensions?.[0]?.field;
+        const dimCode = chart?.metricAnalysisCmd?.dimensions?.[0]?.dimCode;
         const isDate = chart?.chartType === ChartType.FILTER_DATE || chart?.chartType === ChartType.FILTER_DATE_RANGE;
         if (!(isDate && !dimCode)) {
             setChartLoadingMap(p => ({ ...p, [chartId]: true }));
@@ -331,17 +331,17 @@ const DashboardEditor: React.FC = () => {
                 </div>
             );
         }
-        if (chart.chartType === ChartType.NUMBER && chart.metrics?.length) {
-            return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><div style={{ textAlign: 'center' }}><div style={{ fontSize: 28, fontWeight: 600, color: '#4F6DF5' }}>{Number(data.rows[0]?.[chart.metrics[0].field] ?? 0).toLocaleString()}</div><div style={{ fontSize: 12, color: '#999' }}>{chart.metrics[0].alias || chart.metrics[0].field}</div></div></div>;
+        if (chart.chartType === ChartType.NUMBER && chart.metricAnalysisCmd?.metrics?.length) {
+            return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><div style={{ textAlign: 'center' }}><div style={{ fontSize: 28, fontWeight: 600, color: '#4F6DF5' }}>{Number(data.rows[0]?.[chart.metricAnalysisCmd.metrics[0].metricCode] ?? 0).toLocaleString()}</div><div style={{ fontSize: 12, color: '#999' }}>{chart.metricAnalysisCmd.metrics[0].metricName || chart.metricAnalysisCmd.metrics[0].alias || chart.metricAnalysisCmd.metrics[0].metricCode}</div></div></div>;
         }
         if (chart.chartType === ChartType.TABLE) {
             const aliasMap: Record<string, string> = {};
-            chart.dimensions?.forEach(d => { if (d.field) aliasMap[d.field] = d.alias || d.field; });
-            chart.metrics?.forEach(m => { if (m.field) aliasMap[m.field] = m.alias || m.field; });
+            chart.metricAnalysisCmd?.dimensions?.forEach(d => { aliasMap[d.dimCode] = d.dimName || d.alias || d.dimCode; });
+            chart.metricAnalysisCmd?.metrics?.forEach(m => { aliasMap[m.metricCode] = m.metricName || m.alias || m.metricCode; });
             return <div style={{ height: '100%', overflow: 'auto' }}><table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}><thead><tr>{data.columns.map(col => <th key={col} style={{ borderBottom: '1px solid #f0f0f0', padding: '3px 6px', textAlign: 'left', fontWeight: 500, background: '#fafafa', fontSize: 10 }}>{aliasMap[col] || col}</th>)}</tr></thead><tbody>{data.rows.slice(0, 20).map((row, idx) => <tr key={idx}>{data.columns.map(col => <td key={col} style={{ borderBottom: '1px solid #f0f0f0', padding: '3px 6px' }}>{String(row[col] ?? '')}</td>)}</tr>)}</tbody></table></div>;
         }
         if (data.rows.length > 0) {
-            return <div style={{ width: '100%', height: '100%' }}><EChartsChart chartType={chart.chartType} columns={data.columns} rows={data.rows} dimensions={chart.dimensions || []} metrics={chart.metrics || []} /></div>;
+            return <div style={{ width: '100%', height: '100%' }}><EChartsChart chartType={chart.chartType} columns={data.columns} rows={data.rows} dimensions={chart.metricAnalysisCmd?.dimensions?.map(d => ({ field: d.dimCode, alias: d.dimName || d.alias || d.dimCode })) || []} metrics={chart.metricAnalysisCmd?.metrics?.map(m => ({ field: m.metricCode, aggregate: AggregateType.SUM, alias: m.metricName || m.alias || m.metricCode })) || []} /></div>;
         }
         return <Empty description="暂无数据" imageStyle={{ height: 40 }} />;
     };

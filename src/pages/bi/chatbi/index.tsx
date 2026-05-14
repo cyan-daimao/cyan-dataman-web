@@ -92,7 +92,7 @@ const MessageItem: React.FC<{ msg: ChatMessage }> = ({ msg }) => {
           )}
 
           {/* 取数逻辑 */}
-          {msg.queryLogic && <QueryLogicCard queryLogic={msg.queryLogic} sql={msg.sql} dsl={msg.dsl} />
+          {msg.queryLogic && <QueryLogicCard queryLogic={msg.queryLogic} sql={msg.sql} dsl={msg.dsl} />}
 
           {/* 图表 */}
           {msg.chartData && msg.chartType && (

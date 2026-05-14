@@ -23,6 +23,7 @@ import {
     ChartDTO,
     ChartDataDTO,
     ChartType,
+    AggregateType,
 } from '@/api/DatabiApi';
 import EChartsChart from '@/pages/bi/components/EChartsChart';
 import ChartCard from './components/ChartCard';
@@ -43,7 +44,7 @@ const isFilterChart = (chartType?: ChartType) => {
 const FilterPreview: React.FC<{ chart?: ChartDTO; data?: ChartDataDTO }> = ({ chart, data }) => {
     if (!chart) return <Empty description="无图表数据" />;
 
-    const dimField = chart.metricAnalysisCmd?.dimensions?.[0]?.dimCode || chart.dimensions?.[0]?.field || '';
+    const dimField = chart.metricAnalysisCmd?.dimensions?.[0]?.dimCode || '';
 
     // 单选/多选：从 execute 结果中解析选项
     // 支持 displayValue 列作为显示标签（维度字段分离场景）
@@ -358,17 +359,18 @@ const ChartList: React.FC = () => {
                         ) : (
                             <>
                                 {resultModal.chart?.chartType === ChartType.NUMBER &&
-                                    resultModal.chart?.metrics &&
-                                    resultModal.chart.metrics.length > 0 && (
+                                    resultModal.chart?.metricAnalysisCmd?.metrics &&
+                                    resultModal.chart.metricAnalysisCmd.metrics.length > 0 && (
                                         <div style={{ textAlign: 'center', padding: 24 }}>
                                             <Statistic
                                                 title={
-                                                    resultModal.chart.metrics[0].alias ||
-                                                    resultModal.chart.metrics[0].field
+                                                    resultModal.chart.metricAnalysisCmd.metrics[0].metricName ||
+                                                    resultModal.chart.metricAnalysisCmd.metrics[0].alias ||
+                                                    resultModal.chart.metricAnalysisCmd.metrics[0].metricCode
                                                 }
                                                 value={Number(
                                                     resultModal.data?.rows?.[0]?.[
-                                                        resultModal.chart.metrics[0].field
+                                                        resultModal.chart.metricAnalysisCmd.metrics[0].metricCode
                                                     ] ?? 0
                                                 )}
                                             />
@@ -382,8 +384,8 @@ const ChartList: React.FC = () => {
                                                 chartType={resultModal.chart?.chartType || ChartType.TABLE}
                                                 columns={resultModal.data?.columns || []}
                                                 rows={resultModal.data?.rows || []}
-                                                dimensions={resultModal.chart?.dimensions || []}
-                                                metrics={resultModal.chart?.metrics || []}
+                                                dimensions={resultModal.chart?.metricAnalysisCmd?.dimensions?.map(d => ({ field: d.dimCode, alias: d.dimName || d.alias || d.dimCode })) || []}
+                                                metrics={resultModal.chart?.metricAnalysisCmd?.metrics?.map(m => ({ field: m.metricCode, aggregate: AggregateType.SUM, alias: m.metricName || m.alias || m.metricCode })) || []}
                                                 style={{ height: '100%' }}
                                             />
                                         </div>

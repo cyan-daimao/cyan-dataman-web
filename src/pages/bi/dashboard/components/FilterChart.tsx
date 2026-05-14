@@ -22,9 +22,7 @@ const FilterChart: React.FC<FilterChartProps> = ({ chart, onChange, style, data:
     const [error, setError] = useState<string | null>(null);
 
     // 获取筛选框的维度字段名
-    const dimField = chart.metricAnalysisCmd?.dimensions?.[0]?.dimCode
-        || chart.dimensions?.[0]?.field
-        || '';
+    const dimField = chart.metricAnalysisCmd?.dimensions?.[0]?.dimCode || '';
 
     const dateFilter = isDateFilter(chart.chartType);
 
