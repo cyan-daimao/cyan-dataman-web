@@ -5,7 +5,7 @@ import {
     DeleteOutlined,
     PlayCircleOutlined,
 } from '@ant-design/icons';
-import { ChartDTO, ChartType, AnalysisType } from '@/api/DatabiApi';
+import { ChartDTO, ChartType } from '@/api/DatabiApi';
 
 interface ChartCardProps {
     chart: ChartDTO;
@@ -72,11 +72,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ chart, onEdit, onDelete, onExecut
                 {/* 类型标签 + 分析类型 */}
                 <Space size={4} wrap>
                     <Tag color={filter ? 'green' : 'blue'}>{typeLabel}</Tag>
-                    {chart.analysisType === AnalysisType.METRICS ? (
-                        <Tag color="cyan">指标平台</Tag>
-                    ) : (
-                        <Tag color="default">数据集</Tag>
-                    )}
+                    <Tag color="cyan">指标平台</Tag>
                 </Space>
 
                 {/* 创建时间 */}

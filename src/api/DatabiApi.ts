@@ -4,16 +4,6 @@ import { AxiosRequestConfig } from 'axios';
 
 // ==================== 枚举定义 ====================
 
-export enum SourceType {
-    TABLE = 'TABLE',
-    SQL = 'SQL',
-}
-
-export enum FieldRole {
-    DIMENSION = 'DIMENSION',
-    METRIC = 'METRIC',
-}
-
 export enum ChartType {
     TABLE = 'TABLE',
     BAR = 'BAR',
@@ -56,11 +46,6 @@ export enum FilterOperator {
 export enum OrderDirection {
     ASC = 'ASC',
     DESC = 'DESC',
-}
-
-export enum AnalysisType {
-    DATASET = 'DATASET',
-    METRICS = 'METRICS',
 }
 
 // ==================== 指标 BI 分析类型 ====================
@@ -106,37 +91,6 @@ export interface Page<T> {
     total: number;
 }
 
-// ==================== 数据集类型 ====================
-
-export interface DatasetField {
-    name: string;
-    comment: string;
-    dataType: string;
-    role: FieldRole;
-}
-
-export interface DatasetDTO {
-    id: string;
-    name: string;
-    description?: string;
-    sourceType: SourceType;
-    sourceTable?: string;
-    sourceSql?: string;
-    fields: DatasetField[];
-    createdBy?: string;
-    updatedAt?: string;
-    createdAt?: string;
-}
-
-export interface DatasetCmd {
-    name: string;
-    description?: string;
-    sourceType: SourceType;
-    sourceTable?: string;
-    sourceSql?: string;
-    fields?: DatasetField[];
-}
-
 // ==================== 图表类型 ====================
 
 export interface DimensionConfig {
@@ -165,8 +119,6 @@ export interface ChartDTO {
     id: string;
     name: string;
     description?: string;
-    datasetId?: string;
-    analysisType: AnalysisType;
     metricAnalysisCmd?: MetricBiAnalysisCmd;
     chartType: ChartType;
     dimensions?: DimensionConfig[];
@@ -183,8 +135,6 @@ export interface ChartDTO {
 export interface ChartCmd {
     name: string;
     description?: string;
-    datasetId?: string;
-    analysisType: AnalysisType;
     metricAnalysisCmd?: MetricBiAnalysisCmd;
     chartType: ChartType;
     dimensions?: DimensionConfig[];
@@ -240,17 +190,7 @@ export interface DashboardChartItem {
     chart: ChartDTO;
 }
 
-// ==================== 分析执行类型 ====================
-
-export interface AnalysisCmd {
-    datasetId: string;
-    chartType: ChartType;
-    dimensions?: DimensionConfig[];
-    metrics?: MetricConfig[];
-    filters?: FilterConfig[];
-    orders?: OrderConfig[];
-    limitValue?: number;
-}
+// ==================== 图表执行结果类型 ====================
 
 export interface ChartDataDTO {
     status: string;
@@ -263,61 +203,13 @@ export interface ChartDataDTO {
     errorMessage?: string;
 }
 
-// ==================== 数据集 API ====================
-
-export const datasetApi = {
-    /**
-     * 分页查询数据集
-     */
-    page: async (params?: { name?: string; current?: number; size?: number }): Promise<Response<Page<DatasetDTO>>> => {
-        const config: AxiosRequestConfig = { params };
-        return databiRequest.get('/api/v1/datasets', config);
-    },
-
-    /**
-     * 列表查询数据集
-     */
-    list: async (name?: string): Promise<Response<DatasetDTO[]>> => {
-        const config: AxiosRequestConfig = { params: { name } };
-        return databiRequest.get('/api/v1/datasets/list', config);
-    },
-
-    /**
-     * 获取数据集详情
-     */
-    getById: async (id: string): Promise<Response<DatasetDTO>> => {
-        return databiRequest.get(`/api/v1/datasets/${id}`);
-    },
-
-    /**
-     * 创建数据集
-     */
-    create: async (data: DatasetCmd): Promise<Response<DatasetDTO>> => {
-        return databiRequest.post('/api/v1/datasets', data);
-    },
-
-    /**
-     * 更新数据集
-     */
-    update: async (id: string, data: DatasetCmd): Promise<Response<DatasetDTO>> => {
-        return databiRequest.put(`/api/v1/datasets/${id}`, data);
-    },
-
-    /**
-     * 删除数据集
-     */
-    delete: async (id: string): Promise<Response<void>> => {
-        return databiRequest.delete(`/api/v1/datasets/${id}`);
-    },
-};
-
 // ==================== 图表 API ====================
 
 export const chartApi = {
     /**
      * 分页查询图表
      */
-    page: async (params?: { name?: string; datasetId?: string; analysisType?: AnalysisType; chartType?: ChartType; current?: number; size?: number }): Promise<Response<Page<ChartDTO>>> => {
+    page: async (params?: { name?: string; chartType?: ChartType; current?: number; size?: number }): Promise<Response<Page<ChartDTO>>> => {
         const config: AxiosRequestConfig = { params };
         return databiRequest.get('/api/v1/charts', config);
     },
@@ -325,8 +217,8 @@ export const chartApi = {
     /**
      * 列表查询图表
      */
-    list: async (name?: string, datasetId?: string, analysisType?: AnalysisType, chartType?: ChartType): Promise<Response<ChartDTO[]>> => {
-        const config: AxiosRequestConfig = { params: { name, datasetId, analysisType, chartType } };
+    list: async (name?: string, chartType?: ChartType): Promise<Response<ChartDTO[]>> => {
+        const config: AxiosRequestConfig = { params: { name, chartType } };
         return databiRequest.get('/api/v1/charts/list', config);
     },
 
@@ -427,23 +319,5 @@ export const dashboardApi = {
      */
     getDashboardCharts: async (id: string): Promise<Response<DashboardChartItem[]>> => {
         return databiRequest.get(`/api/v1/dashboards/${id}/charts`);
-    },
-};
-
-// ==================== 分析执行 API ====================
-
-export const analysisApi = {
-    /**
-     * 执行分析
-     */
-    execute: async (data: AnalysisCmd): Promise<Response<ChartDataDTO>> => {
-        return databiRequest.post('/api/v1/analysis/execute', data);
-    },
-
-    /**
-     * 预览 SQL
-     */
-    previewSql: async (data: AnalysisCmd): Promise<Response<string>> => {
-        return databiRequest.post('/api/v1/analysis/preview-sql', data);
     },
 };

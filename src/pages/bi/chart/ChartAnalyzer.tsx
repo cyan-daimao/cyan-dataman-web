@@ -38,7 +38,6 @@ import {
     AggregateType,
     FilterOperator,
     OrderDirection,
-    AnalysisType,
     MetricBiAnalysisCmd,
 } from '@/api/DatabiApi';
 import {
@@ -345,7 +344,6 @@ const ChartAnalyzer: React.FC = () => {
 
         const cmd: ChartCmd = {
             name: chartName.trim(),
-            analysisType: AnalysisType.METRICS,
             metricAnalysisCmd: buildMetricCmd(),
             chartType,
             dimensions: selectedDimensions.map((d) => ({ field: d.dimName, alias: d.dimName })),

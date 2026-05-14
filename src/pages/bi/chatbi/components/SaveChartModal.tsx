@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, Form, Input, message } from 'antd';
-import { ChartCmd, AnalysisType, DimensionConfig, MetricConfig, FilterConfig, OrderConfig } from '@/api/DatabiApi';
+import { ChartCmd, DimensionConfig, MetricConfig, FilterConfig, OrderConfig } from '@/api/DatabiApi';
 import { chartApi } from '@/api/DatabiApi';
 import { ChatMessage } from '../store';
 
@@ -71,7 +71,6 @@ const SaveChartModal: React.FC<SaveChartModalProps> = ({ visible, messageData, o
       const cmd: ChartCmd = {
         name: values.name,
         description: values.description,
-        analysisType: AnalysisType.METRICS,
         metricAnalysisCmd: messageData.dsl,
         chartType: messageData.dsl.chartType,
         ...config,

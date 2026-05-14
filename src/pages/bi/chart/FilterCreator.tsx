@@ -4,7 +4,6 @@ import {
     chartApi,
     ChartCmd,
     ChartType,
-    AnalysisType,
 } from '@/api/DatabiApi';
 import { dimensionBiListApi, DimensionBiListItem, dimensionValueApi, DimensionValueItem } from '@/api/MetricBiApi';
 
@@ -21,10 +20,7 @@ const FILTER_TYPE_OPTIONS = [
     { label: '日期范围', value: ChartType.FILTER_DATE_RANGE },
 ];
 
-const ANALYSIS_TYPE_OPTIONS = [
-    { label: '指标平台', value: AnalysisType.METRICS },
-    { label: '数据集', value: AnalysisType.DATASET },
-];
+
 
 /** 日期类筛选框不需要从维度平台获取选项值 */
 const isDateFilter = (chartType?: ChartType) =>
@@ -107,7 +103,6 @@ const FilterCreator: React.FC<FilterCreatorProps> = ({ open, onCancel, onSuccess
         const cmd: ChartCmd = {
             name: values.name,
             description: values.description,
-            analysisType: values.analysisType,
             chartType: values.chartType,
             metricAnalysisCmd: {
                 chartType: values.chartType,
@@ -259,15 +254,6 @@ const FilterCreator: React.FC<FilterCreatorProps> = ({ open, onCancel, onSuccess
                                 placeholder="请选择筛选类型"
                                 options={FILTER_TYPE_OPTIONS}
                             />
-                        </Form.Item>
-
-                        <Form.Item
-                            name="analysisType"
-                            label="分析类型"
-                            rules={[{ required: true, message: '请选择分析类型' }]}
-                            initialValue={AnalysisType.METRICS}
-                        >
-                            <Select placeholder="请选择分析类型" options={ANALYSIS_TYPE_OPTIONS} />
                         </Form.Item>
 
                         <Form.Item
