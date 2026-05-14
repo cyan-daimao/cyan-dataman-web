@@ -16,6 +16,7 @@ import {
     Typography
 } from 'antd';
 import {
+    CopyOutlined,
     DatabaseOutlined,
     DeleteOutlined,
     EditOutlined,
@@ -29,7 +30,7 @@ import {
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {treeSubjects} from "@/api/MetadataSubjectAPI.ts";
 import ImportTable from "./ImportTableForm";
-import {deleteMetadataTable, MetadataTableDTO, pageMetadataTables} from "@/api/MetadataTableAPI.ts";
+import {deleteMetadataTable, getMetadataTableById, MetadataTableDTO, pageMetadataTables} from "@/api/MetadataTableAPI.ts";
 
 const {Sider, Content} = Layout;
 const {Title, Text} = Typography;
@@ -179,6 +180,14 @@ const columns: TableColumnsType<TableMeta> = [
                 </Button>
                 <Button
                     type="text"
+                    icon={<CopyOutlined/>}
+                    onClick={() => handleCopy(record)}
+                    size="small"
+                >
+                    复制
+                </Button>
+                <Button
+                    type="text"
                     danger
                     icon={<DeleteOutlined/>}
                     onClick={() => handleDelete(record)}
@@ -244,6 +253,25 @@ const handleEdit = (record: TableMeta) => {
             tableId: record.id
         }
     });
+};
+
+// 复制表 - 获取详情后跳转到创建页面
+const handleCopy = async (record: TableMeta) => {
+    try {
+        setLoading(true);
+        const data = await getMetadataTableById(record.id);
+        navigate('/meta/metadata/metadata_table/edit', {
+            state: {
+                mode: 'copy',
+                importData: data
+            }
+        });
+    } catch (error) {
+        console.error('获取表详情失败:', error);
+        message.error('获取表详情失败');
+    } finally {
+        setLoading(false);
+    }
 };
 
 // 删除表

@@ -81,7 +81,7 @@ const ONLINE_STATUS_OPTIONS = [
 ];
 
 // 页面模式类型
-type PageMode = 'create' | 'edit' | 'import';
+type PageMode = 'create' | 'edit' | 'import' | 'copy';
 
 const TableEditPage: React.FC = () => {
     const navigate = useNavigate();
@@ -183,6 +183,8 @@ const TableEditPage: React.FC = () => {
                 return '编辑元数据表';
             case 'import':
                 return '导入元数据表';
+            case 'copy':
+                return '复制元数据表';
             default:
                 return '创建元数据表';
         }
@@ -200,7 +202,7 @@ const TableEditPage: React.FC = () => {
                 if (mode === 'edit' && tableId) {
                     const data = await getMetadataTableById(tableId);
                     setInitialData(data);
-                } else if (mode === 'import' && importData) {
+                } else if ((mode === 'import' || mode === 'copy') && importData) {
                     setInitialData(importData);
                 }
             } catch (error) {
@@ -277,6 +279,24 @@ const TableEditPage: React.FC = () => {
                     secretLevel: initialData.secretLevel || "L1",
                     onlineStatus: initialData.onlineStatus || "ONLINE",
                     comment: initialData.comment,
+                    catalog: initialData.table?.catalog,
+                    schema: initialData.table?.schema,
+                });
+            } else if (mode === 'copy') {
+                // 复制模式：保留主题和分层，清空表名和负责人
+                let subjectCodePath: string[] = [];
+                if (initialData.subjectCode) {
+                    const foundPath = findSubjectPath(initialData.subjectCode, subjectTreeData);
+                    subjectCodePath = foundPath || [initialData.subjectCode];
+                }
+                form.setFieldsValue({
+                    name: '',
+                    subjectCode: subjectCodePath,
+                    layerCode: initialData.layerCode || 'ODS',
+                    owner: '',
+                    secretLevel: initialData.secretLevel || 'L1',
+                    onlineStatus: initialData.onlineStatus || 'ONLINE',
+                    comment: initialData.comment || '',
                     catalog: initialData.table?.catalog,
                     schema: initialData.table?.schema,
                 });
@@ -548,7 +568,7 @@ const TableEditPage: React.FC = () => {
                         onClick={handleSubmit}
                         loading={loading}
                     >
-                        {mode === 'edit' ? '保存修改' : '创建表'}
+                        {mode === 'edit' ? '保存修改' : (mode === 'copy' ? '创建表' : '创建表')}
                     </Button>
                 </Space>
             </div>
