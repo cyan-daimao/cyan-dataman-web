@@ -27,6 +27,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
+import { format } from 'sql-formatter';
 import {
     analysisApi,
     chartApi,
@@ -449,7 +450,7 @@ const ChartAnalyzer: React.FC = () => {
             try {
                 const res = await analysisApi.previewSql(buildCompatCmd());
                 if (res.code === 200) {
-                    setPreviewSql(res.data);
+                    setPreviewSql(format(res.data));
                 } else {
                     message.error(res.message || '预览 SQL 失败');
                 }
@@ -468,7 +469,7 @@ const ChartAnalyzer: React.FC = () => {
             try {
                 const res = await metricBiApi.previewSql(buildMetricCmd());
                 if (res.code === 200) {
-                    setPreviewSql(res.data);
+                    setPreviewSql(format(res.data));
                 } else {
                     message.error(res.message || '预览 SQL 失败');
                 }
@@ -912,7 +913,7 @@ const ChartAnalyzer: React.FC = () => {
                         }}
                     >
                         <div style={{ fontWeight: 'bold', marginBottom: 4, fontSize: 13 }}>指标（Y轴）</div>
-                        <Space direction="vertical" style={{ width: '100%' }}>
+                        <Space wrap>
                             {compatMode
                                 ? metrics.map((m, i) => (
                                       <div key={m.field} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1287,7 +1288,7 @@ const ChartAnalyzer: React.FC = () => {
                                 height={500}
                                 defaultLanguage="sql"
                                 value={previewSql}
-                                options={{ readOnly: true, minimap: { enabled: false } }}
+                                options={{ readOnly: true, minimap: { enabled: false }, wordWrap: 'on' }}
                             />
                         </div>
                     </div>
