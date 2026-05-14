@@ -135,7 +135,7 @@ const EChartsChart: React.FC<EChartsChartProps> = ({
             xAxis: {
                 type: 'category',
                 data: xData,
-                axisLabel: { interval: 0, rotate: xData.length > 10 ? 30 : 0, overflow: 'truncate', width: 80 },
+                axisLabel: { interval: 0, rotate: xData.length > 10 ? 30 : 0 },
                 axisTick: { alignWithLabel: true },
             },
             yAxis: { type: 'value' },

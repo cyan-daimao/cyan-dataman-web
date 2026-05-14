@@ -470,13 +470,23 @@ const ChartAnalyzer: React.FC = () => {
     // ========== 结果表格列 ==========
     const resultColumns = useMemo(() => {
         if (!result || result.status !== 'SUCCESS') return [];
-        return result.columns.map((col) => ({
-            title: col,
-            dataIndex: col,
-            key: col,
-            render: (value: unknown) => (value === null || value === undefined ? '-' : value),
-        }));
-    }, [result]);
+        return result.columns.map((col, idx) => {
+            let title = col;
+            // 维度列在前，指标列在后
+            if (idx < selectedDimensions.length) {
+                title = selectedDimensions[idx].dimName;
+            } else if (idx < selectedDimensions.length + selectedMetrics.length) {
+                const metricIdx = idx - selectedDimensions.length;
+                title = selectedMetrics[metricIdx].metricName;
+            }
+            return {
+                title,
+                dataIndex: col,
+                key: col,
+                render: (value: unknown) => (value === null || value === undefined ? '-' : value),
+            };
+        });
+    }, [result, selectedDimensions, selectedMetrics]);
 
     // ========== 图表类型选项 ==========
     const chartTypeOptions = [
