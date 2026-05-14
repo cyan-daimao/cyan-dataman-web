@@ -354,8 +354,8 @@ const MetricsDefinition: React.FC = () => {
         setModalType(type);
         setEditingId(null);
         form.resetFields();
-        // 新建时默认负责人为当前用户
-        form.setFieldsValue({ owner: currentUser });
+        // 新建时默认负责人为当前用户，密级为 L1
+        form.setFieldsValue({ owner: currentUser, securityLevel: 'L1' });
         // load dimension list
 
         if (type === MetricType.DERIVED) {
@@ -399,6 +399,7 @@ const MetricsDefinition: React.FC = () => {
                     techCaliber: detail.techCaliber,
                     subjectCode: detail.subjectCode,
                     owner: detail.owner,
+                    securityLevel: detail.securityLevel || 'L1',
                 };
                 if (detail.metricType === MetricType.ATOMIC && detail.atomic) {
                     form.setFieldsValue({
@@ -462,6 +463,7 @@ const MetricsDefinition: React.FC = () => {
                 techCaliber: values.techCaliber,
                 subjectCode: values.subjectCode,
                 owner: values.owner,
+                securityLevel: values.securityLevel,
             };
             if (modalType === MetricType.ATOMIC) {
                 const cmd: AtomicMetricCmd = {
@@ -585,6 +587,17 @@ const MetricsDefinition: React.FC = () => {
             key: 'status',
             width: 100,
             render: (v: MetricStatus) => <Tag color={statusTagMap[v]?.color}>{statusTagMap[v]?.label}</Tag>,
+        },
+        {
+            title: '密级',
+            dataIndex: 'securityLevel',
+            key: 'securityLevel',
+            width: 90,
+            render: (level: string) => {
+                const colorMap: Record<string, string> = { L1: 'default', L2: 'blue', L3: 'orange', L4: 'red' };
+                const labelMap: Record<string, string> = { L1: '公开', L2: '内部', L3: '敏感', L4: '机密' };
+                return <Tag color={colorMap[level || 'L1']}>{labelMap[level || 'L1']}</Tag>;
+            },
         },
         {
             title: '版本',
@@ -728,6 +741,14 @@ const MetricsDefinition: React.FC = () => {
                                             {emp.cnName} ({emp.passport})
                                         </Option>
                                     ))}
+                                </Select>
+                            </Form.Item>
+                            <Form.Item name="securityLevel" label="数据密级" initialValue="L1">
+                                <Select placeholder="请选择数据密级">
+                                    <Option value="L1">L1 公开</Option>
+                                    <Option value="L2">L2 内部</Option>
+                                    <Option value="L3">L3 敏感</Option>
+                                    <Option value="L4">L4 机密</Option>
                                 </Select>
                             </Form.Item>
 

@@ -285,6 +285,17 @@ const MetricsDictionary: React.FC = () => {
             key: 'status',
             render: (v: MetricStatus) => <Tag color={statusTagMap[v]?.color}>{statusTagMap[v]?.label}</Tag>,
         },
+        {
+            title: '密级',
+            dataIndex: 'securityLevel',
+            key: 'securityLevel',
+            width: 90,
+            render: (level: string) => {
+                const colorMap: Record<string, string> = { L1: 'default', L2: 'blue', L3: 'orange', L4: 'red' };
+                const labelMap: Record<string, string> = { L1: '公开', L2: '内部', L3: '敏感', L4: '机密' };
+                return <Tag color={colorMap[level || 'L1']}>{labelMap[level || 'L1']}</Tag>;
+            },
+        },
         { title: '更新时间', dataIndex: 'updatedAt', key: 'updatedAt' },
         {
             title: '操作',
@@ -381,6 +392,12 @@ const MetricsDictionary: React.FC = () => {
                                                 <Space>
                                                     <Text strong ellipsis style={{ maxWidth: 140 }}>{item.metricName}</Text>
                                                     <Tag color={typeTagMap[item.metricType]?.color}>{typeTagMap[item.metricType]?.label}</Tag>
+                                                    {(() => {
+                                                        const level = item.securityLevel || 'L1';
+                                                        const colorMap: Record<string, string> = { L1: 'default', L2: 'blue', L3: 'orange', L4: 'red' };
+                                                        const labelMap: Record<string, string> = { L1: '公开', L2: '内部', L3: '敏感', L4: '机密' };
+                                                        return <Tag size="small" color={colorMap[level]}>{labelMap[level]}</Tag>;
+                                                    })()}
                                                 </Space>
                                             }
                                             extra={
@@ -445,6 +462,15 @@ const MetricsDictionary: React.FC = () => {
                                 <div>
                                     <Text type="secondary">状态</Text>
                                     <div><Tag color={statusTagMap[detail.status]?.color}>{statusTagMap[detail.status]?.label}</Tag></div>
+                                </div>
+                                <div>
+                                    <Text type="secondary">数据密级</Text>
+                                    <div>{(() => {
+                                        const level = detail.securityLevel || 'L1';
+                                        const colorMap: Record<string, string> = { L1: 'default', L2: 'blue', L3: 'orange', L4: 'red' };
+                                        const labelMap: Record<string, string> = { L1: '公开', L2: '内部', L3: '敏感', L4: '机密' };
+                                        return <Tag color={colorMap[level]}>{labelMap[level]}</Tag>;
+                                    })()}</div>
                                 </div>
                                 <div>
                                     <Text type="secondary">负责人</Text>

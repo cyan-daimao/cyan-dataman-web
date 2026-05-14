@@ -14,6 +14,7 @@ import {
     Transfer,
     TreeSelect,
     Typography,
+    Select,
 } from 'antd';
 import {
     PlusOutlined,
@@ -147,6 +148,7 @@ const RolePage: React.FC = () => {
             name: record.name,
             code: record.code,
             description: record.description,
+            maxSecurityLevel: record.maxSecurityLevel || 'L1',
             functionPermissions: ['meta', 'metrics'],
         });
         setDrawerVisible(true);
@@ -234,6 +236,17 @@ const RolePage: React.FC = () => {
             ellipsis: true,
         },
         {
+            title: '密级上限',
+            dataIndex: 'maxSecurityLevel',
+            key: 'maxSecurityLevel',
+            width: 100,
+            render: (level: string) => {
+                const colorMap: Record<string, string> = { L1: 'default', L2: 'blue', L3: 'orange', L4: 'red' };
+                const labelMap: Record<string, string> = { L1: '公开', L2: '内部', L3: '敏感', L4: '机密' };
+                return <Tag color={colorMap[level || 'L1']}>{labelMap[level || 'L1']}</Tag>;
+            },
+        },
+        {
             title: '成员数',
             dataIndex: 'memberCount',
             key: 'memberCount',
@@ -312,6 +325,14 @@ const RolePage: React.FC = () => {
                     </Form.Item>
                     <Form.Item name="description" label="描述">
                         <Input.TextArea rows={3} placeholder="请输入角色描述" />
+                    </Form.Item>
+                    <Form.Item name="maxSecurityLevel" label="密级上限" initialValue="L1">
+                        <Select placeholder="请选择密级上限">
+                            <Select.Option value="L1">L1 公开</Select.Option>
+                            <Select.Option value="L2">L2 内部</Select.Option>
+                            <Select.Option value="L3">L3 敏感</Select.Option>
+                            <Select.Option value="L4">L4 机密</Select.Option>
+                        </Select>
                     </Form.Item>
                     <Form.Item name="functionPermissions" label="功能权限">
                         <TreeSelect

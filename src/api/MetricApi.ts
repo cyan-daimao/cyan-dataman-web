@@ -86,6 +86,7 @@ export interface MetricDTO {
     bizCaliber: string;
     techCaliber: string;
     status: MetricStatus;
+    securityLevel?: string;
     owner: string;
     statFunc?: StatFunc;
     dsName?: string;
@@ -109,6 +110,7 @@ export interface MetricListItem {
     subjectName: string;
     bizCaliber: string;
     status: MetricStatus;
+    securityLevel?: string;
     owner: string;
     statFunc?: StatFunc;
     version: number;
@@ -125,6 +127,7 @@ export interface MetricDetail {
     bizCaliber: string;
     techCaliber: string;
     status: MetricStatus;
+    securityLevel?: string;
     owner: string;
     statFunc?: StatFunc;
     dsName?: string;
@@ -195,6 +198,7 @@ export interface AtomicMetricCmd {
     colName: string;
     filterCondition?: FilterCondition[];
     subjectCode: string;
+    securityLevel?: string;
     owner?: string;
 }
 
@@ -211,6 +215,7 @@ export interface DerivedMetricCmd {
     dimensionIds?: string[];
     groupByFields?: GroupByField[];
     subjectCode: string;
+    securityLevel?: string;
     owner?: string;
 }
 
@@ -224,6 +229,7 @@ export interface CompositeMetricCmd {
     formula: string;
     metricRefs: string[];
     subjectCode: string;
+    securityLevel?: string;
     owner?: string;
 }
 
@@ -258,6 +264,7 @@ export interface DictionaryMetricDTO {
     subjectName: string;
     bizCaliber: string;
     status: MetricStatus;
+    securityLevel?: string;
     updatedAt: string;
     isFavorite: boolean;
 }

@@ -54,6 +54,7 @@ export interface RoleDTO {
   name: string;
   code: string;
   description: string;
+  maxSecurityLevel?: string;
   memberCount: number;
   permissionCount: number;
   createdAt: string;
@@ -64,6 +65,7 @@ export interface RoleCmd {
   name: string;
   code: string;
   description: string;
+  maxSecurityLevel?: string;
   functionPermissions: string[];
   dataPermissions: DataPermissionItem[];
   metricPermissions: MetricPermissionItem[];
@@ -356,11 +358,11 @@ export interface MetricFilterSqlResult {
 // ---------------------------------------------------------------------------
 
 const MOCK_ROLES: RoleDTO[] = [
-  { id: '1', name: '超级管理员', code: 'SUPER_ADMIN', description: '拥有全部权限', memberCount: 2, permissionCount: 99, createdAt: '2024-01-15T10:00:00+08:00' },
-  { id: '2', name: '数据治理员', code: 'DATA_GOVERNANCE', description: '元数据平台全部 + 权限管理中心全部', memberCount: 3, permissionCount: 45, createdAt: '2024-02-20T14:30:00+08:00' },
-  { id: '3', name: '数据分析师', code: 'DATA_ANALYST', description: '指标平台(只读) + SQL查询 + BI(编辑)', memberCount: 12, permissionCount: 18, createdAt: '2024-03-10T09:00:00+08:00' },
-  { id: '4', name: '数据开发工程师', code: 'DATA_DEV', description: '数据加工全部 + SQL查询 + 元数据(只读)', memberCount: 8, permissionCount: 22, createdAt: '2024-03-15T11:00:00+08:00' },
-  { id: '5', name: '业务运营', code: 'BUSINESS_OPS', description: '指标平台(只读) + BI(只读)', memberCount: 25, permissionCount: 10, createdAt: '2024-04-01T08:00:00+08:00' },
+  { id: '1', name: '超级管理员', code: 'SUPER_ADMIN', description: '拥有全部权限', maxSecurityLevel: 'L4', memberCount: 2, permissionCount: 99, createdAt: '2024-01-15T10:00:00+08:00' },
+  { id: '2', name: '数据治理员', code: 'DATA_GOVERNANCE', description: '元数据平台全部 + 权限管理中心全部', maxSecurityLevel: 'L4', memberCount: 3, permissionCount: 45, createdAt: '2024-02-20T14:30:00+08:00' },
+  { id: '3', name: '数据分析师', code: 'DATA_ANALYST', description: '指标平台(只读) + SQL查询 + BI(编辑)', maxSecurityLevel: 'L3', memberCount: 12, permissionCount: 18, createdAt: '2024-03-10T09:00:00+08:00' },
+  { id: '4', name: '数据开发工程师', code: 'DATA_DEV', description: '数据加工全部 + SQL查询 + 元数据(只读)', maxSecurityLevel: 'L2', memberCount: 8, permissionCount: 22, createdAt: '2024-03-15T11:00:00+08:00' },
+  { id: '5', name: '业务运营', code: 'BUSINESS_OPS', description: '指标平台(只读) + BI(只读)', maxSecurityLevel: 'L1', memberCount: 25, permissionCount: 10, createdAt: '2024-04-01T08:00:00+08:00' },
 ];
 
 const MOCK_ROLE_MEMBERS: Record<string, RoleMemberDTO[]> = {
