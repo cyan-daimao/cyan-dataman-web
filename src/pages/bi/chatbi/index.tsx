@@ -97,7 +97,7 @@ const MessageItem: React.FC<{ msg: ChatMessage }> = ({ msg }) => {
           {/* 图表 */}
           {msg.chartData && msg.chartType && (
             <div className="chatbi-chart-wrap">
-              <ChartRenderer chartData={msg.chartData} chartType={msg.chartType} />
+              <ChartRenderer chartData={msg.chartData} chartType={msg.chartType} dsl={msg.dsl} />
             </div>
           )}
         </div>

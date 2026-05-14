@@ -1,20 +1,44 @@
 import React, { useState } from 'react';
 import { Table, Statistic, Empty, Button, Modal } from 'antd';
 import { ExpandOutlined } from '@ant-design/icons';
-import { ChartDataDTO, ChartType, DimensionConfig, MetricConfig } from '@/api/DatabiApi';
+import { ChartDataDTO, ChartType, DimensionConfig, MetricConfig, MetricBiAnalysisCmd } from '@/api/DatabiApi';
 import EChartsChart from '@/pages/bi/components/EChartsChart';
 
 interface ChartRendererProps {
   chartData: ChartDataDTO;
   chartType: ChartType;
+  dsl?: MetricBiAnalysisCmd;
+}
+
+/**
+ * 根据 DSL 构建列名 -> 显示名称 的映射
+ */
+function buildColumnAliasMap(columns: string[], dsl?: MetricBiAnalysisCmd): Record<string, string> {
+  if (!dsl) return {};
+  const map: Record<string, string> = {};
+  let colIdx = 0;
+  for (const dim of dsl.dimensions || []) {
+    if (colIdx < columns.length) {
+      map[columns[colIdx]] = dim.alias || dim.dimCode || columns[colIdx];
+      colIdx++;
+    }
+  }
+  for (const metric of dsl.metrics || []) {
+    if (colIdx < columns.length) {
+      map[columns[colIdx]] = metric.alias || metric.metricCode || columns[colIdx];
+      colIdx++;
+    }
+  }
+  return map;
 }
 
 /**
  * 将 ChartDataDTO 的 columns/rows 转换为 Table 的 columns
  */
-function buildTableColumns(columns: string[]) {
+function buildTableColumns(columns: string[], dsl?: MetricBiAnalysisCmd) {
+  const aliasMap = buildColumnAliasMap(columns, dsl);
   return columns.map((col) => ({
-    title: col,
+    title: aliasMap[col] || col,
     dataIndex: col,
     key: col,
     ellipsis: true,
@@ -22,21 +46,38 @@ function buildTableColumns(columns: string[]) {
 }
 
 /**
- * 从 ChartDataDTO 推导 dimensions / metrics 配置
+ * 从 ChartDataDTO 和 DSL 推导 dimensions / metrics 配置
  */
 function deriveChartConfig(
   columns: string[],
-  chartType: ChartType
+  chartType: ChartType,
+  dsl?: MetricBiAnalysisCmd
 ): { dimensions: DimensionConfig[]; metrics: MetricConfig[] } {
   if (chartType === ChartType.NUMBER) {
+    const metric = dsl?.metrics?.[0];
+    const field = columns[0];
     return {
       dimensions: [],
-      metrics: columns.slice(0, 1).map((c) => ({ field: c, aggregate: 'SUM' as const, alias: c })),
+      metrics: [{ field, aggregate: 'SUM' as const, alias: metric?.alias || metric?.metricCode || field }],
     };
   }
 
   if (chartType === ChartType.TABLE) {
     return { dimensions: [], metrics: [] };
+  }
+
+  if (dsl && dsl.dimensions && dsl.metrics) {
+    return {
+      dimensions: dsl.dimensions.map((d, i) => ({
+        field: columns[i] || d.dimCode,
+        alias: d.alias || d.dimCode,
+      })),
+      metrics: dsl.metrics.map((m, i) => ({
+        field: columns[(dsl.dimensions?.length || 0) + i] || m.metricCode,
+        aggregate: 'SUM' as const,
+        alias: m.alias || m.metricCode,
+      })),
+    };
   }
 
   const dimCount = 1;
@@ -69,7 +110,7 @@ function calcChartHeight(chartType: ChartType, rowCount: number, expanded = fals
   return baseHeight + 180;
 }
 
-const ChartRenderer: React.FC<ChartRendererProps> = ({ chartData, chartType }) => {
+const ChartRenderer: React.FC<ChartRendererProps> = ({ chartData, chartType, dsl }) => {
   const { columns, rows } = chartData;
   const [expanded, setExpanded] = useState(false);
 
@@ -90,10 +131,12 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ chartData, chartType }) =
   if (chartType === ChartType.NUMBER) {
     const valueField = columns[0];
     const value = Number(rows[0]?.[valueField] ?? 0);
+    const aliasMap = buildColumnAliasMap(columns, dsl);
+    const title = aliasMap[valueField] || valueField;
     const statisticContent = (
       <div style={{ padding: 24, textAlign: 'center' }}>
         <Statistic
-          title={valueField}
+          title={title}
           value={value}
           valueStyle={{ fontSize: expanded ? 48 : 36, color: '#4F6DF5' }}
         />
@@ -134,7 +177,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ chartData, chartType }) =
       <Table
         size="small"
         dataSource={rows.map((r, idx) => ({ ...r, key: idx }))}
-        columns={buildTableColumns(columns)}
+        columns={buildTableColumns(columns, dsl)}
         pagination={{ pageSize: expanded ? 20 : 10, showSizeChanger: true }}
         scroll={{ x: 'max-content' }}
       />
@@ -163,7 +206,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ chartData, chartType }) =
           <div className="chatbi-chart-expand-content">
             <Table
               dataSource={rows.map((r, idx) => ({ ...r, key: idx }))}
-              columns={buildTableColumns(columns)}
+              columns={buildTableColumns(columns, dsl)}
               pagination={{ pageSize: 20, showSizeChanger: true }}
               scroll={{ x: 'max-content' }}
             />
@@ -173,8 +216,8 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ chartData, chartType }) =
     );
   }
 
-  // BAR / LINE → EChartsChart
-  const { dimensions, metrics } = deriveChartConfig(columns, chartType);
+  // BAR / LINE / PIE / AREA / SCATTER → EChartsChart
+  const { dimensions, metrics } = deriveChartConfig(columns, chartType, dsl);
   const chartHeight = calcChartHeight(chartType, rows.length);
 
   const chartElement = (

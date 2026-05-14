@@ -335,7 +335,10 @@ const DashboardEditor: React.FC = () => {
             return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><div style={{ textAlign: 'center' }}><div style={{ fontSize: 28, fontWeight: 600, color: '#4F6DF5' }}>{Number(data.rows[0]?.[chart.metrics[0].field] ?? 0).toLocaleString()}</div><div style={{ fontSize: 12, color: '#999' }}>{chart.metrics[0].alias || chart.metrics[0].field}</div></div></div>;
         }
         if (chart.chartType === ChartType.TABLE) {
-            return <div style={{ height: '100%', overflow: 'auto' }}><table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}><thead><tr>{data.columns.map(col => <th key={col} style={{ borderBottom: '1px solid #f0f0f0', padding: '3px 6px', textAlign: 'left', fontWeight: 500, background: '#fafafa', fontSize: 10 }}>{col}</th>)}</tr></thead><tbody>{data.rows.slice(0, 20).map((row, idx) => <tr key={idx}>{data.columns.map(col => <td key={col} style={{ borderBottom: '1px solid #f0f0f0', padding: '3px 6px' }}>{String(row[col] ?? '')}</td>)}</tr>)}</tbody></table></div>;
+            const aliasMap: Record<string, string> = {};
+            chart.dimensions?.forEach(d => { if (d.field) aliasMap[d.field] = d.alias || d.field; });
+            chart.metrics?.forEach(m => { if (m.field) aliasMap[m.field] = m.alias || m.field; });
+            return <div style={{ height: '100%', overflow: 'auto' }}><table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}><thead><tr>{data.columns.map(col => <th key={col} style={{ borderBottom: '1px solid #f0f0f0', padding: '3px 6px', textAlign: 'left', fontWeight: 500, background: '#fafafa', fontSize: 10 }}>{aliasMap[col] || col}</th>)}</tr></thead><tbody>{data.rows.slice(0, 20).map((row, idx) => <tr key={idx}>{data.columns.map(col => <td key={col} style={{ borderBottom: '1px solid #f0f0f0', padding: '3px 6px' }}>{String(row[col] ?? '')}</td>)}</tr>)}</tbody></table></div>;
         }
         if (data.rows.length > 0) {
             return <div style={{ width: '100%', height: '100%' }}><EChartsChart chartType={chart.chartType} columns={data.columns} rows={data.rows} dimensions={chart.dimensions || []} metrics={chart.metrics || []} /></div>;

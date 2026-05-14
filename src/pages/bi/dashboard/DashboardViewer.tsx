@@ -209,7 +209,12 @@ const DashboardViewer: React.FC = () => {
                                                 {chart.chartType === ChartType.NUMBER && chart.metrics?.length ? (
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><div style={{ textAlign: 'center' }}><div style={{ fontSize: 36, fontWeight: 600, color: '#4F6DF5' }}>{Number(data.rows[0]?.[chart.metrics[0].field] ?? 0).toLocaleString()}</div><div style={{ fontSize: 14, color: '#999', marginTop: 4 }}>{chart.metrics[0].alias || chart.metrics[0].field}</div></div></div>
                                                 ) : chart.chartType === ChartType.TABLE ? (
-                                                    <div style={{ height: '100%', overflow: 'auto' }}><table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}><thead><tr>{data.columns.map(col => <th key={col} style={{ borderBottom: '1px solid #f0f0f0', padding: '4px 8px', textAlign: 'left', fontWeight: 500, background: '#fafafa' }}>{col}</th>)}</tr></thead><tbody>{data.rows.map((row, idx) => <tr key={idx}>{data.columns.map(col => <td key={col} style={{ borderBottom: '1px solid #f0f0f0', padding: '4px 8px' }}>{String(row[col] ?? '')}</td>)}</tr>)}</tbody></table></div>
+                                                    (() => {
+                                                        const aliasMap: Record<string, string> = {};
+                                                        chart.dimensions?.forEach(d => { if (d.field) aliasMap[d.field] = d.alias || d.field; });
+                                                        chart.metrics?.forEach(m => { if (m.field) aliasMap[m.field] = m.alias || m.field; });
+                                                        return <div style={{ height: '100%', overflow: 'auto' }}><table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}><thead><tr>{data.columns.map(col => <th key={col} style={{ borderBottom: '1px solid #f0f0f0', padding: '4px 8px', textAlign: 'left', fontWeight: 500, background: '#fafafa' }}>{aliasMap[col] || col}</th>)}</tr></thead><tbody>{data.rows.map((row, idx) => <tr key={idx}>{data.columns.map(col => <td key={col} style={{ borderBottom: '1px solid #f0f0f0', padding: '4px 8px' }}>{String(row[col] ?? '')}</td>)}</tr>)}</tbody></table></div>;
+                                                    })()
                                                 ) : data.rows.length > 0 ? (
                                                     <EChartsChart chartType={chart.chartType} columns={data.columns} rows={data.rows} dimensions={chart.dimensions || []} metrics={chart.metrics || []} />
                                                 ) : (
