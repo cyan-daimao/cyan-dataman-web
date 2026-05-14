@@ -45,19 +45,29 @@ const EChartsChart: React.FC<EChartsChartProps> = ({
         const metricFields = metrics.map((m) => resolveColumnName(m.field, m.alias));
         const metricLabels = metrics.map((m) => m.alias || m.field);
 
+        // 多维度支持：当维度数>1时，拼接所有维度值作为X轴标签
+        const hasMultiDim = dimFields.length > 1;
+
         // 如果没有指定维度/指标，用 columns 推导
         const xField = dimFields[0] || columns[0];
-        const xLabel = dimLabels[0] || columns[0];
+        const xLabel = hasMultiDim ? dimLabels.join(' / ') : (dimLabels[0] || columns[0]);
         const yFields = metricFields.length > 0 ? metricFields : [columns[1] || columns[0]];
         const yLabels = metricLabels.length > 0 ? metricLabels : [columns[1] || columns[0]];
 
-        const xData = rows.map((r) => String(r[xField] ?? ''));
+        // 生成X轴数据：单维度直接用字段值，多维度拼接所有维度值
+        const xData = rows.map((r) => {
+            if (hasMultiDim) {
+                return dimFields.map(f => String(r[f] ?? '')).join(' - ');
+            }
+            return String(r[xField] ?? '');
+        });
 
         if (chartType === ChartType.PIE) {
             const yField = yFields[0];
-            const yLabel = yLabels[0];
             const pieData = rows.map((r) => ({
-                name: String(r[xField] ?? ''),
+                name: hasMultiDim
+                    ? dimFields.map(f => String(r[f] ?? '')).join(' - ')
+                    : String(r[xField] ?? ''),
                 value: Number(r[yField] ?? 0),
             }));
             return {
@@ -125,7 +135,7 @@ const EChartsChart: React.FC<EChartsChartProps> = ({
             xAxis: {
                 type: 'category',
                 data: xData,
-                name: xLabel,
+                name: hasMultiDim ? undefined : xLabel,
                 axisLabel: { interval: 0, rotate: xData.length > 10 ? 30 : 0, overflow: 'truncate', width: 80 },
                 axisTick: { alignWithLabel: true },
             },

@@ -22,10 +22,16 @@ const SimpleCanvasChart: React.FC<{
 
         const dimFields = dimensions.map((d) => d.field);
         const metricFields = metrics.map((m) => m.field);
+        const hasMultiDim = dimFields.length > 1;
         const labelKey = dimFields[0] || columns[0];
         const valueKey = metricFields[0] || columns[1] || columns[0];
 
-        const labels = rows.map((r) => String(r[labelKey] ?? ''));
+        const labels = rows.map((r) => {
+            if (hasMultiDim) {
+                return dimFields.map(f => String(r[f] ?? '')).join(' - ');
+            }
+            return String(r[labelKey] ?? '');
+        });
         const values = rows.map((r) => Number(r[valueKey] ?? 0));
         const maxVal = Math.max(...values, 1);
 
