@@ -29,21 +29,15 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { format } from 'sql-formatter';
 import {
-    analysisApi,
     chartApi,
-    datasetApi,
     ChartCmd,
     ChartDataDTO,
     ChartType,
-    DatasetDTO,
-    DimensionConfig,
-    MetricConfig,
     FilterConfig,
     OrderConfig,
     AggregateType,
     FilterOperator,
     OrderDirection,
-    FieldRole,
     AnalysisType,
     MetricBiAnalysisCmd,
 } from '@/api/DatabiApi';
@@ -64,7 +58,7 @@ const ChartAnalyzer: React.FC = () => {
     const navigate = useNavigate();
     const { chartId } = useParams<{ chartId?: string }>();
 
-    // ========== 指标/维度列表（新模式） ==========
+    // ========== 指标/维度列表 ==========
     const [metricsList, setMetricsList] = useState<MetricBiListItem[]>([]);
     const [dimensionsList, setDimensionsList] = useState<DimensionBiListItem[]>([]);
     const [listLoading, setListLoading] = useState(false);
@@ -72,20 +66,9 @@ const ChartAnalyzer: React.FC = () => {
     const [selectedMetrics, setSelectedMetrics] = useState<MetricBiListItem[]>([]);
     const [selectedDimensions, setSelectedDimensions] = useState<DimensionBiListItem[]>([]);
 
-    // ========== 数据集（兼容模式） ==========
-    const [datasets, setDatasets] = useState<DatasetDTO[]>([]);
-    const [currentDataset, setCurrentDataset] = useState<DatasetDTO | null>(null);
-    const [datasetId, setDatasetId] = useState<string>('');
-
-    // ========== 兼容模式标记 ==========
-    const [compatMode, setCompatMode] = useState(false);
-    const [compatMessageShown, setCompatMessageShown] = useState(false);
-
-    // ========== 分析配置状态（共享） ==========
+    // ========== 分析配置状态 ==========
     const [chartName, setChartName] = useState('');
     const [chartType, setChartType] = useState<ChartType>(ChartType.TABLE);
-    const [dimensions, setDimensions] = useState<DimensionConfig[]>([]);
-    const [metrics, setMetrics] = useState<MetricConfig[]>([]);
     const [filters, setFilters] = useState<FilterConfig[]>([]);
     const [orders, setOrders] = useState<OrderConfig[]>([]);
     const [dimValueMap, setDimValueMap] = useState<Record<string, DimensionValueItem[]>>({});
@@ -129,15 +112,6 @@ const ChartAnalyzer: React.FC = () => {
         ]).finally(() => setListLoading(false));
     }, []);
 
-    // ========== 加载数据集列表（兼容模式备用） ==========
-    useEffect(() => {
-        datasetApi.list().then((res) => {
-            if (res.code === 200) {
-                setDatasets(res.data);
-            }
-        });
-    }, []);
-
     // ========== 加载图表配置（编辑模式） ==========
     useEffect(() => {
         if (chartId) {
@@ -150,23 +124,8 @@ const ChartAnalyzer: React.FC = () => {
                     setOrders(c.orders || []);
                     setLimitValue(c.limitValue);
 
-                    if (c.analysisType === AnalysisType.DATASET || !c.analysisType) {
-                        // 存量兼容模式
-                        setCompatMode(true);
-                        setCompatMessageShown(true);
-                        setDatasetId(c.datasetId || '');
-                        setDimensions(c.dimensions || []);
-                        setMetrics(c.metrics || []);
-                        if (c.datasetId) {
-                            datasetApi.getById(c.datasetId).then((dsRes) => {
-                                if (dsRes.code === 200) setCurrentDataset(dsRes.data);
-                            });
-                        }
-                    } else if (c.analysisType === AnalysisType.METRICS && c.metricAnalysisCmd) {
-                        // 指标模式
-                        setCompatMode(false);
+                    if (c.metricAnalysisCmd) {
                         setPendingMetricCmd(c.metricAnalysisCmd);
-                        // 其他字段从 metricAnalysisCmd 恢复
                         if (c.metricAnalysisCmd.limitValue !== undefined) {
                             setLimitValue(c.metricAnalysisCmd.limitValue);
                         }
@@ -260,58 +219,6 @@ const ChartAnalyzer: React.FC = () => {
         }
     };
 
-    // ========== 兼容模式：切换数据集 ==========
-    const handleDatasetChange = (id: string) => {
-        setDatasetId(id);
-        setDimensions([]);
-        setMetrics([]);
-        const ds = datasets.find((d) => d.id === id);
-        if (ds) {
-            setCurrentDataset(ds);
-        } else {
-            datasetApi.getById(id).then((res) => {
-                if (res.code === 200) setCurrentDataset(res.data);
-            });
-        }
-    };
-
-    // ========== 拖拽相关（兼容模式） ==========
-    const handleDragStartField = (e: React.DragEvent, field: { name: string; role: FieldRole }) => {
-        e.dataTransfer.setData('field', JSON.stringify(field));
-    };
-
-    const handleDropDimensionCompat = (e: React.DragEvent) => {
-        e.preventDefault();
-        const data = e.dataTransfer.getData('field');
-        if (!data) return;
-        const field = JSON.parse(data) as { name: string; role: FieldRole };
-        if (field.role !== FieldRole.DIMENSION) {
-            message.warning('该字段为指标类型，请拖入指标区域');
-            return;
-        }
-        if (dimensions.length >= 3) {
-            message.warning('最多支持 3 个维度');
-            return;
-        }
-        if (!dimensions.find((d) => d.field === field.name)) {
-            setDimensions([...dimensions, { field: field.name }]);
-        }
-    };
-
-    const handleDropMetricCompat = (e: React.DragEvent) => {
-        e.preventDefault();
-        const data = e.dataTransfer.getData('field');
-        if (!data) return;
-        const field = JSON.parse(data) as { name: string; role: FieldRole };
-        if (field.role !== FieldRole.METRIC) {
-            message.warning('该字段为维度类型，请拖入维度区域');
-            return;
-        }
-        if (!metrics.find((m) => m.field === field.name)) {
-            setMetrics([...metrics, { field: field.name, aggregate: AggregateType.SUM }]);
-        }
-    };
-
     // ========== 拖拽相关（指标模式） ==========
     const handleDragStartMetric = (e: React.DragEvent, metric: MetricBiListItem) => {
         e.dataTransfer.setData('metric', JSON.stringify(metric));
@@ -349,19 +256,6 @@ const ChartAnalyzer: React.FC = () => {
         e.preventDefault();
     };
 
-    // ========== 构建请求体（兼容模式） ==========
-    const buildCompatCmd = (): import('@/api/DatabiApi').AnalysisCmd => {
-        return {
-            datasetId,
-            chartType,
-            dimensions: dimensions.length ? dimensions : undefined,
-            metrics: metrics.length ? metrics : undefined,
-            filters: filters.length ? filters : undefined,
-            orders: orders.length ? orders : undefined,
-            limitValue,
-        };
-    };
-
     // ========== 构建请求体（指标模式） ==========
     const buildMetricCmd = (): MetricBiAnalysisCmd => {
         return {
@@ -388,96 +282,52 @@ const ChartAnalyzer: React.FC = () => {
 
     // ========== 执行分析 ==========
     const handleExecute = async () => {
-        if (compatMode) {
-            if (!datasetId) {
-                message.warning('请先选择数据集');
-                return;
-            }
-            setLoading(true);
-            try {
-                const res = await analysisApi.execute(buildCompatCmd());
-                if (res.code === 200) {
-                    setResult({ ...res.data, rows: res.data.rows.map((row, idx) => ({ ...row, __key: `row-${idx}` })) });
-                    if (res.data.status === 'FAILED') {
-                        message.error(res.data.errorMessage || '执行失败');
-                    }
-                } else {
-                    message.error(res.message || '执行失败');
+        if (selectedMetrics.length === 0) {
+            message.warning('请至少选择一个指标');
+            return;
+        }
+        const tableRefs = new Set(selectedMetrics.map((m) => m.tableRef).filter(Boolean));
+        if (tableRefs.size >= 2 && selectedDimensions.length === 0) {
+            message.warning('多事实表分析需要至少选择一个维度');
+            return;
+        }
+        setLoading(true);
+        try {
+            const res = await metricBiApi.execute(buildMetricCmd());
+            if (res.code === 200) {
+                setResult({ ...res.data, rows: res.data.rows.map((row, idx) => ({ ...row, __key: `row-${idx}` })) });
+                if (res.data.status === 'FAILED') {
+                    message.error(res.data.errorMessage || '执行失败');
                 }
-            } catch {
-                message.error('执行失败');
-            } finally {
-                setLoading(false);
+            } else {
+                message.error(res.message || '执行失败');
             }
-        } else {
-            if (selectedMetrics.length === 0) {
-                message.warning('请至少选择一个指标');
-                return;
-            }
-            const tableRefs = new Set(selectedMetrics.map((m) => m.tableRef).filter(Boolean));
-            if (tableRefs.size >= 2 && selectedDimensions.length === 0) {
-                message.warning('多事实表分析需要至少选择一个维度');
-                return;
-            }
-            setLoading(true);
-            try {
-                const res = await metricBiApi.execute(buildMetricCmd());
-                if (res.code === 200) {
-                    setResult({ ...res.data, rows: res.data.rows.map((row, idx) => ({ ...row, __key: `row-${idx}` })) });
-                    if (res.data.status === 'FAILED') {
-                        message.error(res.data.errorMessage || '执行失败');
-                    }
-                } else {
-                    message.error(res.message || '执行失败');
-                }
-            } catch {
-                message.error('执行失败');
-            } finally {
-                setLoading(false);
-            }
+        } catch {
+            message.error('执行失败');
+        } finally {
+            setLoading(false);
         }
     };
 
     // ========== SQL 预览 ==========
     const handlePreviewSql = async () => {
-        if (compatMode) {
-            if (!datasetId) {
-                message.warning('请先选择数据集');
-                return;
+        if (selectedMetrics.length === 0) {
+            message.warning('请至少选择一个指标');
+            return;
+        }
+        setPreviewOpen(true);
+        setPreviewLoading(true);
+        try {
+            const res = await metricBiApi.previewSql(buildMetricCmd());
+            if (res.code === 200) {
+                setPreviewSql(format(res.data));
+            } else {
+                message.error(res.message || '预览 SQL 失败');
             }
-            setPreviewOpen(true);
-            setPreviewLoading(true);
-            try {
-                const res = await analysisApi.previewSql(buildCompatCmd());
-                if (res.code === 200) {
-                    setPreviewSql(format(res.data));
-                } else {
-                    message.error(res.message || '预览 SQL 失败');
-                }
-            } catch {
-                message.error('预览 SQL 失败');
-            } finally {
-                setPreviewLoading(false);
-            }
-        } else {
-            if (selectedMetrics.length === 0) {
-                message.warning('请至少选择一个指标');
-                return;
-            }
-            setPreviewOpen(true);
-            setPreviewLoading(true);
-            try {
-                const res = await metricBiApi.previewSql(buildMetricCmd());
-                if (res.code === 200) {
-                    setPreviewSql(format(res.data));
-                } else {
-                    message.error(res.message || '预览 SQL 失败');
-                }
-            } catch {
-                message.error('预览 SQL 失败');
-            } finally {
-                setPreviewLoading(false);
-            }
+        } catch {
+            message.error('预览 SQL 失败');
+        } finally {
+            setPreviewLoading(false);
         }
     };
 
@@ -488,46 +338,27 @@ const ChartAnalyzer: React.FC = () => {
             return;
         }
 
-        let cmd: ChartCmd;
-        if (compatMode) {
-            if (!datasetId) {
-                message.warning('请先选择数据集');
-                return;
-            }
-            cmd = {
-                name: chartName.trim(),
-                analysisType: AnalysisType.DATASET,
-                datasetId,
-                chartType,
-                dimensions: dimensions.length ? dimensions : undefined,
-                metrics: metrics.length ? metrics : undefined,
-                filters: filters.length ? filters : undefined,
-                orders: orders.length ? orders : undefined,
-                limitValue,
-                sqlContent: result?.sql,
-            };
-        } else {
-            if (selectedMetrics.length === 0) {
-                message.warning('请至少选择一个指标');
-                return;
-            }
-            cmd = {
-                name: chartName.trim(),
-                analysisType: AnalysisType.METRICS,
-                metricAnalysisCmd: buildMetricCmd(),
-                chartType,
-                dimensions: selectedDimensions.map((d) => ({ field: d.dimName, alias: d.dimName })),
-                metrics: selectedMetrics.map((m) => ({
-                    field: m.metricName,
-                    aggregate: AggregateType.SUM,
-                    alias: m.metricName,
-                })),
-                filters: filters.length ? filters : undefined,
-                orders: orders.length ? orders : undefined,
-                limitValue,
-                sqlContent: result?.sql,
-            };
+        if (selectedMetrics.length === 0) {
+            message.warning('请至少选择一个指标');
+            return;
         }
+
+        const cmd: ChartCmd = {
+            name: chartName.trim(),
+            analysisType: AnalysisType.METRICS,
+            metricAnalysisCmd: buildMetricCmd(),
+            chartType,
+            dimensions: selectedDimensions.map((d) => ({ field: d.dimName, alias: d.dimName })),
+            metrics: selectedMetrics.map((m) => ({
+                field: m.metricName,
+                aggregate: AggregateType.SUM,
+                alias: m.metricName,
+            })),
+            filters: filters.length ? filters : undefined,
+            orders: orders.length ? orders : undefined,
+            limitValue,
+            sqlContent: result?.sql,
+        };
 
         setSaving(true);
         try {
@@ -604,12 +435,6 @@ const ChartAnalyzer: React.FC = () => {
 
     // ========== 字段选项 ==========
     const fieldOptions = useMemo(() => {
-        if (compatMode) {
-            return (currentDataset?.fields || []).map((f) => ({
-                label: `${f.comment || f.name} (${f.name})`,
-                value: f.name,
-            }));
-        }
         const opts = [];
         for (const d of selectedDimensions) {
             opts.push({ label: d.dimName, value: d.dimName });
@@ -621,10 +446,7 @@ const ChartAnalyzer: React.FC = () => {
             });
         }
         return opts;
-    }, [compatMode, currentDataset, selectedDimensions, selectedMetrics]);
-
-    const dimensionFields = currentDataset?.fields?.filter((f) => f.role === FieldRole.DIMENSION) || [];
-    const metricFields = currentDataset?.fields?.filter((f) => f.role === FieldRole.METRIC) || [];
+    }, [selectedDimensions, selectedMetrics]);
 
     // 指标按主题域分组
     const metricsBySubject = useMemo(() => {
@@ -672,31 +494,8 @@ const ChartAnalyzer: React.FC = () => {
     // ========== 渲染 ==========
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            {/* 兼容模式提示 */}
-            {compatMode && compatMessageShown && (
-                <Alert
-                    message="此图表基于数据集，正在使用兼容模式"
-                    type="info"
-                    showIcon
-                    closable
-                    onClose={() => setCompatMessageShown(false)}
-                    style={{ marginBottom: 12 }}
-                />
-            )}
-
             {/* 顶部栏 */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-                {compatMode && (
-                    <Select
-                        placeholder="选择数据集"
-                        style={{ width: 240 }}
-                        value={datasetId || undefined}
-                        onChange={handleDatasetChange}
-                        options={datasets.map((d) => ({ label: d.name, value: d.id }))}
-                        showSearch
-                        optionFilterProp="label"
-                    />
-                )}
                 <Input
                     placeholder="图表名称"
                     value={chartName}
@@ -720,165 +519,121 @@ const ChartAnalyzer: React.FC = () => {
             <div style={{ display: 'flex', flex: 1, gap: 12, minHeight: 0, overflow: 'hidden' }}>
                 {/* 左侧面板 */}
                 <Card
-                    title={compatMode ? '字段列表' : '指标库 / 维度库'}
+                    title="指标库 / 维度库"
                     size="small"
                     style={{ width: 240, flexShrink: 0, overflow: 'auto' }}
                     styles={{ body: { padding: 8 } }}
                 >
-                    {listLoading && !compatMode && (
+                    {listLoading && (
                         <div style={{ textAlign: 'center', padding: 20 }}>
                             <Spin size="small" />
                         </div>
                     )}
 
-                    {compatMode ? (
-                        // 兼容模式：数据集字段
-                        <>
-                            <div style={{ marginBottom: 8, fontWeight: 'bold', color: '#1890ff' }}>维度</div>
-                            {dimensionFields.length === 0 && <div style={{ color: '#999', fontSize: 12 }}>暂无维度字段</div>}
-                            {dimensionFields.map((f) => (
+                    {/* 指标模式：指标库 + 维度库 */}
+                    <>
+                        <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontWeight: 'bold', color: '#1890ff' }}>指标库</span>
+                            <Input
+                                size="small"
+                                placeholder="搜索"
+                                value={metricSearch}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    setMetricSearch(value);
+                                    if (metricSearchTimer.current) {
+                                        clearTimeout(metricSearchTimer.current);
+                                    }
+                                    metricSearchTimer.current = setTimeout(() => {
+                                        doSearchMetrics(value);
+                                    }, 300);
+                                }}
+                                prefix={<SearchOutlined />}
+                                allowClear
+                                style={{ width: 90 }}
+                            />
+                        </div>
+                        {metricsList.length === 0 && !listLoading && (
+                            <div style={{ color: '#999', fontSize: 12 }}>暂无指标</div>
+                        )}
+                        {Object.entries(metricsBySubject).map(([subject, items]) => (
+                            <div key={subject} style={{ marginBottom: 8 }}>
                                 <div
-                                    key={f.name}
-                                    draggable
-                                    onDragStart={(e) => handleDragStartField(e, { name: f.name, role: f.role })}
                                     style={{
-                                        padding: '6px 8px',
+                                        fontSize: 11,
+                                        color: '#666',
+                                        padding: '2px 4px',
+                                        background: '#f5f5f5',
+                                        borderRadius: 2,
                                         marginBottom: 4,
-                                        background: '#f6ffed',
-                                        borderRadius: 4,
-                                        cursor: 'grab',
-                                        fontSize: 13,
                                     }}
                                 >
-                                    {f.comment || f.name}
+                                    {subject}
                                 </div>
-                            ))}
-                            <div style={{ marginTop: 12, marginBottom: 8, fontWeight: 'bold', color: '#52c41a' }}>指标</div>
-                            {metricFields.length === 0 && <div style={{ color: '#999', fontSize: 12 }}>暂无指标字段</div>}
-                            {metricFields.map((f) => (
-                                <div
-                                    key={f.name}
-                                    draggable
-                                    onDragStart={(e) => handleDragStartField(e, { name: f.name, role: f.role })}
-                                    style={{
-                                        padding: '6px 8px',
-                                        marginBottom: 4,
-                                        background: '#e6f7ff',
-                                        borderRadius: 4,
-                                        cursor: 'grab',
-                                        fontSize: 13,
-                                    }}
-                                >
-                                    {f.comment || f.name}
-                                </div>
-                            ))}
-                        </>
-                    ) : (
-                        // 指标模式：指标库 + 维度库
-                        <>
-                            <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <span style={{ fontWeight: 'bold', color: '#1890ff' }}>指标库</span>
-                                <Input
-                                    size="small"
-                                    placeholder="搜索"
-                                    value={metricSearch}
-                                    onChange={(e) => {
-                                        const value = e.target.value;
-                                        setMetricSearch(value);
-                                        if (metricSearchTimer.current) {
-                                            clearTimeout(metricSearchTimer.current);
-                                        }
-                                        metricSearchTimer.current = setTimeout(() => {
-                                            doSearchMetrics(value);
-                                        }, 300);
-                                    }}
-                                    prefix={<SearchOutlined />}
-                                    allowClear
-                                    style={{ width: 90 }}
-                                />
-                            </div>
-                            {metricsList.length === 0 && !listLoading && (
-                                <div style={{ color: '#999', fontSize: 12 }}>暂无指标</div>
-                            )}
-                            {Object.entries(metricsBySubject).map(([subject, items]) => (
-                                <div key={subject} style={{ marginBottom: 8 }}>
+                                {items.map((m) => (
                                     <div
+                                        key={m.id}
+                                        draggable
+                                        onDragStart={(e) => handleDragStartMetric(e, m)}
                                         style={{
-                                            fontSize: 11,
-                                            color: '#666',
-                                            padding: '2px 4px',
-                                            background: '#f5f5f5',
-                                            borderRadius: 2,
+                                            padding: '6px 8px',
                                             marginBottom: 4,
+                                            background: '#e6f7ff',
+                                            borderRadius: 4,
+                                            cursor: 'grab',
+                                            fontSize: 13,
                                         }}
+                                        title={m.tableRef ? `${m.metricName} · 来源：${m.tableRef}` : m.description || m.metricName}
                                     >
-                                        {subject}
+                                        {m.metricName}
                                     </div>
-                                    {items.map((m) => (
-                                        <div
-                                            key={m.id}
-                                            draggable
-                                            onDragStart={(e) => handleDragStartMetric(e, m)}
-                                            style={{
-                                                padding: '6px 8px',
-                                                marginBottom: 4,
-                                                background: '#e6f7ff',
-                                                borderRadius: 4,
-                                                cursor: 'grab',
-                                                fontSize: 13,
-                                            }}
-                                            title={m.tableRef ? `${m.metricName} · 来源：${m.tableRef}` : m.description || m.metricName}
-                                        >
-                                            {m.metricName}
-                                        </div>
-                                    ))}
-                                </div>
-                            ))}
-
-                            <div style={{ marginTop: 12, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <span style={{ fontWeight: 'bold', color: '#52c41a' }}>维度库</span>
-                                <Input
-                                    size="small"
-                                    placeholder="搜索"
-                                    value={dimSearch}
-                                    onChange={(e) => {
-                                        const value = e.target.value;
-                                        setDimSearch(value);
-                                        if (dimSearchTimer.current) {
-                                            clearTimeout(dimSearchTimer.current);
-                                        }
-                                        dimSearchTimer.current = setTimeout(() => {
-                                            doSearchDimensions(value);
-                                        }, 300);
-                                    }}
-                                    prefix={<SearchOutlined />}
-                                    allowClear
-                                    style={{ width: 90 }}
-                                />
+                                ))}
                             </div>
-                            {dimensionsList.length === 0 && !listLoading && (
-                                <div style={{ color: '#999', fontSize: 12 }}>暂无维度</div>
-                            )}
-                            {dimensionsList.map((d) => (
-                                <div
-                                    key={d.id}
-                                    draggable
-                                    onDragStart={(e) => handleDragStartDimension(e, d)}
-                                    style={{
-                                        padding: '6px 8px',
-                                        marginBottom: 4,
-                                        background: '#f6ffed',
-                                        borderRadius: 4,
-                                        cursor: 'grab',
-                                        fontSize: 13,
-                                    }}
-                                    title={`${d.dimName}\n表：${d.tableName || '-'}\n字段：${d.columnName || '-'}\n显示字段：${d.displayColumn || '-'}`}
-                                >
-                                    {d.dimName}
-                                </div>
-                            ))}
-                        </>
-                    )}
+                        ))}
+
+                        <div style={{ marginTop: 12, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontWeight: 'bold', color: '#52c41a' }}>维度库</span>
+                            <Input
+                                size="small"
+                                placeholder="搜索"
+                                value={dimSearch}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    setDimSearch(value);
+                                    if (dimSearchTimer.current) {
+                                        clearTimeout(dimSearchTimer.current);
+                                    }
+                                    dimSearchTimer.current = setTimeout(() => {
+                                        doSearchDimensions(value);
+                                    }, 300);
+                                }}
+                                prefix={<SearchOutlined />}
+                                allowClear
+                                style={{ width: 90 }}
+                            />
+                        </div>
+                        {dimensionsList.length === 0 && !listLoading && (
+                            <div style={{ color: '#999', fontSize: 12 }}>暂无维度</div>
+                        )}
+                        {dimensionsList.map((d) => (
+                            <div
+                                key={d.id}
+                                draggable
+                                onDragStart={(e) => handleDragStartDimension(e, d)}
+                                style={{
+                                    padding: '6px 8px',
+                                    marginBottom: 4,
+                                    background: '#f6ffed',
+                                    borderRadius: 4,
+                                    cursor: 'grab',
+                                    fontSize: 13,
+                                }}
+                                title={`${d.dimName}\n表：${d.tableName || '-'}\n字段：${d.columnName || '-'}\n显示字段：${d.displayColumn || '-'}`}
+                            >
+                                {d.dimName}
+                            </div>
+                        ))}
+                    </>
                 </Card>
 
                 {/* 中间配置区 */}
@@ -889,7 +644,7 @@ const ChartAnalyzer: React.FC = () => {
                     styles={{ body: { padding: 12 } }}
                 >
                     {/* 多事实表提示条 */}
-                    {!compatMode && multiTableInfo.isMultiTable && (
+                    {multiTableInfo.isMultiTable && (
                         <Alert
                             type="info"
                             showIcon
@@ -901,7 +656,7 @@ const ChartAnalyzer: React.FC = () => {
 
                     {/* 指标区域 */}
                     <div
-                        onDrop={compatMode ? handleDropMetricCompat : handleDropSelectedMetric}
+                        onDrop={handleDropSelectedMetric}
                         onDragOver={handleDragOver}
                         style={{
                             border: '1px dashed #b7eb8f',
@@ -914,60 +669,33 @@ const ChartAnalyzer: React.FC = () => {
                     >
                         <div style={{ fontWeight: 'bold', marginBottom: 4, fontSize: 13 }}>指标（Y轴）</div>
                         <Space wrap>
-                            {compatMode
-                                ? metrics.map((m, i) => (
-                                      <div key={m.field} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                          <Tag
-                                              closable
-                                              onClose={() => {
-                                                  const next = [...metrics];
-                                                  next.splice(i, 1);
-                                                  setMetrics(next);
-                                              }}
-                                          style={{ backgroundColor: '#e6f7ff', borderColor: 'transparent' }}
-                                          >
-                                              {m.field}
-                                          </Tag>
-                                          <Select
-                                              size="small"
-                                              style={{ width: 140 }}
-                                              value={m.aggregate}
-                                              onChange={(v) => {
-                                                  const next = [...metrics];
-                                                  next[i] = { ...next[i], aggregate: v };
-                                                  setMetrics(next);
-                                              }}
-                                              options={Object.values(AggregateType).map((a) => ({ label: a, value: a }))}
-                                          />
-                                      </div>
-                                  ))
-                                : selectedMetrics.map((m, i) => (
-                                      <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                          <Tooltip title={`${m.metricName}${m.statFunc ? ` (${m.statFunc})` : ''}${m.tableRef ? ` · 来源：${m.tableRef}` : ''}`}>
-                                              <Tag
-                                                  closable
-                                                  onClose={() => {
-                                                      const next = [...selectedMetrics];
-                                                      next.splice(i, 1);
-                                                      setSelectedMetrics(next);
-                                                  }}
-                                              style={{ backgroundColor: '#e6f7ff', borderColor: 'transparent' }}
-                                              >
-                                                  {m.metricName}
-                                              </Tag>
-                                          </Tooltip>
-                                      </div>
-                                  ))}
-                            {(compatMode ? metrics : selectedMetrics).length === 0 && (
+                            {selectedMetrics.map((m, i) => (
+                                <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <Tooltip title={`${m.metricName}${m.statFunc ? ` (${m.statFunc})` : ''}${m.tableRef ? ` · 来源：${m.tableRef}` : ''}`}>
+                                        <Tag
+                                            closable
+                                            onClose={() => {
+                                                const next = [...selectedMetrics];
+                                                next.splice(i, 1);
+                                                setSelectedMetrics(next);
+                                            }}
+                                            style={{ backgroundColor: '#e6f7ff', borderColor: 'transparent' }}
+                                        >
+                                            {m.metricName}
+                                        </Tag>
+                                    </Tooltip>
+                                </div>
+                            ))}
+                            {selectedMetrics.length === 0 && (
                                 <span style={{ color: '#999', fontSize: 12 }}>
-                                    {compatMode ? '拖拽指标字段到此处' : '拖拽指标到此处'}
+                                    拖拽指标到此处
                                 </span>
                             )}
                         </Space>
                     </div>
 
                     {/* 多事实表维度提示 */}
-                    {!compatMode && multiTableInfo.isMultiTable && (
+                    {multiTableInfo.isMultiTable && (
                         <Alert
                             type="warning"
                             showIcon
@@ -979,7 +707,7 @@ const ChartAnalyzer: React.FC = () => {
 
                     {/* 维度区域 */}
                     <div
-                        onDrop={compatMode ? handleDropDimensionCompat : handleDropSelectedDimension}
+                        onDrop={handleDropSelectedDimension}
                         onDragOver={handleDragOver}
                         style={{
                             border: '1px dashed #91d5ff',
@@ -992,39 +720,24 @@ const ChartAnalyzer: React.FC = () => {
                     >
                         <div style={{ fontWeight: 'bold', marginBottom: 4, fontSize: 13 }}>维度（X轴）</div>
                         <Space wrap>
-                            {compatMode
-                                ? dimensions.map((d, i) => (
-                                      <Tag
-                                          key={d.field}
-                                          closable
-                                          onClose={() => {
-                                              const next = [...dimensions];
-                                              next.splice(i, 1);
-                                              setDimensions(next);
-                                          }}
-                                          style={{ backgroundColor: '#f6ffed', borderColor: 'transparent' }}
-                                      >
-                                          {d.field}
-                                      </Tag>
-                                  ))
-                                : selectedDimensions.map((d, i) => (
-                                      <Tooltip key={d.id} title={`${d.dimName}\n表：${d.tableName || '-'}\n字段：${d.columnName || '-'}\n显示字段：${d.displayColumn || '-'}`}>
-                                          <Tag
-                                              closable
-                                              onClose={() => {
-                                                  const next = [...selectedDimensions];
-                                                  next.splice(i, 1);
-                                                  setSelectedDimensions(next);
-                                              }}
-                                              style={{ backgroundColor: '#f6ffed', borderColor: 'transparent' }}
-                                          >
-                                              {d.dimName}
-                                          </Tag>
-                                      </Tooltip>
-                                  ))}
-                            {(compatMode ? dimensions : selectedDimensions).length === 0 && (
+                            {selectedDimensions.map((d, i) => (
+                                <Tooltip key={d.id} title={`${d.dimName}\n表：${d.tableName || '-'}\n字段：${d.columnName || '-'}\n显示字段：${d.displayColumn || '-'}`}>
+                                    <Tag
+                                        closable
+                                        onClose={() => {
+                                            const next = [...selectedDimensions];
+                                            next.splice(i, 1);
+                                            setSelectedDimensions(next);
+                                        }}
+                                        style={{ backgroundColor: '#f6ffed', borderColor: 'transparent' }}
+                                    >
+                                        {d.dimName}
+                                    </Tag>
+                                </Tooltip>
+                            ))}
+                            {selectedDimensions.length === 0 && (
                                 <span style={{ color: '#999', fontSize: 12 }}>
-                                    {compatMode ? '拖拽维度字段到此处' : '拖拽维度到此处'}
+                                    拖拽维度到此处
                                 </span>
                             )}
                         </Space>
@@ -1034,10 +747,8 @@ const ChartAnalyzer: React.FC = () => {
                     <div style={{ marginBottom: 12 }}>
                         <div style={{ fontWeight: 'bold', marginBottom: 4, fontSize: 13 }}>过滤条件</div>
                         {filters.map((f, i) => {
-                            const isDimField = compatMode
-                                ? currentDataset?.fields?.some((fld) => fld.name === f.field && fld.role === FieldRole.DIMENSION)
-                                : selectedDimensions.some((d) => d.dimName === f.field);
-                            const dim = !compatMode ? selectedDimensions.find((d) => d.dimName === f.field) : null;
+                            const isDimField = selectedDimensions.some((d) => d.dimName === f.field);
+                            const dim = selectedDimensions.find((d) => d.dimName === f.field);
                             const dimValues = dim ? (dimValueMap[dim.dimCode] || []) : [];
                             const showValueInput = f.operator !== FilterOperator.IS_NULL && f.operator !== FilterOperator.IS_NOT_NULL;
                             return (
@@ -1184,25 +895,16 @@ const ChartAnalyzer: React.FC = () => {
 
                     {!loading && result?.status === 'SUCCESS' && (
                         <div>
-                            {chartType === ChartType.NUMBER &&
-                                (compatMode ? metrics.length > 0 : selectedMetrics.length > 0) && (
-                                    <div style={{ textAlign: 'center', padding: 24 }}>
-                                        <Statistic
-                                            title={
-                                                compatMode
-                                                    ? metrics[0].alias || metrics[0].field
-                                                    : selectedMetrics[0].metricName
-                                            }
-                                            value={Number(
-                                                result.rows[0]?.[
-                                                    compatMode
-                                                        ? metrics[0].field
-                                                        : selectedMetrics[0].metricName
-                                                ] ?? 0
-                                            )}
-                                        />
-                                    </div>
-                                )}
+                            {chartType === ChartType.NUMBER && selectedMetrics.length > 0 && (
+                                <div style={{ textAlign: 'center', padding: 24 }}>
+                                    <Statistic
+                                        title={selectedMetrics[0].metricName}
+                                        value={Number(
+                                            result.rows[0]?.[selectedMetrics[0].metricName] ?? 0
+                                        )}
+                                    />
+                                </div>
+                            )}
 
                             {chartType !== ChartType.TABLE && chartType !== ChartType.NUMBER && result.rows.length > 0 && (
                                 <div style={{ height: 'calc(100vh - 380px)', minHeight: 400 }}>
@@ -1210,23 +912,15 @@ const ChartAnalyzer: React.FC = () => {
                                         chartType={chartType}
                                         columns={result.columns}
                                         rows={result.rows}
-                                        dimensions={
-                                            compatMode
-                                                ? dimensions
-                                                : selectedDimensions.map((d) => ({
-                                                      field: d.dimName,
-                                                      alias: d.dimName,
-                                                  }))
-                                        }
-                                        metrics={
-                                            compatMode
-                                                ? metrics
-                                                : selectedMetrics.map((m) => ({
-                                                      field: m.metricName,
-                                                      aggregate: AggregateType.SUM,
-                                                      alias: m.metricName,
-                                                  }))
-                                        }
+                                        dimensions={selectedDimensions.map((d) => ({
+                                            field: d.dimName,
+                                            alias: d.dimName,
+                                        }))}
+                                        metrics={selectedMetrics.map((m) => ({
+                                            field: m.metricName,
+                                            aggregate: AggregateType.SUM,
+                                            alias: m.metricName,
+                                        }))}
                                     />
                                 </div>
                             )}
