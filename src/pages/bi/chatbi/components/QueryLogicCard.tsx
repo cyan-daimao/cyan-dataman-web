@@ -9,14 +9,17 @@ import {
   EyeInvisibleOutlined,
 } from '@ant-design/icons';
 import { QueryLogic } from '../store';
+import { MetricBiAnalysisCmd } from '@/api/DatabiApi';
 
 interface QueryLogicCardProps {
   queryLogic: QueryLogic;
   sql?: string;
+  dsl?: MetricBiAnalysisCmd;
 }
 
-const QueryLogicCard: React.FC<QueryLogicCardProps> = ({ queryLogic, sql }) => {
+const QueryLogicCard: React.FC<QueryLogicCardProps> = ({ queryLogic, sql, dsl }) => {
   const [showSql, setShowSql] = useState(false);
+  const [showDsl, setShowDsl] = useState(false);
 
   return (
     <Card
@@ -82,8 +85,19 @@ const QueryLogicCard: React.FC<QueryLogicCardProps> = ({ queryLogic, sql }) => {
         )}
       </Space>
 
-      {sql && (
-        <div style={{ marginTop: 12 }}>
+      <div style={{ marginTop: 12, display: 'flex', gap: 16 }}>
+        {dsl && (
+          <Button
+            type="link"
+            size="small"
+            icon={showDsl ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+            onClick={() => setShowDsl(!showDsl)}
+            style={{ padding: 0, fontSize: 12 }}
+          >
+            {showDsl ? '隐藏 DSL' : '查看 DSL'}
+          </Button>
+        )}
+        {sql && (
           <Button
             type="link"
             size="small"
@@ -93,12 +107,19 @@ const QueryLogicCard: React.FC<QueryLogicCardProps> = ({ queryLogic, sql }) => {
           >
             {showSql ? '隐藏 SQL' : '查看 SQL'}
           </Button>
-          {showSql && (
-            <pre className="chatbi-sql-block">
-              <code>{sql}</code>
-            </pre>
-          )}
-        </div>
+        )}
+      </div>
+
+      {showDsl && dsl && (
+        <pre className="chatbi-sql-block">
+          <code>{JSON.stringify(dsl, null, 2)}</code>
+        </pre>
+      )}
+
+      {showSql && sql && (
+        <pre className="chatbi-sql-block">
+          <code>{sql}</code>
+        </pre>
       )}
     </Card>
   );
