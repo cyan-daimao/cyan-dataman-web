@@ -3,7 +3,6 @@ import {
     Card,
     Table,
     Tree,
-    Button,
     Space,
     Tag,
     Switch,
@@ -33,6 +32,7 @@ import {
     RoleDTO,
 } from '@/api/DataAuthApi';
 import { treeSubjects, SubjectDTO } from '@/api/MetadataSubjectAPI';
+import { MetricDictionaryApi } from '@/api/MetricApi';
 
 const { Title } = Typography;
 
@@ -69,17 +69,29 @@ const MetricPage: React.FC = () => {
     const fetchData = async (pageNum = 1, pageSize = 20) => {
         setLoading(true);
         try {
-            const [subRes, metRes, dimRes] = await Promise.all([
+            const [subRes, metRes, dimRes, dictRes] = await Promise.all([
                 listSubjectPermissions(),
                 listMetricPermissions({ pageNum, pageSize }),
                 listDimensionPermissions(),
+                MetricDictionaryApi.page({ pageNum: 1, pageSize: 1000 }),
             ]);
             if (subRes.code === 200 && subRes.data) setSubjectPermissions(subRes.data);
+            if (dimRes.code === 200 && dimRes.data) setDimensionPermissions(dimRes.data);
+
+            // 建立 metricCode -> metricName 映射
+            const nameMap = new Map<string, string>();
+            if (dictRes.code === 200 && dictRes.data) {
+                dictRes.data.list.forEach(m => nameMap.set(m.metricCode, m.metricName));
+            }
+
             if (metRes.code === 200 && metRes.data) {
-                setMetricPermissions(metRes.data.list);
+                const list = metRes.data.list.map(item => ({
+                    ...item,
+                    metricName: nameMap.get(item.metricCode) || item.metricName || item.metricCode,
+                }));
+                setMetricPermissions(list);
                 setMetricPagination({ current: metRes.data.pageNum, pageSize: metRes.data.pageSize, total: metRes.data.total });
             }
-            if (dimRes.code === 200 && dimRes.data) setDimensionPermissions(dimRes.data);
         } catch {
             message.error('获取权限数据失败');
         } finally {
