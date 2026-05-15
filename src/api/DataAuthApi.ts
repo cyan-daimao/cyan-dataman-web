@@ -8,6 +8,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { ApiResponse } from './Response';
+import { dataauthRequest } from './Request';
 
 // ---------------------------------------------------------------------------
 // 通用类型
@@ -488,23 +489,26 @@ function mockResponse<T>(data: T, delay = 300): Promise<ApiResponse<T>> {
 
 // ==================== 角色管理 ====================
 
-export const listRoles = (): Promise<ApiResponse<RoleDTO[]>> => {
-  return mockResponse([...MOCK_ROLES]);
+export const listRoles = (): Promise<ApiResponse<RoleDTO[]>> =>
+  dataauthRequest.get('/api/v1/auth/roles');
+
+export const getRole = (id: string): Promise<ApiResponse<RoleDTO>> =>
+  listRoles().then(res => {
+    const role = res.data?.find(r => r.id === id);
+    return { code: 200, message: 'success', data: role || res.data?.[0] } as ApiResponse<RoleDTO>;
+  });
+
+export const saveRole = (cmd: RoleCmd): Promise<ApiResponse<RoleDTO>> => {
+  if (cmd.id) {
+    return dataauthRequest.put(`/api/v1/auth/roles/${cmd.id}`, cmd);
+  }
+  return dataauthRequest.post('/api/v1/auth/roles', cmd);
 };
 
-export const getRole = (_id: string): Promise<ApiResponse<RoleDTO>> => {
-  const role = MOCK_ROLES.find(r => r.id === id);
-  return mockResponse(role || MOCK_ROLES[0]);
-};
+export const deleteRole = (id: string): Promise<ApiResponse<void>> =>
+  dataauthRequest.delete(`/api/v1/auth/roles/${id}`);
 
-export const saveRole = (cmd: RoleCmd): Promise<ApiResponse<string>> => {
-  return mockResponse(cmd.id || 'new-role-id');
-};
-
-export const deleteRole = (_id: string): Promise<ApiResponse<void>> => {
-  return mockResponse(undefined);
-};
-
+// TODO: 角色成员管理接口后端暂未提供，保留 mock
 export const listRoleMembers = (roleId: string): Promise<ApiResponse<RoleMemberDTO[]>> => {
   return mockResponse(MOCK_ROLE_MEMBERS[roleId] || []);
 };
@@ -518,6 +522,7 @@ export const removeRoleMember = (_roleId: string, _passport: string): Promise<Ap
 };
 
 // ==================== 用户权限 ====================
+// TODO: 用户权限接口后端暂未提供完整实现，保留 mock
 
 export const listUserPermissions = (): Promise<ApiResponse<UserPermissionDTO[]>> => {
   const users: UserPermissionDTO[] = [
@@ -553,6 +558,7 @@ export const revokeUserPermission = (_passport: string, _permissionId: string): 
 };
 
 // ==================== 指标平台权限 ====================
+// TODO: 指标平台权限配置接口后端暂未提供，保留 mock
 
 export const listSubjectPermissions = (): Promise<ApiResponse<SubjectPermissionDTO[]>> => {
   return mockResponse([
@@ -583,42 +589,22 @@ export const saveDimensionPermission = (_cmd: DimensionPermissionConfigDTO): Pro
 
 // ==================== 审批管理 ====================
 
-export const listApprovals = (params: { passport: string; status?: ApprovalStatus; type?: ApprovalType; pageNum?: number; pageSize?: number }): Promise<ApiResponse<{ list: ApprovalDTO[]; total: number }>> => {
-  const list = MOCK_APPROVALS.filter(a => {
-    if (params.status && a.status !== params.status) return false;
-    if (params.type && a.approvalType !== params.type) return false;
-    return true;
-  });
-  return mockResponse({ list, total: list.length });
-};
+export const listApprovals = (params: { passport: string; status?: ApprovalStatus; type?: ApprovalType; pageNum?: number; pageSize?: number }): Promise<ApiResponse<{ list: ApprovalDTO[]; total: number }>> =>
+  dataauthRequest.get('/api/v1/approval/list', { params }).then((res: ApiResponse<{ list: ApprovalDTO[]; total: number }>) => res);
 
-export const submitApproval = (_cmd: ApprovalSubmitCmd): Promise<ApiResponse<{ approvalId: string; status: ApprovalStatus; currentNode: string; submittedAt: string }>> => {
-  return mockResponse({
-    approvalId: `APV-${Date.now()}`,
-    status: 'PENDING',
-    currentNode: '直属上级审批',
-    submittedAt: new Date().toISOString(),
-  });
-};
+export const submitApproval = (cmd: ApprovalSubmitCmd): Promise<ApiResponse<ApprovalDTO>> =>
+  dataauthRequest.post('/api/v1/approval/submit', cmd);
 
-export const approvalAction = (_approvalId: string, _cmd: ApprovalActionCmd): Promise<ApiResponse<void>> => {
-  return mockResponse(undefined);
-};
+export const approvalAction = (approvalId: string, cmd: ApprovalActionCmd): Promise<ApiResponse<ApprovalDTO>> =>
+  dataauthRequest.post(`/api/v1/approval/${approvalId}/action`, cmd);
 
 // ==================== 审计日志 ====================
 
-export const listAuditLogs = (query: AuditLogQuery): Promise<ApiResponse<{ list: AuditLogDTO[]; total: number }>> => {
-  let list = [...MOCK_AUDIT_LOGS];
-  if (query.passport) {
-    list = list.filter(a => a.userId === query.passport);
-  }
-  if (query.action) {
-    list = list.filter(a => a.action === query.action);
-  }
-  return mockResponse({ list, total: list.length });
-};
+export const listAuditLogs = (query: AuditLogQuery): Promise<ApiResponse<{ list: AuditLogDTO[]; total: number }>> =>
+  dataauthRequest.get('/api/v1/audit/logs', { params: query }).then((res: ApiResponse<{ list: AuditLogDTO[]; total: number }>) => res);
 
 // ==================== 我的权限 ====================
+// TODO: 我的权限接口后端暂未提供，保留 mock
 
 export const getMyPermissions = (passport: string): Promise<ApiResponse<MyPermissionDTO>> => {
   return mockResponse({
@@ -649,39 +635,14 @@ export const getMyPermissions = (passport: string): Promise<ApiResponse<MyPermis
 
 // ==================== 元数据权限接口（按契约） ====================
 
-export const authCheck = (_cmd: AuthCheckCmd): Promise<ApiResponse<AuthCheckResult>> => {
-  return mockResponse({ permitted: true });
-};
+export const authCheck = (cmd: AuthCheckCmd): Promise<ApiResponse<AuthCheckResult>> =>
+  dataauthRequest.post('/api/v1/auth/check', cmd);
 
-export const authFilterSql = (cmd: SqlFilterCmd): Promise<ApiResponse<SqlFilterResult>> => {
-  return mockResponse({
-    permitted: true,
-    originalSql: cmd.sql,
-    rewrittenSql: cmd.sql,
-    rowFilters: [],
-    columnMasks: [],
-  });
-};
+export const authFilterSql = (cmd: SqlFilterCmd): Promise<ApiResponse<SqlFilterResult>> =>
+  dataauthRequest.post('/api/v1/auth/filter/sql', cmd);
 
-export const authResources = (_params: { passport: string; resourceType?: string }): Promise<ApiResponse<AuthResourceNode[]>> => {
-  return mockResponse([
-    {
-      id: 'ds-001',
-      name: 'MySQL-PROD',
-      type: 'DATASOURCE',
-      children: [
-        {
-          id: 'db-001',
-          name: 'order_db',
-          type: 'DB',
-          children: [
-            { id: 'tbl-001', name: 'orders', type: 'TABLE', permission: 'READ' },
-          ],
-        },
-      ],
-    },
-  ]);
-};
+export const authResources = (params: { passport: string; resourceType?: string }): Promise<ApiResponse<AuthResourceNode[]>> =>
+  dataauthRequest.get('/api/v1/auth/resources', { params });
 
 // ==================== 指标平台权限接口（按契约） ====================
 
