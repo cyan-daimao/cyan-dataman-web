@@ -4,6 +4,8 @@ import { UserOutlined, LockOutlined, WechatOutlined, MailOutlined } from '@ant-d
 import { useLocation, useNavigate } from 'react-router-dom';
 import { login } from "../../api/LoginApi";
 import { currentEmployee } from "../../api/EmployeeApi";
+import { getUserFunctionPermissions } from "../../api/DataAuthApi";
+import { extractPermissionKeys } from "../../router/index";
 import { KEY, setStorage } from "../../utils/storage";
 import './index.less';
 
@@ -36,6 +38,16 @@ const LoginPage: React.FC = () => {
             }
             const employeeDTO = await currentEmployee();
             setStorage(KEY.CURRENT, employeeDTO.data);
+            // Round1: ready — 登录成功后立即刷新权限缓存
+            try {
+                const permRes = await getUserFunctionPermissions();
+                if (permRes.code === 200 && permRes.data) {
+                    const keys = extractPermissionKeys(permRes.data);
+                    localStorage.setItem('user_function_permissions', JSON.stringify(keys));
+                }
+            } catch (e) {
+                console.error('刷新权限缓存失败:', e);
+            }
         } catch (error) {
             message.error('登录失败，请检查账号密码！');
             console.error('登录错误:', error);

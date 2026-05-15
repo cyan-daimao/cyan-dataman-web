@@ -68,7 +68,7 @@ const PrivateRoute = ({children}: { children: React.ReactNode }) => {
 };
 
 // 从功能权限树中提取所有权限 key
-const extractPermissionKeys = (nodes: FunctionPermissionNode[]): string[] => {
+export const extractPermissionKeys = (nodes: FunctionPermissionNode[]): string[] => {
     const keys: string[] = [];
     for (const node of nodes) {
         keys.push(node.key);
@@ -111,10 +111,10 @@ const PermissionGuard = ({ permission, children }: { permission: string; childre
                         setChecked(false);
                     }
                 } else {
-                    setChecked(true); // 接口异常时放行
+                    setChecked(false); // Round1: ready — 接口异常时拒绝，fail-closed
                 }
             } catch {
-                setChecked(true); // 请求失败时放行
+                setChecked(false); // Round1: ready — 请求失败时拒绝，fail-closed
             }
         };
         check();

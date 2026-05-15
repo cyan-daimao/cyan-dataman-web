@@ -15,6 +15,7 @@ import {
     Typography
 } from 'antd';
 import { PlusOutlined, DatabaseOutlined } from '@ant-design/icons';
+import PermissionButton from '@/component/permission/PermissionButton';
 import { DSApi, databaseApi, DsConfig, Database, DatabaseCreateCmd, DatasourceType } from '@/api/DSApi';
 import { ColumnType } from 'antd/es/table';
 
@@ -186,14 +187,15 @@ const DatabaseManagement: React.FC = () => {
                         </Space>
                     </Col>
                     <Col>
-                        <Button
+                        <PermissionButton
                             type="primary"
                             icon={<PlusOutlined />}
                             onClick={handleAdd}
                             disabled={!selectedDsName}
+                            permission="MENU:meta:business-ds:database:CREATE"
                         >
                             新建数据库
-                        </Button>
+                        </PermissionButton>
                     </Col>
                 </Row>
 

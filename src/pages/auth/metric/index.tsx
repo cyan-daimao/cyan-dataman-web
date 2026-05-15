@@ -17,6 +17,7 @@ import {
     Typography,
 } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
+import PermissionButton from '@/component/permission/PermissionButton';
 import {
     listSubjectPermissions,
     listMetricPermissions,
@@ -35,7 +36,13 @@ import { treeSubjects, SubjectDTO } from '@/api/MetadataSubjectAPI';
 
 const { Title } = Typography;
 
-const convertSubjectTree = (subjects: SubjectDTO[]): any[] => {
+interface SubjectTreeNode {
+    title: string;
+    key: string;
+    children?: SubjectTreeNode[];
+}
+
+const convertSubjectTree = (subjects: SubjectDTO[]): SubjectTreeNode[] => {
     return subjects.map(s => ({
         title: s.subjectName,
         key: s.subjectCode,
@@ -45,15 +52,17 @@ const convertSubjectTree = (subjects: SubjectDTO[]): any[] => {
 
 const MetricPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState('subject');
-    const [, setSubjectPermissions] = useState<SubjectPermissionDTO[]>([]);
+    const [subjectPermissions, setSubjectPermissions] = useState<SubjectPermissionDTO[]>([]);
     const [metricPermissions, setMetricPermissions] = useState<MetricPermissionConfigDTO[]>([]);
     const [dimensionPermissions, setDimensionPermissions] = useState<DimensionPermissionConfigDTO[]>([]);
     const [loading, setLoading] = useState(false);
     const [selectedSubject, setSelectedSubject] = useState<string>('');
+    const [selectedActions, setSelectedActions] = useState<string[]>(['VIEW']);
+    const [selectedTargets, setSelectedTargets] = useState<PermissionTargetDTO[]>([]);
     const [metricModalVisible, setMetricModalVisible] = useState(false);
     const [selectedMetricIds, setSelectedMetricIds] = useState<string[]>([]);
     const [metricForm] = Form.useForm();
-    const [subjectTree, setSubjectTree] = useState<any[]>([]);
+    const [subjectTree, setSubjectTree] = useState<SubjectTreeNode[]>([]);
     const [roleList, setRoleList] = useState<RoleDTO[]>([]);
     const [metricPagination, setMetricPagination] = useState({ current: 1, pageSize: 20, total: 0 });
 
@@ -104,7 +113,25 @@ const MetricPage: React.FC = () => {
         fetchRoles();
     }, []);
 
+    // 当选中主题域变化时，同步已有权限配置
+    useEffect(() => {
+        if (selectedSubject) {
+            const existing = subjectPermissions.find(sp => sp.subjectCode === selectedSubject);
+            if (existing) {
+                setSelectedActions(existing.actions);
+                setSelectedTargets(existing.targets);
+            } else {
+                setSelectedActions(['VIEW']);
+                setSelectedTargets([]);
+            }
+        }
+    }, [selectedSubject, subjectPermissions]);
+
     const handleSaveSubjectPermission = async (subjectCode: string, actions: string[], targets: PermissionTargetDTO[]) => {
+        if (actions.length === 0) {
+            message.warning('请至少选择一个权限操作');
+            return;
+        }
         try {
             await saveSubjectPermission({ subjectCode, subjectName: subjectCode, actions: actions as SubjectPermissionDTO['actions'], targets });
             message.success('保存成功');
@@ -194,6 +221,20 @@ const MetricPage: React.FC = () => {
         },
     ];
 
+    // 根据已选角色ID同步 targets
+    const handleTargetChange = (roleIds: string[]) => {
+        const targets = roleIds.map(id => {
+            const role = roleList.find(r => r.id === id);
+            return { targetType: 'ROLE' as const, targetId: id, targetName: role?.name || id };
+        });
+        setSelectedTargets(targets);
+    };
+
+    // 获取当前已选主题域的已有配置展示
+    const existingConfig = selectedSubject
+        ? subjectPermissions.find(sp => sp.subjectCode === selectedSubject)
+        : undefined;
+
     return (
         <div style={{ padding: '0 8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -215,12 +256,58 @@ const MetricPage: React.FC = () => {
                         </Card>
                         <Card title="授权配置" style={{ flex: 1 }}>
                             {selectedSubject ? (
-                                <Space direction="vertical" style={{ width: '100%' }}>
+                                <Space direction="vertical" style={{ width: '100%' }} size="middle">
                                     <div>已选主题域: <Tag color="blue">{selectedSubject}</Tag></div>
+                                    
+                                    {existingConfig && (
+                                        <div style={{ background: '#f6ffed', padding: '8px 12px', borderRadius: 4, border: '1px solid #b7eb8f' }}>
+                                            <div style={{ fontWeight: 500, marginBottom: 4 }}>已有配置</div>
+                                            <Space wrap>
+                                                {existingConfig.actions.map(a => <Tag key={a} color="blue">{a}</Tag>)}
+                                                {existingConfig.targets.map(t => <Tag key={t.targetId} color="green">{t.targetName}</Tag>)}
+                                            </Space>
+                                        </div>
+                                    )}
+                                    
                                     <div>
-                                        <Button type="primary" icon={<SaveOutlined />} onClick={() => handleSaveSubjectPermission(selectedSubject, ['VIEW', 'USE'], [{ targetType: 'ROLE', targetId: 'DATA_ANALYST', targetName: '数据分析师' }])}>
+                                        <div style={{ marginBottom: 8, fontWeight: 500 }}>权限操作</div>
+                                        <Select
+                                            mode="multiple"
+                                            style={{ width: '100%' }}
+                                            placeholder="请选择权限操作"
+                                            value={selectedActions}
+                                            onChange={setSelectedActions}
+                                        >
+                                            <Select.Option value="VIEW">查看 (VIEW)</Select.Option>
+                                            <Select.Option value="USE">使用 (USE)</Select.Option>
+                                            <Select.Option value="EDIT">编辑 (EDIT)</Select.Option>
+                                        </Select>
+                                    </div>
+                                    
+                                    <div>
+                                        <div style={{ marginBottom: 8, fontWeight: 500 }}>授权角色</div>
+                                        <Select
+                                            mode="multiple"
+                                            style={{ width: '100%' }}
+                                            placeholder="请选择授权角色"
+                                            value={selectedTargets.map(t => t.targetId)}
+                                            onChange={handleTargetChange}
+                                        >
+                                            {roleList.map(role => (
+                                                <Select.Option key={role.id} value={role.id}>{role.name}</Select.Option>
+                                            ))}
+                                        </Select>
+                                    </div>
+                                    
+                                    <div>
+                                        <PermissionButton 
+                                            type="primary" 
+                                            icon={<SaveOutlined />} 
+                                            permission="MENU:auth:metric:UPDATE"
+                                            onClick={() => handleSaveSubjectPermission(selectedSubject, selectedActions, selectedTargets)}
+                                        >
                                             保存授权
-                                        </Button>
+                                        </PermissionButton>
                                     </div>
                                 </Space>
                             ) : (
@@ -236,13 +323,13 @@ const MetricPage: React.FC = () => {
                     ) : (
                         <>
                             <div style={{ marginBottom: 16 }}>
-                                <Button onClick={() => {
+                                <PermissionButton onClick={() => {
                                     setSelectedMetricIds([]);
                                     setMetricModalVisible(true);
                                     metricForm.resetFields();
-                                }}>
+                                }} permission="MENU:auth:metric:UPDATE">
                                     批量修改可见范围
-                                </Button>
+                                </PermissionButton>
                             </div>
                             <Table
                                 columns={metricColumns}
@@ -305,3 +392,4 @@ const MetricPage: React.FC = () => {
 };
 
 export default MetricPage;
+// Round2: ready

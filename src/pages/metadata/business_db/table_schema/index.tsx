@@ -26,6 +26,7 @@ import {
     SearchOutlined,
     DatabaseOutlined,
 } from '@ant-design/icons';
+import PermissionButton from '@/component/permission/PermissionButton';
 import {Database, databaseApi, DatasourceType, DSApi, DsConfig, tableApi} from '@/api/DSApi';
 import {ColumnType} from 'antd/es/table';
 import {useNavigate, useSearchParams} from 'react-router-dom';
@@ -402,12 +403,13 @@ const TableSchemaManagement: React.FC = () => {
                         />
                     </Tooltip>
                     <Tooltip title="编辑">
-                        <Button
+                        <PermissionButton
                             type="text"
                             size="small"
                             icon={<EditOutlined />}
                             onClick={() => handleEdit(record.tableName)}
                             style={{ color: '#4E5566' }}
+                            permission="MENU:meta:business-ds:table:UPDATE"
                         />
                     </Tooltip>
                     <Tooltip title="同步表结构到数仓">
@@ -426,11 +428,12 @@ const TableSchemaManagement: React.FC = () => {
                         cancelText="取消"
                     >
                         <Tooltip title="删除">
-                            <Button
+                            <PermissionButton
                                 type="text"
                                 size="small"
                                 danger
                                 icon={<DeleteOutlined />}
+                                permission="MENU:meta:business-ds:table:DELETE"
                             />
                         </Tooltip>
                     </Popconfirm>
@@ -449,15 +452,16 @@ const TableSchemaManagement: React.FC = () => {
                         浏览和管理数据库表结构，支持表结构同步到数据仓库
                     </Text>
                 </div>
-                <Button
+                <PermissionButton
                     type="primary"
                     icon={<PlusOutlined />}
                     onClick={handleCreateTable}
                     disabled={!selectedDsName || !selectedDbName}
                     size="middle"
+                    permission="MENU:meta:business-ds:table:CREATE"
                 >
                     新建表
-                </Button>
+                </PermissionButton>
             </div>
 
             {/* 搜索筛选区 */}

@@ -17,6 +17,7 @@ import {
     Typography
 } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined, ApiOutlined, SearchOutlined } from '@ant-design/icons';
+import PermissionButton from '@/component/permission/PermissionButton';
 import { DSApi, DatasourceType, DsConfig, DsConfigCmd } from '@/api/DSApi';
 import { ColumnType } from 'antd/es/table';
 
@@ -224,12 +225,13 @@ const DatasourceManagement: React.FC = () => {
                         />
                     </Tooltip>
                     <Tooltip title="编辑">
-                        <Button
+                        <PermissionButton
                             type="text"
                             size="small"
                             icon={<EditOutlined />}
                             onClick={() => handleEdit(record)}
                             style={{ color: '#4E5566' }}
+                            permission="MENU:meta:business-ds:datasource:UPDATE"
                         />
                     </Tooltip>
                     <Popconfirm
@@ -239,11 +241,12 @@ const DatasourceManagement: React.FC = () => {
                         cancelText="取消"
                     >
                         <Tooltip title="删除">
-                            <Button
+                            <PermissionButton
                                 type="text"
                                 size="small"
                                 danger
                                 icon={<DeleteOutlined />}
+                                permission="MENU:meta:business-ds:datasource:DELETE"
                             />
                         </Tooltip>
                     </Popconfirm>
@@ -262,14 +265,15 @@ const DatasourceManagement: React.FC = () => {
                         管理业务数据库连接配置，支持 MySQL、PostgreSQL、Iceberg 等数据源
                     </Text>
                 </div>
-                <Button
+                <PermissionButton
                     type="primary"
                     icon={<PlusOutlined />}
                     onClick={handleAdd}
                     size="middle"
+                    permission="MENU:meta:business-ds:datasource:CREATE"
                 >
                     新建数据源
-                </Button>
+                </PermissionButton>
             </div>
 
             {/* 搜索筛选区 */}

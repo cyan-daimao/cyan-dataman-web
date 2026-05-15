@@ -71,9 +71,9 @@ export interface RoleCmd {
   code: string;
   description: string;
   maxSecurityLevel?: string;
-  functionPermissions: string[];
-  dataPermissions: DataPermissionItem[];
-  metricPermissions: MetricPermissionItem[];
+  functionPermissionKeys?: string[];
+  dataPermissions?: DataPermissionItem[];
+  metricPermissions?: MetricPermissionItem[];
 }
 
 export interface DataPermissionItem {
@@ -409,6 +409,8 @@ export const assignUserRoles = (passport: string, roleIds: string[]): Promise<Ap
   dataauthRequest.post(`/api/v1/auth/users/${passport}/roles`, { roleIds });
 
 export const revokeUserPermission = (_passport: string, _permissionId: string): Promise<ApiResponse<void>> => {
+  void _passport;
+  void _permissionId;
   // TODO: 后端暂无直接权限回收接口（本期只支持角色授权）
   return Promise.resolve({ code: 200, message: 'success', data: undefined } as ApiResponse<void>);
 };
@@ -478,36 +480,17 @@ export const authResources = (params: { passport: string; resourceType?: string 
 
 // ==================== 指标平台权限接口（按契约） ====================
 
-export const authMetricCheck = (cmd: MetricCheckCmd): Promise<ApiResponse<MetricCheckResult>> => {
-  // TODO: 后端指标批量校验接口未确认实现，暂默认放行
-  return Promise.resolve({
-    code: 200, message: 'success', data: {
-      allPermitted: true,
-      results: cmd.checkItems.map(item => ({
-        resourceType: item.resourceType,
-        resourceId: item.resourceId,
-        permitted: true,
-      })),
-    },
-  } as ApiResponse<MetricCheckResult>);
-};
+export const authMetricCheck = (cmd: MetricCheckCmd): Promise<ApiResponse<MetricCheckResult>> =>
+  dataauthRequest.post('/api/v1/auth/metric/check', cmd);
 
 export const authMetricList = (_params: { passport: string; resourceType: string; subjectCode?: string; action?: string }): Promise<ApiResponse<MetricResourceDTO[]>> => {
+  void _params;
   // TODO: 后端指标资源列表接口未确认实现，暂返回空列表
   return Promise.resolve({ code: 200, message: 'success', data: [] } as ApiResponse<MetricResourceDTO[]>);
 };
 
-export const authMetricFilterSql = (cmd: MetricFilterSqlCmd): Promise<ApiResponse<MetricFilterSqlResult>> => {
-  // TODO: 后端指标 SQL 过滤接口未确认实现，暂原样返回
-  return Promise.resolve({
-    code: 200, message: 'success', data: {
-      permitted: true,
-      originalSql: cmd.sql,
-      rewrittenSql: cmd.sql,
-      rowFilters: [],
-    },
-  } as ApiResponse<MetricFilterSqlResult>);
-};
+export const authMetricFilterSql = (cmd: MetricFilterSqlCmd): Promise<ApiResponse<MetricFilterSqlResult>> =>
+  dataauthRequest.post('/api/v1/auth/metric/filter/sql', cmd);
 
 // ==================== 功能权限查询（前端路由/菜单/按钮控制） ====================
 

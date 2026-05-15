@@ -14,6 +14,7 @@ import {
     Input,
 } from 'antd';
 import { EyeOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import PermissionButton from '@/component/permission/PermissionButton';
 import {
     listUserPermissions,
     assignUserRoles,
@@ -21,6 +22,7 @@ import {
     listRoles,
     RoleDTO,
 } from '@/api/DataAuthApi';
+import { listEmployees } from '@/api/EmployeeApi';
 
 const { Title, Text } = Typography;
 
@@ -40,7 +42,23 @@ const UserPage: React.FC = () => {
         try {
             const res = await listUserPermissions({ pageNum, pageSize, keyword: searchKeyword });
             if (res.code === 200 && res.data) {
-                setUsers(res.data.list);
+                // 二次查询员工信息回填真实姓名
+                const employeeMap = new Map<string, string>();
+                try {
+                    const empRes = await listEmployees();
+                    if (empRes.code === 200 && empRes.data) {
+                        empRes.data.forEach(e => {
+                            employeeMap.set(e.passport, e.cnName);
+                        });
+                    }
+                } catch {
+                    // 员工查询失败时继续使用后端返回的 cnName
+                }
+                const usersWithName = res.data.list.map(u => ({
+                    ...u,
+                    cnName: employeeMap.get(u.passport) || u.cnName || u.passport,
+                }));
+                setUsers(usersWithName);
                 setPagination({ current: res.data.pageNum, pageSize: res.data.pageSize, total: res.data.total });
             }
         } catch {
@@ -142,9 +160,9 @@ const UserPage: React.FC = () => {
                     <Button type="link" icon={<EyeOutlined />} onClick={() => handleView(record)}>
                         查看
                     </Button>
-                    <Button type="link" icon={<PlusOutlined />} onClick={() => handleGrant(record)}>
+                    <PermissionButton type="link" icon={<PlusOutlined />} permission="MENU:auth:user:UPDATE" onClick={() => handleGrant(record)}>
                         分配角色
-                    </Button>
+                    </PermissionButton>
                 </Space>
             ),
         },
@@ -272,3 +290,4 @@ const UserPage: React.FC = () => {
 };
 
 export default UserPage;
+// Round2: ready

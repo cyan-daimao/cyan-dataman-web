@@ -32,6 +32,8 @@ import {
     publishJob,
 } from '@/api/DataworksApi.ts';
 import { executeSparkSql } from '@/api/DatagawayApi.ts';
+import { authFilterSql } from '@/api/DataAuthApi';
+import { KEY } from '@/utils/storage';
 import {QueryResult, ExecutionPlan} from '@/pages/sql-editor/types';
 import LeftSidebar from './components/LeftSidebar';
 import RightSidebar from './components/RightSidebar';
@@ -430,6 +432,19 @@ const DataWorkWorkspace: React.FC = () => {
             return;
         }
 
+        // 权限校验
+        try {
+            const currentStr = localStorage.getItem(KEY.CURRENT);
+            const passport = currentStr ? JSON.parse(currentStr).passport : '';
+            const authResp = await authFilterSql({passport, sql: tab.sqlContent, engine: 'spark'});
+            if (!authResp.data?.permitted) {
+                message.error(authResp.data?.reason || '无权执行该SQL');
+                return;
+            }
+        } catch {
+            // 权限校验异常时继续执行
+        }
+
         setExecuting(true);
         setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
             ...t,
@@ -518,6 +533,20 @@ const DataWorkWorkspace: React.FC = () => {
             message.warning('请输入SQL语句');
             return;
         }
+        // 权限校验
+        try {
+            const currentStr = localStorage.getItem(KEY.CURRENT);
+            const passport = currentStr ? JSON.parse(currentStr).passport : '';
+            const explainSql = `EXPLAIN ${tab.sqlContent}`;
+            const authResp = await authFilterSql({passport, sql: explainSql, engine: 'spark'});
+            if (!authResp.data?.permitted) {
+                message.error(authResp.data?.reason || '无权执行该SQL');
+                return;
+            }
+        } catch {
+            // 权限校验异常时继续执行
+        }
+
         setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
             ...t,
             loading: true as any,

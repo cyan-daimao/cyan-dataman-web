@@ -27,6 +27,7 @@ import {
     SearchOutlined,
     TableOutlined
 } from '@ant-design/icons';
+import PermissionButton from '@/component/permission/PermissionButton';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {treeSubjects} from "@/api/MetadataSubjectAPI.ts";
 import ImportTable from "./ImportTableForm";
@@ -170,14 +171,15 @@ const columns: TableColumnsType<TableMeta> = [
         width: 180,
         render: (_, record: TableMeta) => (
             <Space size="small">
-                <Button
+                <PermissionButton
                     type="text"
                     icon={<EditOutlined/>}
                     onClick={() => handleEdit(record)}
                     size="small"
+                    permission="MENU:meta:table:UPDATE"
                 >
                     编辑
-                </Button>
+                </PermissionButton>
                 <Button
                     type="text"
                     icon={<CopyOutlined/>}
@@ -186,15 +188,16 @@ const columns: TableColumnsType<TableMeta> = [
                 >
                     复制
                 </Button>
-                <Button
+                <PermissionButton
                     type="text"
                     danger
                     icon={<DeleteOutlined/>}
                     onClick={() => handleDelete(record)}
                     size="small"
+                    permission="MENU:meta:table:DELETE"
                 >
                     删除
-                </Button>
+                </PermissionButton>
             </Space>
         ),
     },
@@ -336,9 +339,9 @@ return (
             </Title>
             <Space>
                 <ImportTable/>
-                <Button type="primary" icon={<PlusOutlined/>} onClick={handleAdd}>
+                <PermissionButton type="primary" icon={<PlusOutlined/>} onClick={handleAdd} permission="MENU:meta:table:CREATE">
                     新增表
-                </Button>
+                </PermissionButton>
             </Space>
         </div>
 

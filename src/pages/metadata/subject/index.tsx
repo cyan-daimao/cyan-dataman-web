@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {Button, Card, Col, Divider, Form, Input, message, Modal, Popconfirm, Row, Space, Table, Typography} from 'antd';
 import {ArrowLeftOutlined, DeleteOutlined, EditOutlined, FolderOpenOutlined, PlusOutlined} from '@ant-design/icons';
+import PermissionButton from '@/component/permission/PermissionButton';
 import {deleteSubject, editSubject, listSubjects, saveSubject, SubjectDTO} from "../../../api/MetadataSubjectAPI";
 import EmployeeSelect from "../../../component/employee/EmployeeSelect";
 import {ColumnType} from "antd/es/table";
@@ -179,10 +180,11 @@ const SubjectManagement: React.FC = () => {
                         查看二级主题
                     </Button> : <div/>
                     }
-                    <Button
+                    <PermissionButton
                         size="small"
                         icon={<EditOutlined/>}
                         onClick={() => openEditSubject(record)}
+                        permission="MENU:meta:subject:UPDATE"
                     />
                     <Popconfirm
                         title="确定删除该主题吗？"
@@ -190,10 +192,11 @@ const SubjectManagement: React.FC = () => {
                         okText="确定"
                         cancelText="取消"
                     >
-                        <Button
+                        <PermissionButton
                             size="small"
                             danger
                             icon={<DeleteOutlined/>}
+                            permission="MENU:meta:subject:DELETE"
                         />
                     </Popconfirm>
                 </Space>
@@ -214,13 +217,14 @@ const SubjectManagement: React.FC = () => {
                                 <Text strong>一级主题管理</Text>
                             </Col>
                             <Col>
-                                <Button
+                                <PermissionButton
                                     type="primary"
                                     icon={<PlusOutlined/>}
                                     onClick={handleAddSubject}
+                                    permission="MENU:meta:subject:CREATE"
                                 >
                                     新增主题
-                                </Button>
+                                </PermissionButton>
                             </Col>
                         </Row>
 
@@ -250,13 +254,14 @@ const SubjectManagement: React.FC = () => {
                                 </Space>
                             </Col>
                             <Col>
-                                <Button
+                                <PermissionButton
                                     type="primary"
                                     icon={<PlusOutlined/>}
                                     onClick={handleAddSubject}
+                                    permission="MENU:meta:subject:CREATE"
                                 >
                                     新增二级主题
-                                </Button>
+                                </PermissionButton>
                             </Col>
                         </Row>
 

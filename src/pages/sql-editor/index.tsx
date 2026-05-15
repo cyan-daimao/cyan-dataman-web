@@ -7,6 +7,8 @@ import ResultPanel from './components/ResultPanel';
 import {ExecutionPlan, QueryHistory, QueryResult} from './types';
 import {ColumnVO} from '../../api/MetadataTableAPI';
 import {executeSql} from '../../api/DatagawayApi';
+import {authFilterSql} from '@/api/DataAuthApi';
+import {KEY} from '@/utils/storage';
 import {loader} from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 
@@ -239,6 +241,20 @@ const SQLEditorPage: React.FC = () => {
 
         setLoading(true);
 
+        // 权限校验
+        try {
+            const currentStr = localStorage.getItem(KEY.CURRENT);
+            const passport = currentStr ? JSON.parse(currentStr).passport : '';
+            const authResp = await authFilterSql({passport, sql});
+            if (!authResp.data?.permitted) {
+                message.error(authResp.data?.reason || '无权执行该SQL');
+                setLoading(false);
+                return;
+            }
+        } catch {
+            // 权限校验异常时继续执行，避免阻塞正常功能
+        }
+
         try {
             const resp = await executeSql(sql);
             const result = resp.data;
@@ -287,6 +303,21 @@ const SQLEditorPage: React.FC = () => {
         }
 
         setLoading(true);
+
+        // 权限校验
+        try {
+            const currentStr = localStorage.getItem(KEY.CURRENT);
+            const passport = currentStr ? JSON.parse(currentStr).passport : '';
+            const explainSql = `EXPLAIN ${currentTabData.sql}`;
+            const authResp = await authFilterSql({passport, sql: explainSql});
+            if (!authResp.data?.permitted) {
+                message.error(authResp.data?.reason || '无权执行该SQL');
+                setLoading(false);
+                return;
+            }
+        } catch {
+            // 权限校验异常时继续执行，避免阻塞正常功能
+        }
 
         try {
             const explainSql = `EXPLAIN ${currentTabData.sql}`;

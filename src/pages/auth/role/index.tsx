@@ -22,6 +22,7 @@ import {
     DeleteOutlined,
     TeamOutlined,
 } from '@ant-design/icons';
+import PermissionButton from '@/component/permission/PermissionButton';
 import {
     listRoles,
     saveRole,
@@ -140,6 +141,7 @@ const RolePage: React.FC = () => {
         });
         setDrawerVisible(true);
     };
+    // Round2: ready
 
     const handleDelete = async (id: string) => {
         try {
@@ -151,9 +153,21 @@ const RolePage: React.FC = () => {
         }
     };
 
-    const handleSave = async (values: RoleCmd) => {
+    const handleSave = async (values: Record<string, unknown>) => {
         try {
-            await saveRole({ ...values, id: editingRole?.id });
+            const cmd: RoleCmd = {
+                name: values.name,
+                code: values.code,
+                description: values.description,
+                maxSecurityLevel: values.maxSecurityLevel,
+                functionPermissionKeys: (values.functionPermissions as string[]) || [],
+                dataPermissions: [],
+                metricPermissions: [],
+            };
+            if (editingRole?.id) {
+                cmd.id = editingRole.id;
+            }
+            await saveRole(cmd);
             message.success('保存成功');
             setDrawerVisible(false);
             fetchRoles();
@@ -258,15 +272,15 @@ const RolePage: React.FC = () => {
             width: 200,
             render: (_: unknown, record: RoleDTO) => (
                 <Space>
-                    <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
+                    <PermissionButton type="link" icon={<EditOutlined />} permission="MENU:auth:role:UPDATE" onClick={() => handleEdit(record)}>
                         编辑
-                    </Button>
+                    </PermissionButton>
                     <Button type="link" icon={<TeamOutlined />} onClick={() => handleManageMembers(record.id)}>
                         成员
                     </Button>
-                    <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)}>
+                    <PermissionButton type="link" danger icon={<DeleteOutlined />} permission="MENU:auth:role:DELETE" onClick={() => handleDelete(record.id)}>
                         删除
-                    </Button>
+                    </PermissionButton>
                 </Space>
             ),
         },
@@ -276,9 +290,9 @@ const RolePage: React.FC = () => {
         <div style={{ padding: '0 8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <Title level={4} style={{ margin: 0 }}>角色管理</Title>
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                <PermissionButton type="primary" icon={<PlusOutlined />} permission="MENU:auth:role:CREATE" onClick={handleAdd}>
                     新增角色
-                </Button>
+                </PermissionButton>
             </div>
 
             {loading ? (

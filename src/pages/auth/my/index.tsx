@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
     Card,
     Button,
@@ -11,6 +11,11 @@ import {
     Typography,
     Timeline,
     Table,
+    Drawer,
+    Form,
+    Select,
+    Cascader,
+    Input,
 } from 'antd';
 import {
     SafetyOutlined,
@@ -22,13 +27,77 @@ import {
 import {
     getMyPermissions,
     MyPermissionDTO,
+    submitApproval,
+    listRoles,
+    ApprovalSubmitCmd,
 } from '@/api/DataAuthApi';
+import { DSApi, databaseApi, tableApi } from '@/api/DSApi';
+import { metricBiListApi, dimensionBiListApi } from '@/api/MetricBiApi';
 
 const { Title, Text } = Typography;
+const { TextArea } = Input;
+
+// Round1: ready
+// 从 localStorage 解析当前用户 passport
+const getCurrentPassport = (): string => {
+    try {
+        const currentRaw = localStorage.getItem('current');
+        if (currentRaw) {
+            const current = JSON.parse(currentRaw) as { passport?: string };
+            return current.passport || '';
+        }
+    } catch {
+        // ignore
+    }
+    return '';
+};
+
+type ResourceTypeOption = 'TABLE' | 'METRIC' | 'DIMENSION' | 'ROLE';
+
+const resourceTypeOptions = [
+    { label: '数据表', value: 'TABLE' },
+    { label: '指标', value: 'METRIC' },
+    { label: '维度', value: 'DIMENSION' },
+    { label: '角色', value: 'ROLE' },
+];
+
+const actionOptions = [
+    { label: '查看 (VIEW)', value: 'VIEW' },
+    { label: '使用 (USE)', value: 'USE' },
+    { label: '编辑 (EDIT)', value: 'EDIT' },
+    { label: '执行 (EXECUTE)', value: 'EXECUTE' },
+];
+
+const approvalTypeMap: Record<ResourceTypeOption, 'DATA_PERMISSION' | 'METRIC_PERMISSION' | 'ROLE_CHANGE'> = {
+    TABLE: 'DATA_PERMISSION',
+    METRIC: 'METRIC_PERMISSION',
+    DIMENSION: 'METRIC_PERMISSION',
+    ROLE: 'ROLE_CHANGE',
+};
+
+interface CascaderOption {
+    value: string;
+    label: string;
+    children?: CascaderOption[];
+    isLeaf?: boolean;
+    loading?: boolean;
+}
 
 const MyPage: React.FC = () => {
     const [data, setData] = useState<MyPermissionDTO | null>(null);
     const [loading, setLoading] = useState(false);
+    const [drawerVisible, setDrawerVisible] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [form] = Form.useForm();
+    const [resourceType, setResourceType] = useState<ResourceTypeOption | undefined>();
+
+    // 级联选择状态
+    const [cascaderOptions, setCascaderOptions] = useState<CascaderOption[]>([]);
+    const [cascaderLoading, setCascaderLoading] = useState(false);
+
+    // 指标/维度/角色搜索状态
+    const [searchOptions, setSearchOptions] = useState<{ label: string; value: string }[]>([]);
+    const [searchFetching, setSearchFetching] = useState(false);
 
     const fetchData = async () => {
         setLoading(true);
@@ -47,6 +116,258 @@ const MyPage: React.FC = () => {
     useEffect(() => {
         fetchData();
     }, []);
+
+    // 加载数据源列表（级联第一级）
+    const loadDatasourceOptions = useCallback(async () => {
+        setCascaderLoading(true);
+        try {
+            const res = await DSApi.list();
+            if (res.code === 200 && res.data) {
+                setCascaderOptions(
+                    res.data.map(ds => ({
+                        value: ds.name,
+                        label: ds.name,
+                        isLeaf: false,
+                    }))
+                );
+            }
+        } catch {
+            message.error('加载数据源失败');
+        } finally {
+            setCascaderLoading(false);
+        }
+    }, []);
+
+    // 级联加载子级
+    const loadCascaderData = async (selectedOptions: CascaderOption[]) => {
+        const targetOption = selectedOptions[selectedOptions.length - 1];
+        targetOption.loading = true;
+        setCascaderOptions([...cascaderOptions]);
+
+        try {
+            if (selectedOptions.length === 1) {
+                // 加载数据库
+                const dsName = targetOption.value;
+                const res = await databaseApi.list(dsName);
+                if (res.code === 200 && res.data) {
+                    targetOption.children = res.data.map(db => ({
+                        value: db.name,
+                        label: db.name,
+                        isLeaf: false,
+                    }));
+                }
+            } else if (selectedOptions.length === 2) {
+                // 加载表
+                const dsName = selectedOptions[0].value;
+                const dbName = targetOption.value;
+                const res = await tableApi.list(dsName, dbName);
+                if (res.code === 200 && res.data) {
+                    targetOption.children = res.data.map(t => ({
+                        value: t.tableName,
+                        label: t.tableName,
+                        isLeaf: true,
+                    }));
+                }
+            }
+        } catch {
+            message.error('加载失败');
+        } finally {
+            targetOption.loading = false;
+            setCascaderOptions([...cascaderOptions]);
+        }
+    };
+
+    // 指标搜索
+    const handleMetricSearch = async (value: string) => {
+        if (!value) {
+            setSearchOptions([]);
+            return;
+        }
+        setSearchFetching(true);
+        try {
+            const res = await metricBiListApi.list({ name: value });
+            if (res.code === 200 && res.data) {
+                setSearchOptions(
+                    res.data.map(m => ({
+                        label: `${m.metricName} (${m.metricCode})`,
+                        value: m.id,
+                    }))
+                );
+            }
+        } catch {
+            // ignore
+        } finally {
+            setSearchFetching(false);
+        }
+    };
+
+    // 维度搜索
+    const handleDimensionSearch = async (value: string) => {
+        if (!value) {
+            setSearchOptions([]);
+            return;
+        }
+        setSearchFetching(true);
+        try {
+            const res = await dimensionBiListApi.list({ name: value });
+            if (res.code === 200 && res.data) {
+                setSearchOptions(
+                    res.data.map(d => ({
+                        label: `${d.dimName} (${d.dimCode})`,
+                        value: d.id,
+                    }))
+                );
+            }
+        } catch {
+            // ignore
+        } finally {
+            setSearchFetching(false);
+        }
+    };
+
+    // 角色加载
+    const loadRoles = async () => {
+        if (searchOptions.length > 0) return;
+        setSearchFetching(true);
+        try {
+            const res = await listRoles();
+            if (res.code === 200 && res.data) {
+                setSearchOptions(
+                    res.data.map(r => ({
+                        label: `${r.name} (${r.code})`,
+                        value: r.id,
+                    }))
+                );
+            }
+        } catch {
+            message.error('加载角色失败');
+        } finally {
+            setSearchFetching(false);
+        }
+    };
+
+    const handleResourceTypeChange = (value: ResourceTypeOption) => {
+        setResourceType(value);
+        form.setFieldsValue({ resourceId: undefined });
+        setSearchOptions([]);
+        setCascaderOptions([]);
+
+        if (value === 'TABLE') {
+            loadDatasourceOptions();
+        } else if (value === 'ROLE') {
+            loadRoles();
+        }
+    };
+
+    const handleDrawerOpen = () => {
+        setDrawerVisible(true);
+        setResourceType(undefined);
+        setSearchOptions([]);
+        setCascaderOptions([]);
+        form.resetFields();
+    };
+
+    const handleSubmit = async (values: {
+        resourceType: ResourceTypeOption;
+        resourceId: string | string[];
+        actions: string[];
+        reason: string;
+    }) => {
+        const passport = getCurrentPassport();
+        if (!passport) {
+            message.error('无法获取当前用户信息');
+            return;
+        }
+
+        let resourceId: string;
+        if (values.resourceType === 'TABLE' && Array.isArray(values.resourceId)) {
+            resourceId = values.resourceId.join('.');
+        } else {
+            resourceId = values.resourceId as string;
+        }
+
+        const approvalType = approvalTypeMap[values.resourceType];
+        const actions = values.actions;
+
+        if (!actions || actions.length === 0) {
+            message.error('请选择操作权限');
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            // 多选 action 时分别提交审批单
+            const promises = actions.map(action =>
+                submitApproval({
+                    applicantPassport: passport,
+                    approvalType,
+                    resourceType: values.resourceType,
+                    resourceId,
+                    action: action as ApprovalSubmitCmd['action'],
+                    reason: values.reason,
+                })
+            );
+            await Promise.all(promises);
+            message.success('申请提交成功');
+            setDrawerVisible(false);
+            form.resetFields();
+            await fetchData(); // 刷新审批进度列表
+        } catch {
+            message.error('申请提交失败');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // 动态资源选择组件
+    const renderResourceSelector = () => {
+        if (!resourceType) {
+            return (
+                <Select placeholder="请先选择资源类型" disabled />
+            );
+        }
+
+        if (resourceType === 'TABLE') {
+            return (
+                <Cascader
+                    options={cascaderOptions}
+                    loadData={loadCascaderData as unknown as (selectedOptions: unknown[]) => void}
+                    placeholder="请选择数据源 / 数据库 / 表"
+                    changeOnSelect={false}
+                    style={{ width: '100%' }}
+                    loading={cascaderLoading}
+                />
+            );
+        }
+
+        if (resourceType === 'ROLE') {
+            return (
+                <Select
+                    placeholder="请选择角色"
+                    options={searchOptions}
+                    loading={searchFetching}
+                    showSearch
+                    filterOption={(input, option) =>
+                        (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                    }
+                    style={{ width: '100%' }}
+                />
+            );
+        }
+
+        // METRIC 或 DIMENSION
+        return (
+            <Select
+                placeholder={resourceType === 'METRIC' ? '请输入指标名称搜索' : '请输入维度名称搜索'}
+                showSearch
+                filterOption={false}
+                onSearch={resourceType === 'METRIC' ? handleMetricSearch : handleDimensionSearch}
+                notFoundContent={searchFetching ? <Spin size="small" /> : null}
+                options={searchOptions}
+                style={{ width: '100%' }}
+            />
+        );
+    };
 
     const approvalColumns = [
         { title: '审批单号', dataIndex: 'approvalId', key: 'approvalId' },
@@ -90,7 +411,7 @@ const MyPage: React.FC = () => {
         <div style={{ padding: '0 8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <Title level={4} style={{ margin: 0 }}>我的权限</Title>
-                <Button type="primary" icon={<PlusOutlined />}>
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleDrawerOpen}>
                     申请新权限
                 </Button>
             </div>
@@ -222,6 +543,65 @@ const MyPage: React.FC = () => {
                     )}
                 </Card>
             </Space>
+
+            {/* 申请新权限 Drawer */}
+            <Drawer
+                title="申请新权限"
+                width={480}
+                open={drawerVisible}
+                onClose={() => setDrawerVisible(false)}
+                destroyOnClose
+                footer={
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                        <Button onClick={() => setDrawerVisible(false)}>取消</Button>
+                        <Button type="primary" loading={submitting} onClick={() => form.submit()}>
+                            提交申请
+                        </Button>
+                    </div>
+                }
+            >
+                <Form form={form} layout="vertical" onFinish={handleSubmit}>
+                    <Form.Item
+                        name="resourceType"
+                        label="资源类型"
+                        rules={[{ required: true, message: '请选择资源类型' }]}
+                    >
+                        <Select
+                            placeholder="请选择资源类型"
+                            options={resourceTypeOptions}
+                            onChange={handleResourceTypeChange}
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="resourceId"
+                        label="资源选择"
+                        rules={[{ required: true, message: '请选择资源' }]}
+                    >
+                        {renderResourceSelector()}
+                    </Form.Item>
+
+                    <Form.Item
+                        name="actions"
+                        label="操作权限"
+                        rules={[{ required: true, message: '请选择操作权限' }]}
+                    >
+                        <Select
+                            mode="multiple"
+                            placeholder="请选择操作权限"
+                            options={actionOptions}
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="reason"
+                        label="申请理由"
+                        rules={[{ required: true, message: '请填写申请理由' }]}
+                    >
+                        <TextArea rows={4} placeholder="请说明申请该权限的业务理由" maxLength={500} showCount />
+                    </Form.Item>
+                </Form>
+            </Drawer>
         </div>
     );
 };

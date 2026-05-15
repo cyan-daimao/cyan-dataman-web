@@ -105,6 +105,8 @@ const App: React.FC = () => {
     const handleLogout = () => {
         removeStorage(KEY.TOKEN);
         removeStorage(KEY.CURRENT);
+        localStorage.removeItem('user_function_permissions');
+        localStorage.removeItem('user_function_permissions_tree');
         navigate('/login', { replace: true });
     };
 

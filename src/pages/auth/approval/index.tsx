@@ -14,6 +14,7 @@ import {
     Typography,
 } from 'antd';
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
+import PermissionButton from '@/component/permission/PermissionButton';
 import {
     listApprovals,
     approvalAction,
@@ -21,10 +22,25 @@ import {
     ApprovalStatus,
 } from '@/api/DataAuthApi';
 
+// Round1: ready — 从 localStorage 解析当前用户 passport
+const getCurrentPassport = (): string => {
+    try {
+        const currentRaw = localStorage.getItem('current');
+        if (currentRaw) {
+            const current = JSON.parse(currentRaw) as { passport?: string };
+            return current.passport || '';
+        }
+    } catch {
+        // ignore
+    }
+    return '';
+};
+
 const { Title } = Typography;
 
 const ApprovalPage: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<ApprovalStatus>('PENDING');
+    type TabKey = ApprovalStatus | 'MY_SUBMITTED';
+    const [activeTab, setActiveTab] = useState<TabKey>('PENDING');
     const [approvals, setApprovals] = useState<ApprovalDTO[]>([]);
     const [loading, setLoading] = useState(false);
     const [actionModalVisible, setActionModalVisible] = useState(false);
@@ -32,10 +48,19 @@ const ApprovalPage: React.FC = () => {
     const [actionType, setActionType] = useState<'APPROVE' | 'REJECT'>('APPROVE');
     const [form] = Form.useForm();
 
-    const fetchApprovals = async (status: ApprovalStatus) => {
+    const fetchApprovals = async (tab: TabKey) => {
         setLoading(true);
         try {
-            const res = await listApprovals({ passport: 'current', status, pageNum: 1, pageSize: 50 });
+            const currentPassport = getCurrentPassport();
+            const params: { passport: string; status?: ApprovalStatus; pageNum: number; pageSize: number } = {
+                passport: currentPassport,
+                pageNum: 1,
+                pageSize: 50,
+            };
+            if (tab !== 'MY_SUBMITTED') {
+                params.status = tab;
+            }
+            const res = await listApprovals(params);
             if (res.code === 200 && res.data) {
                 setApprovals(res.data.list);
             }
@@ -61,7 +86,7 @@ const ApprovalPage: React.FC = () => {
         if (!currentApproval) return;
         try {
             await approvalAction(currentApproval.approvalId, {
-                operatorPassport: 'current',
+                operatorPassport: getCurrentPassport(),
                 action: actionType,
                 comment: values.comment,
             });
@@ -122,12 +147,12 @@ const ApprovalPage: React.FC = () => {
             render: (_: unknown, record: ApprovalDTO) => (
                 record.status === 'PENDING' ? (
                     <Space>
-                        <Button type="link" icon={<CheckOutlined />} onClick={() => handleAction(record, 'APPROVE')}>
+                        <PermissionButton type="link" icon={<CheckOutlined />} permission="MENU:auth:approval:UPDATE" onClick={() => handleAction(record, 'APPROVE')}>
                             通过
-                        </Button>
-                        <Button type="link" danger icon={<CloseOutlined />} onClick={() => handleAction(record, 'REJECT')}>
+                        </PermissionButton>
+                        <PermissionButton type="link" danger icon={<CloseOutlined />} permission="MENU:auth:approval:UPDATE" onClick={() => handleAction(record, 'REJECT')}>
                             驳回
-                        </Button>
+                        </PermissionButton>
                     </Space>
                 ) : (
                     <span style={{ color: '#999' }}>{record.comment || '-'}</span>
@@ -144,11 +169,12 @@ const ApprovalPage: React.FC = () => {
 
             <Tabs
                 activeKey={activeTab}
-                onChange={(key) => setActiveTab(key as ApprovalStatus)}
+                onChange={(key) => setActiveTab(key as TabKey)}
             >
                 <Tabs.TabPane tab="待我审批" key="PENDING" />
                 <Tabs.TabPane tab="我已审批" key="APPROVED" />
                 <Tabs.TabPane tab="已驳回" key="REJECTED" />
+                <Tabs.TabPane tab="我发起的" key="MY_SUBMITTED" />
             </Tabs>
 
             {loading ? (
