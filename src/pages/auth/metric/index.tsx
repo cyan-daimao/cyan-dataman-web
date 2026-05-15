@@ -1,251 +1,325 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
     Card,
     Table,
-    Tree,
     Space,
     Tag,
-    Switch,
     message,
     Spin,
     Empty,
-    Tabs,
-    Select,
+    Radio,
+    Input,
     Modal,
     Form,
+    Select,
     Typography,
+    Descriptions,
+    Badge,
 } from 'antd';
-import { SaveOutlined } from '@ant-design/icons';
+import { SafetyOutlined } from '@ant-design/icons';
 import PermissionButton from '@/component/permission/PermissionButton';
 import {
-    listSubjectPermissions,
-    listMetricPermissions,
-    listDimensionPermissions,
-    saveSubjectPermission,
-    batchUpdateMetricVisibility,
-    saveDimensionPermission,
-    SubjectPermissionDTO,
-    MetricPermissionConfigDTO,
-    DimensionPermissionConfigDTO,
-    PermissionTargetDTO,
-    listRoles,
-    RoleDTO,
+    submitApproval,
+    ApprovalSubmitCmd,
 } from '@/api/DataAuthApi';
-import { treeSubjects, SubjectDTO } from '@/api/MetadataSubjectAPI';
-import { MetricDictionaryApi } from '@/api/MetricApi';
+import { MetricDictionaryApi, DictionaryMetricDTO } from '@/api/MetricApi';
+import { DimensionApi, DimensionDTO } from '@/api/MetricConfigApi';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
+const { TextArea } = Input;
 
-interface SubjectTreeNode {
-    title: string;
-    key: string;
-    children?: SubjectTreeNode[];
+// 从 localStorage 解析当前用户 passport
+const getCurrentPassport = (): string => {
+    try {
+        const currentRaw = localStorage.getItem('current');
+        if (currentRaw) {
+            const current = JSON.parse(currentRaw) as { passport?: string };
+            return current.passport || '';
+        }
+    } catch {
+        // ignore
+    }
+    return '';
+};
+
+type ResourceType = 'metric' | 'dimension';
+
+interface MetricItem extends DictionaryMetricDTO {
+    resourceType: 'metric';
 }
 
-const convertSubjectTree = (subjects: SubjectDTO[]): SubjectTreeNode[] => {
-    return subjects.map(s => ({
-        title: s.subjectName,
-        key: s.subjectCode,
-        children: s.children && s.children.length > 0 ? convertSubjectTree(s.children) : undefined,
-    }));
+interface DimensionItem extends DimensionDTO {
+    resourceType: 'dimension';
+}
+
+type ResourceItem = MetricItem | DimensionItem;
+
+const securityLevelColor: Record<string, string> = {
+    L1: 'green',
+    L2: 'blue',
+    L3: 'orange',
+    L4: 'red',
 };
 
 const MetricPage: React.FC = () => {
-    const [activeTab, setActiveTab] = useState('subject');
-    const [subjectPermissions, setSubjectPermissions] = useState<SubjectPermissionDTO[]>([]);
-    const [metricPermissions, setMetricPermissions] = useState<MetricPermissionConfigDTO[]>([]);
-    const [dimensionPermissions, setDimensionPermissions] = useState<DimensionPermissionConfigDTO[]>([]);
+    const [resourceType, setResourceType] = useState<ResourceType>('metric');
+    const [searchKeyword, setSearchKeyword] = useState('');
+    const [dataList, setDataList] = useState<ResourceItem[]>([]);
     const [loading, setLoading] = useState(false);
-    const [selectedSubject, setSelectedSubject] = useState<string>('');
-    const [selectedActions, setSelectedActions] = useState<string[]>(['VIEW']);
-    const [selectedTargets, setSelectedTargets] = useState<PermissionTargetDTO[]>([]);
-    const [metricModalVisible, setMetricModalVisible] = useState(false);
-    const [selectedMetricIds, setSelectedMetricIds] = useState<string[]>([]);
-    const [metricForm] = Form.useForm();
-    const [subjectTree, setSubjectTree] = useState<SubjectTreeNode[]>([]);
-    const [roleList, setRoleList] = useState<RoleDTO[]>([]);
-    const [metricPagination, setMetricPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+    const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+    const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+    const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
+    const [applyModalVisible, setApplyModalVisible] = useState(false);
+    const [applyForm] = Form.useForm();
+    const [applying, setApplying] = useState(false);
 
-    const fetchData = async (pageNum = 1, pageSize = 20) => {
+    const fetchData = useCallback(async (pageNum = 1, pageSize = 20, keyword = '') => {
         setLoading(true);
         try {
-            const [subRes, metRes, dimRes, dictRes] = await Promise.all([
-                listSubjectPermissions(),
-                listMetricPermissions({ pageNum, pageSize }),
-                listDimensionPermissions(),
-                MetricDictionaryApi.page({ pageNum: 1, pageSize: 1000 }),
-            ]);
-            if (subRes.code === 200 && subRes.data) setSubjectPermissions(subRes.data);
-            if (dimRes.code === 200 && dimRes.data) setDimensionPermissions(dimRes.data);
-
-            // 建立 metricCode -> metricName 映射
-            const nameMap = new Map<string, string>();
-            if (dictRes.code === 200 && dictRes.data) {
-                dictRes.data.list.forEach(m => nameMap.set(m.metricCode, m.metricName));
-            }
-
-            if (metRes.code === 200 && metRes.data) {
-                const list = metRes.data.list.map(item => ({
-                    ...item,
-                    metricName: nameMap.get(item.metricCode) || item.metricName || item.metricCode,
-                }));
-                setMetricPermissions(list);
-                setMetricPagination({ current: metRes.data.pageNum, pageSize: metRes.data.pageSize, total: metRes.data.total });
+            if (resourceType === 'metric') {
+                const res = await MetricDictionaryApi.page({
+                    pageNum,
+                    pageSize,
+                    metricName: keyword || undefined,
+                });
+                if (res.code === 200 && res.data) {
+                    const list = res.data.list.map(m => ({ ...m, resourceType: 'metric' as const }));
+                    setDataList(list);
+                    setPagination({
+                        current: res.data.pageNum,
+                        pageSize: res.data.pageSize,
+                        total: res.data.total,
+                    });
+                }
+            } else {
+                const res = await DimensionApi.page({
+                    pageNum,
+                    pageSize,
+                    dimName: keyword || undefined,
+                });
+                if (res.code === 200 && res.data) {
+                    const list = res.data.list.map(d => ({ ...d, resourceType: 'dimension' as const }));
+                    setDataList(list);
+                    setPagination({
+                        current: res.data.pageNum,
+                        pageSize: res.data.pageSize,
+                        total: res.data.total,
+                    });
+                }
             }
         } catch {
-            message.error('获取权限数据失败');
+            message.error('获取数据失败');
         } finally {
             setLoading(false);
         }
-    };
-
-    const fetchSubjectTree = async () => {
-        try {
-            const data = await treeSubjects();
-            setSubjectTree(convertSubjectTree(data));
-        } catch {
-            message.error('获取主题域树失败');
-        }
-    };
-
-    const fetchRoles = async () => {
-        try {
-            const res = await listRoles();
-            if (res.code === 200 && res.data) {
-                setRoleList(res.data);
-            }
-        } catch {
-            message.error('获取角色列表失败');
-        }
-    };
+    }, [resourceType]);
 
     useEffect(() => {
-        fetchData();
-        fetchSubjectTree();
-        fetchRoles();
-    }, []);
+        fetchData(1, 20, searchKeyword);
+        setSelectedRowKeys([]);
+        setExpandedRowKeys([]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [resourceType, fetchData]);
 
-    // 当选中主题域变化时，同步已有权限配置
-    useEffect(() => {
-        if (selectedSubject) {
-            const existing = subjectPermissions.find(sp => sp.subjectCode === selectedSubject);
-            if (existing) {
-                setSelectedActions(existing.actions);
-                setSelectedTargets(existing.targets);
-            } else {
-                setSelectedActions(['VIEW']);
-                setSelectedTargets([]);
-            }
-        }
-    }, [selectedSubject, subjectPermissions]);
+    const handleSearch = () => {
+        fetchData(1, pagination.pageSize, searchKeyword);
+    };
 
-    const handleSaveSubjectPermission = async (subjectCode: string, actions: string[], targets: PermissionTargetDTO[]) => {
-        if (actions.length === 0) {
-            message.warning('请至少选择一个权限操作');
+    const handleTableChange = (page: number, pageSize: number) => {
+        fetchData(page, pageSize, searchKeyword);
+    };
+
+    const handleApply = async (values: { actions: string[]; reason: string }) => {
+        const passport = getCurrentPassport();
+        if (!passport) {
+            message.error('未获取到当前用户信息');
             return;
         }
-        try {
-            await saveSubjectPermission({ subjectCode, subjectName: subjectCode, actions: actions as SubjectPermissionDTO['actions'], targets });
-            message.success('保存成功');
-            fetchData();
-        } catch {
-            message.error('保存失败');
+        if (selectedRowKeys.length === 0) {
+            message.warning('请至少选择一个资源');
+            return;
         }
-    };
 
-    const handleBatchUpdateMetric = async (values: { visibility: string; allowedRoles?: string[] }) => {
-        try {
-            await batchUpdateMetricVisibility(
-                selectedMetricIds,
-                values.visibility as 'PUBLIC' | 'ROLE' | 'PRIVATE',
-                values.allowedRoles,
-            );
-            message.success('批量更新成功');
-            setMetricModalVisible(false);
-            fetchData();
-        } catch {
-            message.error('批量更新失败');
-        }
-    };
+        setApplying(true);
+        const successList: string[] = [];
+        const failList: string[] = [];
 
-    const handleToggleDimensionValues = async (record: DimensionPermissionConfigDTO) => {
         try {
-            await saveDimensionPermission({ ...record, allowValuesQuery: !record.allowValuesQuery });
-            message.success('更新成功');
-            fetchData();
-        } catch {
-            message.error('更新失败');
+            for (const key of selectedRowKeys) {
+                const item = dataList.find(d => {
+                    if (resourceType === 'metric') {
+                        return (d as MetricItem).metricCode === key;
+                    }
+                    return (d as DimensionItem).dimCode === key;
+                });
+                if (!item) continue;
+
+                const resourceId = resourceType === 'metric'
+                    ? (item as MetricItem).metricCode
+                    : (item as DimensionItem).dimCode;
+
+                for (const action of values.actions) {
+                    const cmd: ApprovalSubmitCmd = {
+                        applicantPassport: passport,
+                        approvalType: resourceType === 'metric' ? 'METRIC_PERMISSION' : 'METRIC_PERMISSION',
+                        resourceType: resourceType.toUpperCase(),
+                        resourceId,
+                        action: action as ApprovalSubmitCmd['action'],
+                        reason: values.reason,
+                    };
+                    try {
+                        const res = await submitApproval(cmd);
+                        if (res.code === 200) {
+                            successList.push(`${resourceId}(${action})`);
+                        } else {
+                            failList.push(`${resourceId}(${action})`);
+                        }
+                    } catch {
+                        failList.push(`${resourceId}(${action})`);
+                    }
+                }
+            }
+
+            if (failList.length === 0) {
+                message.success(`成功提交 ${successList.length} 条权限申请`);
+            } else {
+                message.warning(`成功 ${successList.length} 条，失败 ${failList.length} 条`);
+            }
+            setApplyModalVisible(false);
+            applyForm.resetFields();
+            setSelectedRowKeys([]);
+        } finally {
+            setApplying(false);
         }
     };
 
     const metricColumns = [
-        { title: '指标编码', dataIndex: 'metricCode', key: 'metricCode' },
-        { title: '指标名称', dataIndex: 'metricName', key: 'metricName' },
-        { title: '主题域', dataIndex: 'subjectName', key: 'subjectName' },
-        { title: '状态', dataIndex: 'status', key: 'status', render: (text: string) => <Tag color="green">{text}</Tag> },
         {
-            title: '可见范围',
-            dataIndex: 'visibility',
-            key: 'visibility',
-            render: (text: string) => {
-                const map: Record<string, string> = { PUBLIC: '公开', ROLE: '指定角色', PRIVATE: '私有' };
-                return <Tag color={text === 'PUBLIC' ? 'green' : text === 'ROLE' ? 'blue' : 'default'}>{map[text] || text}</Tag>;
-            },
+            title: '指标名称',
+            dataIndex: 'metricName',
+            key: 'metricName',
+            render: (text: string, record: MetricItem) => (
+                <Space direction="vertical" size={0}>
+                    <Text strong>{text}</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>{record.metricCode}</Text>
+                </Space>
+            ),
+        },
+        {
+            title: '主题域',
+            dataIndex: 'subjectName',
+            key: 'subjectName',
+            render: (text: string) => text || '-',
+        },
+        {
+            title: '密级',
+            dataIndex: 'securityLevel',
+            key: 'securityLevel',
+            render: (text: string) => (
+                <Tag color={securityLevelColor[text] || 'default'}>{text || '未知'}</Tag>
+            ),
+        },
+        {
+            title: '状态',
+            dataIndex: 'status',
+            key: 'status',
+            render: (text: string) => (
+                <Badge status={text === 'PUBLISHED' ? 'success' : 'default'} text={text === 'PUBLISHED' ? '已发布' : text} />
+            ),
+        },
+        {
+            title: '更新时间',
+            dataIndex: 'updatedAt',
+            key: 'updatedAt',
+            render: (text: string) => text ? new Date(text).toLocaleString() : '-',
         },
     ];
 
     const dimensionColumns = [
-        { title: '维度编码', dataIndex: 'dimensionCode', key: 'dimensionCode' },
-        { title: '维度名称', dataIndex: 'dimensionName', key: 'dimensionName' },
-        { title: '分类', dataIndex: 'category', key: 'category' },
-        { title: '关联字段', dataIndex: 'relatedField', key: 'relatedField' },
         {
-            title: '使用权限',
-            key: 'actions',
-            render: (_: unknown, record: DimensionPermissionConfigDTO) => (
-                <Space>
-                    {record.actions.map(action => (
-                        <Tag key={action}>{action}</Tag>
-                    ))}
+            title: '维度名称',
+            dataIndex: 'dimName',
+            key: 'dimName',
+            render: (text: string, record: DimensionItem) => (
+                <Space direction="vertical" size={0}>
+                    <Text strong>{text}</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>{record.dimCode}</Text>
                 </Space>
             ),
         },
         {
-            title: '维度值查询',
-            key: 'allowValuesQuery',
-            render: (_: unknown, record: DimensionPermissionConfigDTO) => (
-                <Switch
-                    checked={record.allowValuesQuery}
-                    onChange={() => handleToggleDimensionValues(record)}
-                />
-            ),
+            title: '分类',
+            dataIndex: 'categoryName',
+            key: 'categoryName',
+            render: (text: string) => text || '-',
         },
         {
-            title: '授权对象',
-            key: 'targets',
-            render: (_: unknown, record: DimensionPermissionConfigDTO) => (
-                <Space wrap>
-                    {record.targets.map(t => (
-                        <Tag key={t.targetId}>{t.targetName}</Tag>
-                    ))}
-                </Space>
+            title: '数据类型',
+            dataIndex: 'dataType',
+            key: 'dataType',
+            render: (text: string) => <Tag>{text}</Tag>,
+        },
+        {
+            title: '关联表',
+            dataIndex: 'tableName',
+            key: 'tableName',
+            render: (_: string, record: DimensionItem) => (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                    {record.schemaName}.{record.tableName}.{record.columnName}
+                </Text>
             ),
         },
     ];
 
-    // 根据已选角色ID同步 targets
-    const handleTargetChange = (roleIds: string[]) => {
-        const targets = roleIds.map(id => {
-            const role = roleList.find(r => r.id === id);
-            return { targetType: 'ROLE' as const, targetId: id, targetName: role?.name || id };
-        });
-        setSelectedTargets(targets);
+    const expandedRowRender = (record: ResourceItem) => {
+        if (record.resourceType === 'metric') {
+            const r = record as MetricItem;
+            return (
+                <Descriptions bordered size="small" column={2} style={{ margin: '8px 0' }}>
+                    <Descriptions.Item label="指标编码">{r.metricCode}</Descriptions.Item>
+                    <Descriptions.Item label="指标名称">{r.metricName}</Descriptions.Item>
+                    <Descriptions.Item label="主题域">{r.subjectName || '-'}</Descriptions.Item>
+                    <Descriptions.Item label="密级">
+                        <Tag color={securityLevelColor[r.securityLevel || ''] || 'default'}>
+                            {r.securityLevel || '未知'}
+                        </Tag>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="指标类型">{r.metricType}</Descriptions.Item>
+                    <Descriptions.Item label="状态">
+                        <Badge status={r.status === 'PUBLISHED' ? 'success' : 'default'} text={r.status === 'PUBLISHED' ? '已发布' : r.status} />
+                    </Descriptions.Item>
+                    <Descriptions.Item label="业务口径" span={2}>{r.bizCaliber || '-'}</Descriptions.Item>
+                    <Descriptions.Item label="更新时间">{r.updatedAt ? new Date(r.updatedAt).toLocaleString() : '-'}</Descriptions.Item>
+                </Descriptions>
+            );
+        }
+        const r = record as DimensionItem;
+        return (
+            <Descriptions bordered size="small" column={2} style={{ margin: '8px 0' }}>
+                <Descriptions.Item label="维度编码">{r.dimCode}</Descriptions.Item>
+                <Descriptions.Item label="维度名称">{r.dimName}</Descriptions.Item>
+                <Descriptions.Item label="分类">{r.categoryName || '-'}</Descriptions.Item>
+                <Descriptions.Item label="数据类型"><Tag>{r.dataType}</Tag></Descriptions.Item>
+                <Descriptions.Item label="关联字段">{r.schemaName}.{r.tableName}.{r.columnName}</Descriptions.Item>
+                <Descriptions.Item label="展示字段">{r.displayColumn || '-'}</Descriptions.Item>
+                <Descriptions.Item label="描述" span={2}>{r.description || '-'}</Descriptions.Item>
+            </Descriptions>
+        );
     };
 
-    // 获取当前已选主题域的已有配置展示
-    const existingConfig = selectedSubject
-        ? subjectPermissions.find(sp => sp.subjectCode === selectedSubject)
-        : undefined;
+    const rowKey = (record: ResourceItem) => {
+        if (record.resourceType === 'metric') {
+            return (record as MetricItem).metricCode;
+        }
+        return (record as DimensionItem).dimCode;
+    };
+
+    const selectedItems = dataList.filter(d => {
+        if (resourceType === 'metric') {
+            return selectedRowKeys.includes((d as MetricItem).metricCode);
+        }
+        return selectedRowKeys.includes((d as DimensionItem).dimCode);
+    });
 
     return (
         <div style={{ padding: '0 8px' }}>
@@ -253,149 +327,115 @@ const MetricPage: React.FC = () => {
                 <Title level={4} style={{ margin: 0 }}>指标平台权限</Title>
             </div>
 
-            <Tabs activeKey={activeTab} onChange={setActiveTab}>
-                <Tabs.TabPane tab="主题域权限" key="subject">
-                    <div style={{ display: 'flex', gap: 16 }}>
-                        <Card title="主题域" style={{ width: 280, flexShrink: 0 }}>
-                            {subjectTree.length === 0 ? (
-                                <Spin size="small" />
-                            ) : (
-                                <Tree
-                                    treeData={subjectTree}
-                                    onSelect={(keys) => setSelectedSubject(keys[0] as string)}
-                                />
-                            )}
-                        </Card>
-                        <Card title="授权配置" style={{ flex: 1 }}>
-                            {selectedSubject ? (
-                                <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                                    <div>已选主题域: <Tag color="blue">{selectedSubject}</Tag></div>
-                                    
-                                    {existingConfig && (
-                                        <div style={{ background: '#f6ffed', padding: '8px 12px', borderRadius: 4, border: '1px solid #b7eb8f' }}>
-                                            <div style={{ fontWeight: 500, marginBottom: 4 }}>已有配置</div>
-                                            <Space wrap>
-                                                {existingConfig.actions.map(a => <Tag key={a} color="blue">{a}</Tag>)}
-                                                {existingConfig.targets.map(t => <Tag key={t.targetId} color="green">{t.targetName}</Tag>)}
-                                            </Space>
-                                        </div>
-                                    )}
-                                    
-                                    <div>
-                                        <div style={{ marginBottom: 8, fontWeight: 500 }}>权限操作</div>
-                                        <Select
-                                            mode="multiple"
-                                            style={{ width: '100%' }}
-                                            placeholder="请选择权限操作"
-                                            value={selectedActions}
-                                            onChange={setSelectedActions}
-                                        >
-                                            <Select.Option value="VIEW">查看 (VIEW)</Select.Option>
-                                            <Select.Option value="USE">使用 (USE)</Select.Option>
-                                            <Select.Option value="EDIT">编辑 (EDIT)</Select.Option>
-                                        </Select>
-                                    </div>
-                                    
-                                    <div>
-                                        <div style={{ marginBottom: 8, fontWeight: 500 }}>授权角色</div>
-                                        <Select
-                                            mode="multiple"
-                                            style={{ width: '100%' }}
-                                            placeholder="请选择授权角色"
-                                            value={selectedTargets.map(t => t.targetId)}
-                                            onChange={handleTargetChange}
-                                        >
-                                            {roleList.map(role => (
-                                                <Select.Option key={role.id} value={role.id}>{role.name}</Select.Option>
-                                            ))}
-                                        </Select>
-                                    </div>
-                                    
-                                    <div>
-                                        <PermissionButton 
-                                            type="primary" 
-                                            icon={<SaveOutlined />} 
-                                            permission="MENU:auth:metric:UPDATE"
-                                            onClick={() => handleSaveSubjectPermission(selectedSubject, selectedActions, selectedTargets)}
-                                        >
-                                            保存授权
-                                        </PermissionButton>
-                                    </div>
-                                </Space>
-                            ) : (
-                                <Empty description="请选择左侧主题域" />
-                            )}
-                        </Card>
+            <Card style={{ marginBottom: 16 }}>
+                <Space size="large" wrap>
+                    <Radio.Group
+                        value={resourceType}
+                        onChange={(e) => setResourceType(e.target.value)}
+                        buttonStyle="solid"
+                    >
+                        <Radio.Button value="metric">指标</Radio.Button>
+                        <Radio.Button value="dimension">维度</Radio.Button>
+                    </Radio.Group>
+
+                    <Input.Search
+                        placeholder={resourceType === 'metric' ? '搜索指标名称' : '搜索维度名称'}
+                        value={searchKeyword}
+                        onChange={(e) => setSearchKeyword(e.target.value)}
+                        onSearch={handleSearch}
+                        onPressEnter={handleSearch}
+                        style={{ width: 280 }}
+                        allowClear
+                    />
+
+                    <PermissionButton
+                        type="primary"
+                        icon={<SafetyOutlined />}
+                        disabled={selectedRowKeys.length === 0}
+                        onClick={() => {
+                            applyForm.resetFields();
+                            setApplyModalVisible(true);
+                        }}
+                    >
+                        批量申请权限 ({selectedRowKeys.length})
+                    </PermissionButton>
+                </Space>
+            </Card>
+
+            <Card>
+                {loading ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+                        <Spin size="large" />
                     </div>
-                </Tabs.TabPane>
+                ) : dataList.length === 0 ? (
+                    <Empty description={`暂无${resourceType === 'metric' ? '指标' : '维度'}数据`} />
+                ) : (
+                    <Table
+                        columns={resourceType === 'metric' ? metricColumns : dimensionColumns}
+                        dataSource={dataList}
+                        rowKey={rowKey}
+                        expandable={{
+                            expandedRowRender,
+                            expandedRowKeys,
+                            onExpandedRowsChange: (keys) => setExpandedRowKeys(keys as string[]),
+                        }}
+                        rowSelection={{
+                            type: 'checkbox',
+                            selectedRowKeys,
+                            onChange: (keys) => setSelectedRowKeys(keys as string[]),
+                        }}
+                        pagination={{
+                            current: pagination.current,
+                            pageSize: pagination.pageSize,
+                            total: pagination.total,
+                            onChange: handleTableChange,
+                            showSizeChanger: true,
+                            showTotal: (total) => `共 ${total} 条`,
+                        }}
+                    />
+                )}
+            </Card>
 
-                <Tabs.TabPane tab="指标权限" key="metric">
-                    {loading ? (
-                        <Spin />
-                    ) : (
-                        <>
-                            <div style={{ marginBottom: 16 }}>
-                                <PermissionButton onClick={() => {
-                                    setSelectedMetricIds([]);
-                                    setMetricModalVisible(true);
-                                    metricForm.resetFields();
-                                }} permission="MENU:auth:metric:UPDATE">
-                                    批量修改可见范围
-                                </PermissionButton>
-                            </div>
-                            <Table
-                                columns={metricColumns}
-                                dataSource={metricPermissions}
-                                rowKey="metricId"
-                                pagination={{
-                                    current: metricPagination.current,
-                                    pageSize: metricPagination.pageSize,
-                                    total: metricPagination.total,
-                                    onChange: (page, pageSize) => fetchData(page, pageSize),
-                                }}
-                                rowSelection={{
-                                    type: 'checkbox',
-                                    onChange: (keys) => setSelectedMetricIds(keys as string[]),
-                                }}
-                            />
-                        </>
-                    )}
-                </Tabs.TabPane>
-
-                <Tabs.TabPane tab="维度权限" key="dimension">
-                    {loading ? (
-                        <Spin />
-                    ) : (
-                        <Table
-                            columns={dimensionColumns}
-                            dataSource={dimensionPermissions}
-                            rowKey="dimensionId"
-                            pagination={{ pageSize: 10 }}
-                        />
-                    )}
-                </Tabs.TabPane>
-            </Tabs>
-
+            {/* 批量申请权限弹窗 */}
             <Modal
-                title="批量修改可见范围"
-                open={metricModalVisible}
-                onOk={() => metricForm.submit()}
-                onCancel={() => setMetricModalVisible(false)}
+                title="批量申请权限"
+                open={applyModalVisible}
+                onOk={() => applyForm.submit()}
+                onCancel={() => setApplyModalVisible(false)}
+                confirmLoading={applying}
+                width={700}
             >
-                <Form form={metricForm} layout="vertical" onFinish={handleBatchUpdateMetric}>
-                    <Form.Item name="visibility" label="可见范围" rules={[{ required: true }]}>
-                        <Select placeholder="请选择可见范围">
-                            <Select.Option value="PUBLIC">公开</Select.Option>
-                            <Select.Option value="ROLE">指定角色</Select.Option>
-                            <Select.Option value="PRIVATE">私有</Select.Option>
+                <Form form={applyForm} layout="vertical" onFinish={handleApply}>
+                    <Form.Item label="已选资源">
+                        <div style={{ maxHeight: 200, overflow: 'auto', border: '1px solid #f0f0f0', borderRadius: 4, padding: '8px 12px' }}>
+                            {selectedItems.map(item => (
+                                <Tag key={rowKey(item)} style={{ marginBottom: 4 }}>
+                                    {item.resourceType === 'metric'
+                                        ? (item as MetricItem).metricName
+                                        : (item as DimensionItem).dimName}
+                                </Tag>
+                            ))}
+                        </div>
+                    </Form.Item>
+
+                    <Form.Item
+                        name="actions"
+                        label="申请权限"
+                        rules={[{ required: true, message: '请至少选择一项权限' }]}
+                    >
+                        <Select mode="multiple" placeholder="请选择要申请的权限">
+                            <Select.Option value="VIEW">查看 (VIEW)</Select.Option>
+                            <Select.Option value="USE">使用 (USE)</Select.Option>
+                            <Select.Option value="EDIT">编辑 (EDIT)</Select.Option>
                         </Select>
                     </Form.Item>
-                    <Form.Item name="allowedRoles" label="允许的角色">
-                        <Select mode="multiple" placeholder="请选择角色">
-                            {roleList.map(role => (
-                                <Select.Option key={role.id} value={role.code}>{role.name}</Select.Option>
-                            ))}
-                        </Select>
+
+                    <Form.Item
+                        name="reason"
+                        label="申请理由"
+                        rules={[{ required: true, message: '请填写申请理由' }]}
+                    >
+                        <TextArea rows={3} placeholder="请说明申请权限的理由..." />
                     </Form.Item>
                 </Form>
             </Modal>
@@ -404,4 +444,3 @@ const MetricPage: React.FC = () => {
 };
 
 export default MetricPage;
-// Round2: ready
