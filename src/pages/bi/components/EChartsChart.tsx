@@ -33,16 +33,17 @@ const EChartsChart: React.FC<EChartsChartProps> = ({
         }
 
         // 后端返回的数据列名可能是 alias（JOIN查询）或 field（单表查询/筛选框）
-        // 优先用 alias 匹配，fallback 到 field
-        const resolveColumnName = (field: string, alias?: string): string => {
+        // 优先用 alias 匹配，fallback 到 field，再不中则按索引回退到 columns[i]
+        const resolveColumnName = (field: string, alias?: string, fallbackIndex?: number): string => {
             if (alias && columns.includes(alias)) return alias;
             if (columns.includes(field)) return field;
+            if (fallbackIndex !== undefined && fallbackIndex >= 0 && fallbackIndex < columns.length) return columns[fallbackIndex];
             return alias || field;
         };
 
-        const dimFields = dimensions.map((d) => resolveColumnName(d.field, d.alias));
+        const dimFields = dimensions.map((d, i) => resolveColumnName(d.field, d.alias, i));
         const dimLabels = dimensions.map((d) => d.alias || d.field);
-        const metricFields = metrics.map((m) => resolveColumnName(m.field, m.alias));
+        const metricFields = metrics.map((m, i) => resolveColumnName(m.field, m.alias, dimensions.length + i));
         const metricLabels = metrics.map((m) => m.alias || m.field);
 
         // 多维度支持：当维度数>1时，拼接所有维度值作为X轴标签
