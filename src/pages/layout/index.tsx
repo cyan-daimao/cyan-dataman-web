@@ -28,12 +28,12 @@ interface NavItem {
 }
 
 const allNavItems: NavItem[] = [
-    { label: '元数据平台', key: '1', permission: 'meta' },
-    { label: '指标平台', key: '2', permission: 'metrics' },
-    { label: 'SQL查询', key: '3', permission: 'sql-editor' },
-    { label: '数据加工', key: '4', permission: 'data-work' },
-    { label: '智能分析', key: '5', permission: 'bi' },
-    { label: '权限管理', key: '6', permission: 'auth' },
+    { label: '元数据平台', key: '1', permission: 'MENU:meta:VIEW' },
+    { label: '指标平台', key: '2', permission: 'MENU:metrics:VIEW' },
+    { label: 'SQL查询', key: '3', permission: 'MENU:sql-editor:USE' },
+    { label: '数据加工', key: '4', permission: 'MENU:data-work:USE' },
+    { label: '智能分析', key: '5', permission: 'MENU:bi:VIEW' },
+    { label: '权限管理', key: '6', permission: 'MENU:auth:VIEW' },
 ];
 
 // Phase 1：根据本地缓存的功能权限动态过滤导航项，无缓存则显示全部
