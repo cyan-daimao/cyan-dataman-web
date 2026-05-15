@@ -9,17 +9,17 @@ import {
     Spin,
     Empty,
     Drawer,
-    Form,
-    Select,
+    Transfer,
     Typography,
     Input,
 } from 'antd';
-import { EyeOutlined, PlusOutlined } from '@ant-design/icons';
+import { EyeOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import {
     listUserPermissions,
-    grantUserPermission,
+    assignUserRoles,
     UserPermissionDTO,
-    PermissionItemDTO,
+    listRoles,
+    RoleDTO,
 } from '@/api/DataAuthApi';
 
 const { Title, Text } = Typography;
@@ -29,15 +29,19 @@ const UserPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [drawerVisible, setDrawerVisible] = useState(false);
     const [currentUser, setCurrentUser] = useState<UserPermissionDTO | null>(null);
-    const [grantFormVisible, setGrantFormVisible] = useState(false);
-    const [form] = Form.useForm();
+    const [grantRoleVisible, setGrantRoleVisible] = useState(false);
+    const [roleList, setRoleList] = useState<RoleDTO[]>([]);
+    const [targetRoleKeys, setTargetRoleKeys] = useState<string[]>([]);
+    const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+    const [keyword, setKeyword] = useState('');
 
-    const fetchUsers = async () => {
+    const fetchUsers = async (pageNum = 1, pageSize = 20, searchKeyword = '') => {
         setLoading(true);
         try {
-            const res = await listUserPermissions();
+            const res = await listUserPermissions({ pageNum, pageSize, keyword: searchKeyword });
             if (res.code === 200 && res.data) {
-                setUsers(res.data);
+                setUsers(res.data.list);
+                setPagination({ current: res.data.pageNum, pageSize: res.data.pageSize, total: res.data.total });
             }
         } catch {
             message.error('获取用户权限列表失败');
@@ -46,8 +50,20 @@ const UserPage: React.FC = () => {
         }
     };
 
+    const fetchRoles = async () => {
+        try {
+            const res = await listRoles();
+            if (res.code === 200 && res.data) {
+                setRoleList(res.data);
+            }
+        } catch {
+            message.error('获取角色列表失败');
+        }
+    };
+
     useEffect(() => {
         fetchUsers();
+        fetchRoles();
     }, []);
 
     const handleView = (user: UserPermissionDTO) => {
@@ -57,25 +73,24 @@ const UserPage: React.FC = () => {
 
     const handleGrant = (user: UserPermissionDTO) => {
         setCurrentUser(user);
-        setGrantFormVisible(true);
-        form.resetFields();
+        setTargetRoleKeys(user.roles.map(r => r.id));
+        setGrantRoleVisible(true);
     };
 
-    const handleGrantSubmit = async (values: { resourceType: string; resourceId: string; action: string }) => {
+    const handleGrantSubmit = async () => {
         if (!currentUser) return;
-        const permission: PermissionItemDTO = {
-            resourceType: values.resourceType as PermissionItemDTO['resourceType'],
-            resourceId: values.resourceId,
-            action: values.action as PermissionItemDTO['action'],
-        };
         try {
-            await grantUserPermission(currentUser.passport, [permission]);
-            message.success('权限分配成功');
-            setGrantFormVisible(false);
-            fetchUsers();
+            await assignUserRoles(currentUser.passport, targetRoleKeys);
+            message.success('角色分配成功');
+            setGrantRoleVisible(false);
+            fetchUsers(pagination.current, pagination.pageSize, keyword);
         } catch {
-            message.error('权限分配失败');
+            message.error('角色分配失败');
         }
+    };
+
+    const handleSearch = () => {
+        fetchUsers(1, pagination.pageSize, keyword);
     };
 
     const columns = [
@@ -128,7 +143,7 @@ const UserPage: React.FC = () => {
                         查看
                     </Button>
                     <Button type="link" icon={<PlusOutlined />} onClick={() => handleGrant(record)}>
-                        分配权限
+                        分配角色
                     </Button>
                 </Space>
             ),
@@ -139,6 +154,18 @@ const UserPage: React.FC = () => {
         <div style={{ padding: '0 8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <Title level={4} style={{ margin: 0 }}>用户权限</Title>
+                <Space>
+                    <Input
+                        placeholder="搜索姓名/账号"
+                        value={keyword}
+                        onChange={e => setKeyword(e.target.value)}
+                        onPressEnter={handleSearch}
+                        style={{ width: 200 }}
+                    />
+                    <Button icon={<SearchOutlined />} onClick={handleSearch}>
+                        搜索
+                    </Button>
+                </Space>
             </div>
 
             {loading ? (
@@ -152,7 +179,12 @@ const UserPage: React.FC = () => {
                     columns={columns}
                     dataSource={users}
                     rowKey="passport"
-                    pagination={{ pageSize: 10 }}
+                    pagination={{
+                        current: pagination.current,
+                        pageSize: pagination.pageSize,
+                        total: pagination.total,
+                        onChange: (page, pageSize) => fetchUsers(page, pageSize, keyword),
+                    }}
                 />
             )}
 
@@ -213,41 +245,27 @@ const UserPage: React.FC = () => {
                 )}
             </Drawer>
 
-            {/* 分配权限弹窗 */}
+            {/* 分配角色抽屉 */}
             <Drawer
-                title="分配权限"
-                width={480}
-                open={grantFormVisible}
-                onClose={() => setGrantFormVisible(false)}
+                title="分配角色"
+                width={600}
+                open={grantRoleVisible}
+                onClose={() => setGrantRoleVisible(false)}
             >
-                <Form form={form} layout="vertical" onFinish={handleGrantSubmit}>
-                    <Form.Item name="resourceType" label="资源类型" rules={[{ required: true }]}>
-                        <Select placeholder="请选择资源类型">
-                            <Select.Option value="TABLE">数据表</Select.Option>
-                            <Select.Option value="METRIC">指标</Select.Option>
-                            <Select.Option value="DIMENSION">维度</Select.Option>
-                            <Select.Option value="MENU">菜单</Select.Option>
-                            <Select.Option value="BUTTON">按钮</Select.Option>
-                        </Select>
-                    </Form.Item>
-                    <Form.Item name="resourceId" label="资源标识" rules={[{ required: true }]}>
-                        <Input placeholder="请输入资源标识" />
-                    </Form.Item>
-                    <Form.Item name="action" label="操作权限" rules={[{ required: true }]}>
-                        <Select placeholder="请选择操作权限">
-                            <Select.Option value="VIEW">查看</Select.Option>
-                            <Select.Option value="USE">使用</Select.Option>
-                            <Select.Option value="EDIT">编辑</Select.Option>
-                            <Select.Option value="ALL">全部</Select.Option>
-                        </Select>
-                    </Form.Item>
-                    <Form.Item>
-                        <Space>
-                            <Button type="primary" htmlType="submit">保存</Button>
-                            <Button onClick={() => setGrantFormVisible(false)}>取消</Button>
-                        </Space>
-                    </Form.Item>
-                </Form>
+                <Transfer
+                    dataSource={roleList.map(r => ({ key: r.id, title: r.name, description: r.code }))}
+                    titles={['可选角色', '已选角色']}
+                    targetKeys={targetRoleKeys}
+                    onChange={setTargetRoleKeys}
+                    render={item => item.title as string}
+                    listStyle={{ width: 250, height: 300 }}
+                />
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                    <Space>
+                        <Button onClick={() => setGrantRoleVisible(false)}>取消</Button>
+                        <Button type="primary" onClick={handleGrantSubmit}>保存</Button>
+                    </Space>
+                </div>
             </Drawer>
         </div>
     );

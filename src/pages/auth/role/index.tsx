@@ -32,78 +32,26 @@ import {
     RoleDTO,
     RoleCmd,
     RoleMemberDTO,
+    getUserFunctionPermissions,
+    FunctionPermissionNode,
 } from '@/api/DataAuthApi';
+import { listEmployees } from '@/api/EmployeeApi';
 
 const { Title } = Typography;
 
-const FUNCTION_PERMISSION_TREE = [
-    {
-        title: '元数据平台',
-        value: 'meta',
-        children: [
-            { title: '业务数据库', value: 'meta:business-ds', children: [
-                { title: '数据源管理', value: 'meta:business-ds:datasource' },
-                { title: '数据库管理', value: 'meta:business-ds:database' },
-                { title: '表结构管理', value: 'meta:business-ds:table-schema' },
-                { title: 'SQL执行', value: 'meta:business-ds:sql' },
-            ]},
-            { title: '元数据数据源', value: 'meta:metadata', children: [
-                { title: '目录管理', value: 'meta:metadata:datasource' },
-                { title: 'Schema管理', value: 'meta:metadata:subject' },
-                { title: '表管理', value: 'meta:metadata:metadata_table' },
-            ]},
-        ],
-    },
-    {
-        title: '指标平台',
-        value: 'metrics',
-        children: [
-            { title: '指标概览', value: 'metrics:dashboard' },
-            { title: '指标定义', value: 'metrics:definition' },
-            { title: '指标字典', value: 'metrics:dictionary' },
-            { title: '指标分析', value: 'metrics:analysis' },
-            { title: '指标配置', value: 'metrics:config' },
-            { title: '维度管理', value: 'metrics:dimension' },
-            { title: 'AI 创建', value: 'metrics:ai-chat' },
-        ],
-    },
-    {
-        title: 'SQL查询',
-        value: 'sql-editor',
-    },
-    {
-        title: '数据加工',
-        value: 'data-work',
-    },
-    {
-        title: '智能分析(BI)',
-        value: 'bi',
-        children: [
-            { title: '图表分析', value: 'bi:chart' },
-            { title: '看板管理', value: 'bi:dashboard' },
-            { title: 'ChatBI', value: 'bi:chatbi' },
-        ],
-    },
-    {
-        title: '权限管理',
-        value: 'auth',
-        children: [
-            { title: '角色管理', value: 'auth:role' },
-            { title: '用户权限', value: 'auth:user' },
-            { title: '指标平台权限', value: 'auth:metric' },
-            { title: '审批管理', value: 'auth:approval' },
-            { title: '审计日志', value: 'auth:audit' },
-        ],
-    },
-];
+interface TreeDataNode {
+    title: string;
+    value: string;
+    children?: TreeDataNode[];
+}
 
-const MOCK_ALL_USERS: RoleMemberDTO[] = [
-    { id: 'u1', passport: 'admin1', cnName: '系统管理员', deptName: '技术部', jobTitle: '架构师' },
-    { id: 'u2', passport: 'admin2', cnName: '安全管理员', deptName: '安全部', jobTitle: '安全专家' },
-    { id: 'u3', passport: 'zhangsan', cnName: '张三', deptName: '数据平台', jobTitle: '数据治理专家' },
-    { id: 'u4', passport: 'lisi', cnName: '李四', deptName: '数据分析', jobTitle: '高级分析师' },
-    { id: 'u5', passport: 'wangwu', cnName: '王五', deptName: '业务运营', jobTitle: '运营专员' },
-];
+const convertPermissionTree = (nodes: FunctionPermissionNode[]): TreeDataNode[] => {
+    return nodes.map(node => ({
+        title: node.name,
+        value: node.key,
+        children: node.children ? convertPermissionTree(node.children) : undefined,
+    }));
+};
 
 const RolePage: React.FC = () => {
     const [roles, setRoles] = useState<RoleDTO[]>([]);
@@ -117,6 +65,8 @@ const RolePage: React.FC = () => {
     const [form] = Form.useForm();
     const [memberFormVisible, setMemberFormVisible] = useState(false);
     const [targetKeys, setTargetKeys] = useState<string[]>([]);
+    const [allUsers, setAllUsers] = useState<RoleMemberDTO[]>([]);
+    const [functionPermissionTree, setFunctionPermissionTree] = useState<TreeDataNode[]>([]);
 
     const fetchRoles = async () => {
         setLoading(true);
@@ -132,8 +82,45 @@ const RolePage: React.FC = () => {
         }
     };
 
+    const fetchAllUsers = async () => {
+        try {
+            const res = await listEmployees();
+            if (res.code === 200 && res.data) {
+                setAllUsers(res.data.map(e => ({
+                    id: e.id,
+                    passport: e.passport,
+                    cnName: e.cnName,
+                    deptName: '-',
+                    jobTitle: e.jobTitle,
+                })));
+            }
+        } catch {
+            message.error('获取员工列表失败');
+        }
+    };
+
+    const fetchFunctionPermissionTree = async () => {
+        try {
+            const cached = localStorage.getItem('user_function_permissions_tree');
+            if (cached) {
+                const tree = JSON.parse(cached) as FunctionPermissionNode[];
+                setFunctionPermissionTree(convertPermissionTree(tree));
+                return;
+            }
+            const res = await getUserFunctionPermissions();
+            if (res.code === 200 && res.data) {
+                localStorage.setItem('user_function_permissions_tree', JSON.stringify(res.data));
+                setFunctionPermissionTree(convertPermissionTree(res.data));
+            }
+        } catch {
+            // 失败时保持空数组
+        }
+    };
+
     useEffect(() => {
         fetchRoles();
+        fetchAllUsers();
+        fetchFunctionPermissionTree();
     }, []);
 
     const handleAdd = () => {
@@ -149,7 +136,7 @@ const RolePage: React.FC = () => {
             code: record.code,
             description: record.description,
             maxSecurityLevel: record.maxSecurityLevel || 'L1',
-            functionPermissions: ['meta', 'metrics'],
+            functionPermissions: record.functionPermissions || [],
         });
         setDrawerVisible(true);
     };
@@ -336,7 +323,7 @@ const RolePage: React.FC = () => {
                     </Form.Item>
                     <Form.Item name="functionPermissions" label="功能权限">
                         <TreeSelect
-                            treeData={FUNCTION_PERMISSION_TREE}
+                            treeData={functionPermissionTree}
                             treeCheckable
                             showCheckedStrategy={TreeSelect.SHOW_PARENT}
                             placeholder="请选择功能权限"
@@ -404,7 +391,7 @@ const RolePage: React.FC = () => {
                 width={600}
             >
                 <Transfer
-                    dataSource={MOCK_ALL_USERS.map(u => ({ ...u, key: u.passport, title: `${u.cnName} (${u.passport})`, description: u.deptName }))}
+                    dataSource={allUsers.map(u => ({ ...u, key: u.passport, title: `${u.cnName} (${u.passport})`, description: u.deptName }))}
                     titles={['可选成员', '已选成员']}
                     targetKeys={targetKeys}
                     onChange={setTargetKeys}

@@ -1,5 +1,7 @@
 import {createBrowserRouter, Navigate} from "react-router-dom";
-import React from 'react'
+import React, { useEffect, useState } from 'react'
+import { Spin } from 'antd';
+import { getUserFunctionPermissions, FunctionPermissionNode } from '@/api/DataAuthApi';
 
 const Login = React.lazy(() => import((`@/pages/login/index.tsx`)))
 
@@ -65,23 +67,68 @@ const PrivateRoute = ({children}: { children: React.ReactNode }) => {
     return <>{children}</>;
 };
 
-// 权限守卫组件：检查功能权限（Phase 1 使用本地 mock，后续切换为真实 API）
-const PermissionGuard = ({ permission, children }: { permission: string; children: React.ReactNode }) => {
-    // Phase 1：从 localStorage 获取用户功能权限缓存，若无缓存则默认放行（避免阻塞）
-    const cachedPermissions = localStorage.getItem('user_function_permissions');
-    if (cachedPermissions) {
-        try {
-            const permissions = JSON.parse(cachedPermissions) as string[];
-            // 超级管理员通配符
-            if (permissions.includes('*')) {
-                return <>{children}</>;
-            }
-            if (!permissions.includes(permission)) {
-                return <Navigate to="/403" replace />;
-            }
-        } catch {
-            // parse 失败默认放行
+// 从功能权限树中提取所有权限 key
+const extractPermissionKeys = (nodes: FunctionPermissionNode[]): string[] => {
+    const keys: string[] = [];
+    for (const node of nodes) {
+        keys.push(node.key);
+        if (node.children) {
+            keys.push(...extractPermissionKeys(node.children));
         }
+    }
+    return keys;
+};
+
+// 权限守卫组件：检查功能权限
+const PermissionGuard = ({ permission, children }: { permission: string; children: React.ReactNode }) => {
+    const [checked, setChecked] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        const check = async () => {
+            const cached = localStorage.getItem('user_function_permissions');
+            if (cached) {
+                try {
+                    const permissions = JSON.parse(cached) as string[];
+                    if (permissions.includes('*') || permissions.includes(permission)) {
+                        setChecked(true);
+                    } else {
+                        setChecked(false);
+                    }
+                    return;
+                } catch {
+                    // parse 失败，继续请求
+                }
+            }
+
+            try {
+                const res = await getUserFunctionPermissions();
+                if (res.code === 200 && res.data) {
+                    const keys = extractPermissionKeys(res.data);
+                    localStorage.setItem('user_function_permissions', JSON.stringify(keys));
+                    if (keys.includes('*') || keys.includes(permission)) {
+                        setChecked(true);
+                    } else {
+                        setChecked(false);
+                    }
+                } else {
+                    setChecked(true); // 接口异常时放行
+                }
+            } catch {
+                setChecked(true); // 请求失败时放行
+            }
+        };
+        check();
+    }, [permission]);
+
+    if (checked === null) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <Spin size="large" tip="权限校验中..." />
+            </div>
+        );
+    }
+    if (!checked) {
+        return <Navigate to="/403" replace />;
     }
     return <>{children}</>;
 };

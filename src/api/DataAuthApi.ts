@@ -1,11 +1,7 @@
 /**
  * DataAuth API 封装
  * 权限管理中心：角色、用户权限、审批、审计、指标平台权限
- *
- * Phase 1：接口和类型定义按契约实现，数据使用 mock（后端并行开发中）
  */
-
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { ApiResponse } from './Response';
 import { dataauthRequest } from './Request';
@@ -46,6 +42,13 @@ export type ActionType =
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type ApprovalType = 'METRIC_PERMISSION' | 'DATA_PERMISSION' | 'ROLE_CHANGE';
 
+export interface PageResult<T> {
+  list: T[];
+  total: number;
+  pageNum: number;
+  pageSize: number;
+}
+
 // ---------------------------------------------------------------------------
 // 角色管理
 // ---------------------------------------------------------------------------
@@ -59,6 +62,7 @@ export interface RoleDTO {
   memberCount: number;
   permissionCount: number;
   createdAt: string;
+  functionPermissions?: string[];
 }
 
 export interface RoleCmd {
@@ -355,137 +359,8 @@ export interface MetricFilterSqlResult {
 }
 
 // ---------------------------------------------------------------------------
-// Mock 数据
-// ---------------------------------------------------------------------------
-
-const MOCK_ROLES: RoleDTO[] = [
-  { id: '1', name: '超级管理员', code: 'SUPER_ADMIN', description: '拥有全部权限', maxSecurityLevel: 'L4', memberCount: 2, permissionCount: 99, createdAt: '2024-01-15T10:00:00+08:00' },
-  { id: '2', name: '数据治理员', code: 'DATA_GOVERNANCE', description: '元数据平台全部 + 权限管理中心全部', maxSecurityLevel: 'L4', memberCount: 3, permissionCount: 45, createdAt: '2024-02-20T14:30:00+08:00' },
-  { id: '3', name: '数据分析师', code: 'DATA_ANALYST', description: '指标平台(只读) + SQL查询 + BI(编辑)', maxSecurityLevel: 'L3', memberCount: 12, permissionCount: 18, createdAt: '2024-03-10T09:00:00+08:00' },
-  { id: '4', name: '数据开发工程师', code: 'DATA_DEV', description: '数据加工全部 + SQL查询 + 元数据(只读)', maxSecurityLevel: 'L2', memberCount: 8, permissionCount: 22, createdAt: '2024-03-15T11:00:00+08:00' },
-  { id: '5', name: '业务运营', code: 'BUSINESS_OPS', description: '指标平台(只读) + BI(只读)', maxSecurityLevel: 'L1', memberCount: 25, permissionCount: 10, createdAt: '2024-04-01T08:00:00+08:00' },
-];
-
-const MOCK_ROLE_MEMBERS: Record<string, RoleMemberDTO[]> = {
-  '1': [
-    { id: 'u1', passport: 'admin1', cnName: '系统管理员', deptName: '技术部', jobTitle: '架构师' },
-    { id: 'u2', passport: 'admin2', cnName: '安全管理员', deptName: '安全部', jobTitle: '安全专家' },
-  ],
-  '2': [
-    { id: 'u3', passport: 'zhangsan', cnName: '张三', deptName: '数据平台', jobTitle: '数据治理专家' },
-  ],
-};
-
-const MOCK_APPROVALS: ApprovalDTO[] = [
-  {
-    approvalId: 'APV-20260512-001',
-    applicantPassport: 'zhangsan',
-    applicantName: '张三',
-    approvalType: 'METRIC_PERMISSION',
-    resourceType: 'METRIC',
-    resourceId: 'GMV',
-    resourceName: '成交金额',
-    action: 'USE',
-    reason: '月度复盘需要查看 GMV 指标',
-    status: 'PENDING',
-    currentNode: '直属上级审批',
-    submittedAt: '2026-05-12T10:30:00+08:00',
-  },
-  {
-    approvalId: 'APV-20260511-002',
-    applicantPassport: 'lisi',
-    applicantName: '李四',
-    approvalType: 'DATA_PERMISSION',
-    resourceType: 'TABLE',
-    resourceId: 'iceberg.order_db.orders',
-    resourceName: 'orders',
-    action: 'SELECT',
-    reason: '订单分析需求',
-    status: 'PENDING',
-    currentNode: '数据Owner审批',
-    submittedAt: '2026-05-11T14:20:00+08:00',
-  },
-  {
-    approvalId: 'APV-20260510-003',
-    applicantPassport: 'wangwu',
-    applicantName: '王五',
-    approvalType: 'ROLE_CHANGE',
-    resourceType: 'ROLE',
-    resourceId: 'DATA_ANALYST',
-    resourceName: '数据分析师',
-    action: 'ALL',
-    reason: '转岗至数据分析团队',
-    status: 'APPROVED',
-    currentNode: '-',
-    submittedAt: '2026-05-10T09:00:00+08:00',
-    handledAt: '2026-05-10T11:30:00+08:00',
-    comment: '同意',
-  },
-];
-
-const MOCK_AUDIT_LOGS: AuditLogDTO[] = [
-  {
-    id: 'AUD-001',
-    userId: 'zhangsan',
-    userName: '张三',
-    action: 'SQL_EXECUTE',
-    resourceType: 'TABLE',
-    resourceId: 'iceberg.order_db.orders',
-    originalSql: 'SELECT * FROM orders',
-    rewrittenSql: "SELECT user_id, name FROM orders WHERE region='华东'",
-    ip: '10.0.1.23',
-    costTimeMs: 125,
-    riskLevel: 'LOW',
-    timestamp: '2026-05-12T10:30:00+08:00',
-  },
-  {
-    id: 'AUD-002',
-    userId: 'lisi',
-    userName: '李四',
-    action: 'LOGIN',
-    resourceType: 'SYSTEM',
-    resourceId: 'datacenter',
-    ip: '10.0.1.45',
-    costTimeMs: 12,
-    riskLevel: 'LOW',
-    timestamp: '2026-05-12T09:00:00+08:00',
-  },
-  {
-    id: 'AUD-003',
-    userId: 'zhangsan',
-    userName: '张三',
-    action: 'PERMISSION_CHANGE',
-    resourceType: 'ROLE',
-    resourceId: 'DATA_ANALYST',
-    ip: '10.0.1.23',
-    costTimeMs: 50,
-    riskLevel: 'MEDIUM',
-    timestamp: '2026-05-11T16:00:00+08:00',
-  },
-];
-
-const MOCK_METRIC_PERMISSIONS: MetricPermissionConfigDTO[] = [
-  { metricId: 'm1', metricCode: 'GMV', metricName: '成交金额', subjectCode: 'TRADE', subjectName: '交易', status: 'PUBLISHED', visibility: 'PUBLIC', allowedRoles: [] },
-  { metricId: 'm2', metricCode: 'ORDER_COUNT', metricName: '订单量', subjectCode: 'TRADE', subjectName: '交易', status: 'PUBLISHED', visibility: 'PUBLIC', allowedRoles: [] },
-  { metricId: 'm3', metricCode: 'ARPU', metricName: '客单价', subjectCode: 'TRADE', subjectName: '交易', status: 'PUBLISHED', visibility: 'ROLE', allowedRoles: ['DATA_ANALYST', 'DATA_GOVERNANCE'] },
-];
-
-const MOCK_DIMENSION_PERMISSIONS: DimensionPermissionConfigDTO[] = [
-  { dimensionId: 'd1', dimensionCode: 'REGION', dimensionName: '地区', category: '地理', relatedField: 'region', actions: ['VIEW', 'USE'], allowValuesQuery: true, targets: [{ targetType: 'ROLE', targetId: 'DATA_ANALYST', targetName: '数据分析师' }] },
-  { dimensionId: 'd2', dimensionCode: 'CATEGORY', dimensionName: '品类', category: '业务', relatedField: 'category', actions: ['VIEW', 'USE'], allowValuesQuery: false, targets: [{ targetType: 'ROLE', targetId: 'BUSINESS_OPS', targetName: '业务运营' }] },
-];
-
-// ---------------------------------------------------------------------------
 // API 函数
 // ---------------------------------------------------------------------------
-
-function mockResponse<T>(data: T, delay = 300): Promise<ApiResponse<T>> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ code: 200, message: 'success', data });
-    }, delay);
-  });
-}
 
 // ==================== 角色管理 ====================
 
@@ -508,84 +383,55 @@ export const saveRole = (cmd: RoleCmd): Promise<ApiResponse<RoleDTO>> => {
 export const deleteRole = (id: string): Promise<ApiResponse<void>> =>
   dataauthRequest.delete(`/api/v1/auth/roles/${id}`);
 
-// TODO: 角色成员管理接口后端暂未提供，保留 mock
-export const listRoleMembers = (roleId: string): Promise<ApiResponse<RoleMemberDTO[]>> => {
-  return mockResponse(MOCK_ROLE_MEMBERS[roleId] || []);
-};
+export const listRoleMembers = (roleId: string): Promise<ApiResponse<RoleMemberDTO[]>> =>
+  dataauthRequest.get(`/api/v1/auth/roles/${roleId}/members`);
 
-export const addRoleMembers = (_roleId: string, _passports: string[]): Promise<ApiResponse<void>> => {
-  return mockResponse(undefined);
-};
+export const addRoleMembers = (roleId: string, passports: string[]): Promise<ApiResponse<void>> =>
+  dataauthRequest.post(`/api/v1/auth/roles/${roleId}/members`, { passports });
 
-export const removeRoleMember = (_roleId: string, _passport: string): Promise<ApiResponse<void>> => {
-  return mockResponse(undefined);
-};
+export const removeRoleMember = (roleId: string, passport: string): Promise<ApiResponse<void>> =>
+  dataauthRequest.delete(`/api/v1/auth/roles/${roleId}/members/${passport}`);
 
 // ==================== 用户权限 ====================
-// TODO: 用户权限接口后端暂未提供完整实现，保留 mock
 
-export const listUserPermissions = (): Promise<ApiResponse<UserPermissionDTO[]>> => {
-  const users: UserPermissionDTO[] = [
-    {
-      passport: 'zhangsan',
-      cnName: '张三',
-      roles: [MOCK_ROLES[2]],
-      directPermissions: [],
-      dataPermissions: [{ resourceType: 'TABLE', resourceId: 'iceberg.order_db.orders', action: 'SELECT' }],
-      metricPermissions: [{ permissionType: 'METRIC', resourceId: 'GMV', actions: ['VIEW', 'USE'] }],
-    },
-  ];
-  return mockResponse(users);
-};
+export const listUserPermissions = (params?: { pageNum?: number; pageSize?: number; keyword?: string }): Promise<ApiResponse<PageResult<UserPermissionDTO>>> =>
+  dataauthRequest.get('/api/v1/auth/users/permissions', { params });
 
 export const getUserPermission = (passport: string): Promise<ApiResponse<UserPermissionDTO>> => {
-  return mockResponse({
-    passport,
-    cnName: '张三',
-    roles: [MOCK_ROLES[2]],
-    directPermissions: [],
-    dataPermissions: [{ resourceType: 'TABLE', resourceId: 'iceberg.order_db.orders', action: 'SELECT' }],
-    metricPermissions: [{ permissionType: 'METRIC', resourceId: 'GMV', actions: ['VIEW', 'USE'] }],
+  // TODO: 后端暂无单用户权限查询接口，暂用列表接口过滤
+  return listUserPermissions({ pageNum: 1, pageSize: 1, keyword: passport }).then(res => {
+    const user = res.data?.list?.[0];
+    return { code: 200, message: 'success', data: user } as ApiResponse<UserPermissionDTO>;
   });
 };
 
-export const grantUserPermission = (_passport: string, _permissions: PermissionItemDTO[]): Promise<ApiResponse<void>> => {
-  return mockResponse(undefined);
-};
+export const assignUserRoles = (passport: string, roleIds: string[]): Promise<ApiResponse<void>> =>
+  dataauthRequest.post(`/api/v1/auth/users/${passport}/roles`, { roleIds });
 
 export const revokeUserPermission = (_passport: string, _permissionId: string): Promise<ApiResponse<void>> => {
-  return mockResponse(undefined);
+  // TODO: 后端暂无直接权限回收接口（本期只支持角色授权）
+  return Promise.resolve({ code: 200, message: 'success', data: undefined } as ApiResponse<void>);
 };
 
 // ==================== 指标平台权限 ====================
-// TODO: 指标平台权限配置接口后端暂未提供，保留 mock
 
-export const listSubjectPermissions = (): Promise<ApiResponse<SubjectPermissionDTO[]>> => {
-  return mockResponse([
-    { subjectCode: 'EC', subjectName: '电商', actions: ['VIEW', 'USE'], targets: [{ targetType: 'ROLE', targetId: 'DATA_ANALYST', targetName: '数据分析师' }] },
-    { subjectCode: 'TRADE', subjectName: '交易', actions: ['VIEW'], targets: [{ targetType: 'ROLE', targetId: 'BUSINESS_OPS', targetName: '业务运营' }] },
-  ]);
-};
+export const listSubjectPermissions = (): Promise<ApiResponse<SubjectPermissionDTO[]>> =>
+  dataauthRequest.get('/api/v1/auth/metric/subject-permissions');
 
-export const saveSubjectPermission = (_cmd: SubjectPermissionDTO): Promise<ApiResponse<void>> => {
-  return mockResponse(undefined);
-};
+export const saveSubjectPermission = (cmd: SubjectPermissionDTO): Promise<ApiResponse<void>> =>
+  dataauthRequest.post('/api/v1/auth/metric/subject-permissions', cmd);
 
-export const listMetricPermissions = (): Promise<ApiResponse<MetricPermissionConfigDTO[]>> => {
-  return mockResponse([...MOCK_METRIC_PERMISSIONS]);
-};
+export const listMetricPermissions = (params?: { pageNum?: number; pageSize?: number; subjectCode?: string }): Promise<ApiResponse<PageResult<MetricPermissionConfigDTO>>> =>
+  dataauthRequest.get('/api/v1/auth/metric/metric-permissions', { params });
 
-export const batchUpdateMetricVisibility = (_metricIds: string[], _visibility: 'PUBLIC' | 'ROLE' | 'PRIVATE', _allowedRoles?: string[]): Promise<ApiResponse<void>> => {
-  return mockResponse(undefined);
-};
+export const batchUpdateMetricVisibility = (metricIds: string[], visibility: 'PUBLIC' | 'ROLE' | 'PRIVATE', allowedRoles?: string[]): Promise<ApiResponse<void>> =>
+  dataauthRequest.post('/api/v1/auth/metric/metric-permissions/batch-update', { metricIds, visibility, allowedRoles });
 
-export const listDimensionPermissions = (): Promise<ApiResponse<DimensionPermissionConfigDTO[]>> => {
-  return mockResponse([...MOCK_DIMENSION_PERMISSIONS]);
-};
+export const listDimensionPermissions = (): Promise<ApiResponse<DimensionPermissionConfigDTO[]>> =>
+  dataauthRequest.get('/api/v1/auth/metric/dimension-permissions');
 
-export const saveDimensionPermission = (_cmd: DimensionPermissionConfigDTO): Promise<ApiResponse<void>> => {
-  return mockResponse(undefined);
-};
+export const saveDimensionPermission = (cmd: DimensionPermissionConfigDTO): Promise<ApiResponse<void>> =>
+  dataauthRequest.post('/api/v1/auth/metric/dimension-permissions', cmd);
 
 // ==================== 审批管理 ====================
 
@@ -604,33 +450,19 @@ export const listAuditLogs = (query: AuditLogQuery): Promise<ApiResponse<{ list:
   dataauthRequest.get('/api/v1/audit/logs', { params: query }).then((res: ApiResponse<{ list: AuditLogDTO[]; total: number }>) => res);
 
 // ==================== 我的权限 ====================
-// TODO: 我的权限接口后端暂未提供，保留 mock
 
-export const getMyPermissions = (passport: string): Promise<ApiResponse<MyPermissionDTO>> => {
-  return mockResponse({
-    functionPermissions: [
-      { moduleName: '元数据平台', permissions: ['业务数据库-查看', '表结构管理-查看'] },
-      { moduleName: '指标平台', permissions: ['指标概览-查看', '指标字典-查看', '指标分析-使用'] },
-      { moduleName: 'SQL查询', permissions: ['编辑器-使用', '结果导出-导出'] },
-    ],
-    dataPermissions: [
-      {
-        datasourceName: 'MySQL-PROD',
-        databases: [
-          {
-            databaseName: 'order_db',
-            tables: [
-              { tableName: 'orders', action: 'SELECT', rowFilter: "region IN ('华东')" },
-            ],
-          },
-        ],
-      },
-    ],
-    metricPermissions: [
-      { subjectName: '交易', metrics: ['GMV', '订单量'], dimensions: ['地区', '品类'] },
-    ],
-    pendingApprovals: MOCK_APPROVALS.filter(a => a.applicantPassport === passport && a.status === 'PENDING'),
-  });
+export const getMyPermissions = (): Promise<ApiResponse<MyPermissionDTO>> => {
+  const currentRaw = localStorage.getItem('current');
+  let passport = '';
+  if (currentRaw) {
+    try {
+      const current = JSON.parse(currentRaw) as { passport?: string };
+      passport = current.passport || '';
+    } catch {
+      // ignore
+    }
+  }
+  return dataauthRequest.get('/api/v1/auth/my/permissions', { params: { passport } });
 };
 
 // ==================== 元数据权限接口（按契约） ====================
@@ -647,29 +479,34 @@ export const authResources = (params: { passport: string; resourceType?: string 
 // ==================== 指标平台权限接口（按契约） ====================
 
 export const authMetricCheck = (cmd: MetricCheckCmd): Promise<ApiResponse<MetricCheckResult>> => {
-  return mockResponse({
-    allPermitted: true,
-    results: cmd.checkItems.map(item => ({
-      resourceType: item.resourceType,
-      resourceId: item.resourceId,
-      permitted: true,
-    })),
-  });
+  // TODO: 后端指标批量校验接口未确认实现，暂默认放行
+  return Promise.resolve({
+    code: 200, message: 'success', data: {
+      allPermitted: true,
+      results: cmd.checkItems.map(item => ({
+        resourceType: item.resourceType,
+        resourceId: item.resourceId,
+        permitted: true,
+      })),
+    },
+  } as ApiResponse<MetricCheckResult>);
 };
 
 export const authMetricList = (_params: { passport: string; resourceType: string; subjectCode?: string; action?: string }): Promise<ApiResponse<MetricResourceDTO[]>> => {
-  return mockResponse([
-    { id: 'metric-001', code: 'GMV', name: '成交金额', subjectCode: 'TRADE', subjectName: '交易' },
-  ]);
+  // TODO: 后端指标资源列表接口未确认实现，暂返回空列表
+  return Promise.resolve({ code: 200, message: 'success', data: [] } as ApiResponse<MetricResourceDTO[]>);
 };
 
-export const authMetricFilterSql = (_cmd: MetricFilterSqlCmd): Promise<ApiResponse<MetricFilterSqlResult>> => {
-  return mockResponse({
-    permitted: true,
-    originalSql: cmd.sql,
-    rewrittenSql: cmd.sql,
-    rowFilters: [],
-  });
+export const authMetricFilterSql = (cmd: MetricFilterSqlCmd): Promise<ApiResponse<MetricFilterSqlResult>> => {
+  // TODO: 后端指标 SQL 过滤接口未确认实现，暂原样返回
+  return Promise.resolve({
+    code: 200, message: 'success', data: {
+      permitted: true,
+      originalSql: cmd.sql,
+      rewrittenSql: cmd.sql,
+      rowFilters: [],
+    },
+  } as ApiResponse<MetricFilterSqlResult>);
 };
 
 // ==================== 功能权限查询（前端路由/菜单/按钮控制） ====================
@@ -686,37 +523,5 @@ export interface UserFunctionPermissionDTO {
   permissions: string[];
 }
 
-export const getUserFunctionPermissions = (_passport: string): Promise<ApiResponse<string[]>> => {
-  return mockResponse([
-    'meta',
-    'meta:business-ds',
-    'meta:business-ds:datasource',
-    'meta:business-ds:database',
-    'meta:business-ds:table-schema',
-    'meta:business-ds:sql',
-    'meta:metadata',
-    'meta:metadata:datasource',
-    'meta:metadata:subject',
-    'meta:metadata:metadata_table',
-    'metrics',
-    'metrics:dashboard',
-    'metrics:definition',
-    'metrics:dictionary',
-    'metrics:analysis',
-    'metrics:config',
-    'metrics:dimension',
-    'sql-editor',
-    'data-work',
-    'bi',
-    'bi:chart',
-    'bi:dashboard',
-    'bi:chatbi',
-    'auth',
-    'auth:role',
-    'auth:user',
-    'auth:metric',
-    'auth:approval',
-    'auth:audit',
-    'auth:my',
-  ]);
-};
+export const getUserFunctionPermissions = (): Promise<ApiResponse<FunctionPermissionNode[]>> =>
+  dataauthRequest.get('/api/v1/auth/function-permissions/tree');

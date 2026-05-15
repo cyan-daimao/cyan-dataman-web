@@ -28,33 +28,20 @@ import {
     MetricPermissionConfigDTO,
     DimensionPermissionConfigDTO,
     PermissionTargetDTO,
+    listRoles,
+    RoleDTO,
 } from '@/api/DataAuthApi';
+import { treeSubjects, SubjectDTO } from '@/api/MetadataSubjectAPI';
 
 const { Title } = Typography;
 
-const MOCK_SUBJECT_TREE = [
-    {
-        title: '电商',
-        key: 'EC',
-        children: [
-            { title: '交易', key: 'TRADE', children: [
-                { title: '订单', key: 'ORDER' },
-                { title: '支付', key: 'PAY' },
-            ]},
-            { title: '商品', key: 'PRODUCT' },
-            { title: '用户', key: 'USER' },
-        ],
-    },
-    {
-        title: '供应链',
-        key: 'SUPPLY',
-        children: [
-            { title: '采购', key: 'PROCUREMENT' },
-            { title: '库存', key: 'INVENTORY' },
-            { title: '物流', key: 'LOGISTICS' },
-        ],
-    },
-];
+const convertSubjectTree = (subjects: SubjectDTO[]): any[] => {
+    return subjects.map(s => ({
+        title: s.subjectName,
+        key: s.subjectCode,
+        children: s.children && s.children.length > 0 ? convertSubjectTree(s.children) : undefined,
+    }));
+};
 
 const MetricPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState('subject');
@@ -66,17 +53,23 @@ const MetricPage: React.FC = () => {
     const [metricModalVisible, setMetricModalVisible] = useState(false);
     const [selectedMetricIds, setSelectedMetricIds] = useState<string[]>([]);
     const [metricForm] = Form.useForm();
+    const [subjectTree, setSubjectTree] = useState<any[]>([]);
+    const [roleList, setRoleList] = useState<RoleDTO[]>([]);
+    const [metricPagination, setMetricPagination] = useState({ current: 1, pageSize: 20, total: 0 });
 
-    const fetchData = async () => {
+    const fetchData = async (pageNum = 1, pageSize = 20) => {
         setLoading(true);
         try {
             const [subRes, metRes, dimRes] = await Promise.all([
                 listSubjectPermissions(),
-                listMetricPermissions(),
+                listMetricPermissions({ pageNum, pageSize }),
                 listDimensionPermissions(),
             ]);
             if (subRes.code === 200 && subRes.data) setSubjectPermissions(subRes.data);
-            if (metRes.code === 200 && metRes.data) setMetricPermissions(metRes.data);
+            if (metRes.code === 200 && metRes.data) {
+                setMetricPermissions(metRes.data.list);
+                setMetricPagination({ current: metRes.data.pageNum, pageSize: metRes.data.pageSize, total: metRes.data.total });
+            }
             if (dimRes.code === 200 && dimRes.data) setDimensionPermissions(dimRes.data);
         } catch {
             message.error('获取权限数据失败');
@@ -85,8 +78,30 @@ const MetricPage: React.FC = () => {
         }
     };
 
+    const fetchSubjectTree = async () => {
+        try {
+            const data = await treeSubjects();
+            setSubjectTree(convertSubjectTree(data));
+        } catch {
+            message.error('获取主题域树失败');
+        }
+    };
+
+    const fetchRoles = async () => {
+        try {
+            const res = await listRoles();
+            if (res.code === 200 && res.data) {
+                setRoleList(res.data);
+            }
+        } catch {
+            message.error('获取角色列表失败');
+        }
+    };
+
     useEffect(() => {
         fetchData();
+        fetchSubjectTree();
+        fetchRoles();
     }, []);
 
     const handleSaveSubjectPermission = async (subjectCode: string, actions: string[], targets: PermissionTargetDTO[]) => {
@@ -189,10 +204,14 @@ const MetricPage: React.FC = () => {
                 <Tabs.TabPane tab="主题域权限" key="subject">
                     <div style={{ display: 'flex', gap: 16 }}>
                         <Card title="主题域" style={{ width: 280, flexShrink: 0 }}>
-                            <Tree
-                                treeData={MOCK_SUBJECT_TREE}
-                                onSelect={(keys) => setSelectedSubject(keys[0] as string)}
-                            />
+                            {subjectTree.length === 0 ? (
+                                <Spin size="small" />
+                            ) : (
+                                <Tree
+                                    treeData={subjectTree}
+                                    onSelect={(keys) => setSelectedSubject(keys[0] as string)}
+                                />
+                            )}
                         </Card>
                         <Card title="授权配置" style={{ flex: 1 }}>
                             {selectedSubject ? (
@@ -229,7 +248,12 @@ const MetricPage: React.FC = () => {
                                 columns={metricColumns}
                                 dataSource={metricPermissions}
                                 rowKey="metricId"
-                                pagination={{ pageSize: 10 }}
+                                pagination={{
+                                    current: metricPagination.current,
+                                    pageSize: metricPagination.pageSize,
+                                    total: metricPagination.total,
+                                    onChange: (page, pageSize) => fetchData(page, pageSize),
+                                }}
                                 rowSelection={{
                                     type: 'checkbox',
                                     onChange: (keys) => setSelectedMetricIds(keys as string[]),
@@ -269,9 +293,9 @@ const MetricPage: React.FC = () => {
                     </Form.Item>
                     <Form.Item name="allowedRoles" label="允许的角色">
                         <Select mode="multiple" placeholder="请选择角色">
-                            <Select.Option value="DATA_ANALYST">数据分析师</Select.Option>
-                            <Select.Option value="DATA_GOVERNANCE">数据治理员</Select.Option>
-                            <Select.Option value="BUSINESS_OPS">业务运营</Select.Option>
+                            {roleList.map(role => (
+                                <Select.Option key={role.id} value={role.code}>{role.name}</Select.Option>
+                            ))}
                         </Select>
                     </Form.Item>
                 </Form>

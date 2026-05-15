@@ -33,7 +33,7 @@ const MyPage: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const res = await getMyPermissions('current');
+            const res = await getMyPermissions();
             if (res.code === 200 && res.data) {
                 setData(res.data);
             }
