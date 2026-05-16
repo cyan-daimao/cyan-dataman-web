@@ -297,7 +297,7 @@ const routes = createBrowserRouter([
                 children: [
                     {
                         index: true,
-                        element: <Navigate to="/auth/role" replace />
+                        element: <Navigate to="/auth/my" replace />
                     },
                     {
                         path: "role",

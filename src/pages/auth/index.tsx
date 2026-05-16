@@ -21,7 +21,7 @@ const AuthLevelContext = createContext(0);
 
 // 路由到菜单 key 的映射
 const pathToKeyMap: Record<string, string> = {
-    '/auth': 'auth-overview',
+    '/auth': 'auth-my',
     '/auth/role': 'auth-role',
     '/auth/user': 'auth-user',
     '/auth/metric': 'auth-metric',
@@ -31,11 +31,6 @@ const pathToKeyMap: Record<string, string> = {
 };
 
 const items: MenuProps['items'] = [
-    {
-        key: 'auth-overview',
-        label: <Link to={'/auth/role'}>权限总览</Link>,
-        icon: <DashboardOutlined />,
-    },
     {
         key: 'auth-role',
         label: <Link to={'/auth/role'}>角色管理</Link>,
