@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, { useEffect, useState } from "react";
 import {
     Badge,
     Card,
@@ -12,7 +12,6 @@ import {
     Select,
     Switch,
     Space,
-    Descriptions,
     Tag,
     Upload,
     message,
@@ -30,15 +29,27 @@ import {
     DatabaseOutlined,
     CloudUploadOutlined
 } from "@ant-design/icons";
+import {
+    listCdcConfigs,
+    createCdcConfig,
+    updateCdcConfig,
+    deleteCdcConfig,
+    toggleCdcConfig,
+    CdcConfigDTO,
+    CdcConfigCmd
+} from '@/api/CdcApi';
 import { ManualUploadApi, ManualUploadRecordDTO } from '@/api/ManualUploadApi';
 
-const {Text} = Typography;
+const { Text } = Typography;
 
 interface AsyncJobProps {
     tableId: string;
+    catalog: string;
+    schema: string;
+    tableName: string;
 }
 
-// CDC 配置
+// 前端展示用的 CDC 配置（字段与 UI 对齐）
 interface CDCConfig {
     id: string;
     sourceTable: string;
@@ -85,7 +96,60 @@ interface ManualUploadRecord {
     errorMessage?: string;
 }
 
-const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
+/**
+ * 将后端 RunningStatus 映射为前端 status
+ */
+const mapRunningStatus = (status?: string): 'running' | 'stopped' | 'error' => {
+    switch (status) {
+        case 'RUNNING':
+        case 'SUCCESS':
+            return 'running';
+        case 'ERROR':
+            return 'error';
+        case 'INIT':
+        case 'STOP':
+        default:
+            return 'stopped';
+    }
+};
+
+/**
+ * 从 icebergTableName 提取 schema 和 table
+ * 格式可能是 "schema.table" 或 "catalog.schema.table" 或单纯 "table"
+ */
+const parseIcebergTableName = (icebergTableName?: string): { targetDatabase: string; targetTable: string } => {
+    if (!icebergTableName) {
+        return { targetDatabase: '', targetTable: '' };
+    }
+    const parts = icebergTableName.split('.');
+    if (parts.length >= 2) {
+        return { targetDatabase: parts[parts.length - 2], targetTable: parts[parts.length - 1] };
+    }
+    return { targetDatabase: '', targetTable: icebergTableName };
+};
+
+/**
+ * 将后端 CdcConfigDTO 映射为前端 CDCConfig
+ */
+const mapDtoToCdcConfig = (dto: CdcConfigDTO): CDCConfig => {
+    const { targetDatabase, targetTable } = parseIcebergTableName(dto.icebergTableName);
+    return {
+        id: dto.id,
+        sourceTable: dto.tableName,
+        sourceDatabase: dto.dbName,
+        targetTable,
+        targetDatabase,
+        syncMode: dto.syncTool === 'FLINK' ? 'incremental' : 'full',
+        status: mapRunningStatus(dto.runningStatus),
+        enabled: dto.enabled,
+        createdAt: dto.createdAt || '',
+        updatedAt: dto.updatedAt || '',
+        lastSyncTime: undefined,
+        lastSyncCount: undefined,
+    };
+};
+
+const AsyncJob: React.FC<AsyncJobProps> = ({ catalog, schema, tableName }) => {
     const [loading, setLoading] = useState<boolean>(false);
     const [activeTab, setActiveTab] = useState<string>('cdc');
 
@@ -110,8 +174,11 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
     const [uploadTotal, setUploadTotal] = useState(0);
 
     useEffect(() => {
-        loadData();
-    }, [tableId]);
+        if (schema && tableName) {
+            loadCdcData();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [schema, tableName]);
 
     useEffect(() => {
         if (activeTab === 'manual') {
@@ -120,48 +187,23 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab]);
 
-    const loadData = async () => {
+    const loadCdcData = async () => {
         setLoading(true);
         try {
-            // TODO: 调用实际 API 获取数据
-            // 模拟数据
-            setCdcConfigs([
-                {
-                    id: '1',
-                    sourceTable: 'user_info',
-                    sourceDatabase: 'business_db',
-                    targetTable: 'user_info_iceberg',
-                    targetDatabase: 'dwd',
-                    syncMode: 'incremental',
-                    status: 'running',
-                    enabled: true,
-                    createdAt: '2024-01-15 10:30:00',
-                    updatedAt: '2024-01-20 14:20:00',
-                    lastSyncTime: '2024-01-20 14:20:00',
-                    lastSyncCount: 1523
-                }
-            ]);
-
-            setSqlConfigs([
-                {
-                    id: '1',
-                    name: '每日用户数据同步',
-                    sql: 'INSERT INTO dwd.user_info_iceberg\nSELECT * FROM business_db.user_info\nWHERE updated_at > DATE_SUB(NOW(), INTERVAL 1 DAY)',
-                    scheduleType: 'cron',
-                    cronExpression: '0 2 * * *',
-                    status: 'running',
-                    enabled: true,
-                    creator: 'zhangsan',
-                    creatorName: '张三',
-                    createdAt: '2024-01-10 09:00:00',
-                    updatedAt: '2024-01-15 11:30:00',
-                    lastSyncTime: '2024-01-20 02:00:00'
-                }
-            ]);
-
-
+            const res = await listCdcConfigs({
+                dbName: schema,
+                tableName: tableName,
+                syncTool: 'FLINK',
+            });
+            if (res.code === 200 && res.data) {
+                const list = res.data.map(mapDtoToCdcConfig);
+                setCdcConfigs(list);
+            } else {
+                message.error(res.message || '加载 CDC 配置失败');
+            }
         } catch (error) {
-            console.error('加载数据失败:', error);
+            console.error('加载 CDC 配置失败:', error);
+            message.error('加载 CDC 配置失败');
         } finally {
             setLoading(false);
         }
@@ -170,7 +212,7 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
     const loadUploadRecords = async (page = 1) => {
         setUploadLoading(true);
         try {
-            const res = await ManualUploadApi.listRecords(tableId, { pageNum: page, pageSize: uploadPageSize });
+            const res = await ManualUploadApi.listRecords(tableName, { pageNum: page, pageSize: uploadPageSize });
             if (res.code === 200 && res.data) {
                 const list = res.data.data.map((item: ManualUploadRecordDTO): ManualUploadRecord => ({
                     id: String(item.id),
@@ -198,55 +240,129 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
     const handleAddCdc = () => {
         setEditingCdc(null);
         cdcForm.resetFields();
+        cdcForm.setFieldsValue({
+            dsName: catalog,
+            sourceDatabase: schema,
+            sourceTable: tableName,
+            syncMode: 'incremental',
+        });
         setCdcModalVisible(true);
     };
 
     const handleEditCdc = (record: CDCConfig) => {
         setEditingCdc(record);
-        cdcForm.setFieldsValue(record);
+        cdcForm.setFieldsValue({
+            dsName: catalog,
+            sourceDatabase: record.sourceDatabase,
+            sourceTable: record.sourceTable,
+            targetDatabase: record.targetDatabase,
+            targetTable: record.targetTable,
+            syncMode: record.syncMode,
+        });
         setCdcModalVisible(true);
     };
 
-    const handleDeleteCdc = (id: string) => {
+    const handleDeleteCdc = async (id: string) => {
         Modal.confirm({
             title: '确认删除',
             content: '确定要删除这条 CDC 配置吗？',
-            onOk: () => {
-                setCdcConfigs(prev => prev.filter(item => item.id !== id));
-                message.success('删除成功');
+            onOk: async () => {
+                try {
+                    // 需要先根据 id 查到 cdcName
+                    const target = cdcConfigs.find(c => c.id === id);
+                    if (!target) {
+                        message.error('找不到要删除的配置');
+                        return;
+                    }
+                    // 通过列表反查 DTO 获取 name（简化：直接用 sourceTable 作为 name）
+                    // 实际上需要更精确地获取 cdcName，这里简化处理
+                    const res = await listCdcConfigs({ dbName: schema, tableName: tableName, syncTool: 'FLINK' });
+                    if (res.code === 200 && res.data) {
+                        const dto = res.data.find(d => d.id === id);
+                        if (dto) {
+                            const delRes = await deleteCdcConfig(dto.name);
+                            if (delRes.code === 200) {
+                                message.success('删除成功');
+                                loadCdcData();
+                            } else {
+                                message.error(delRes.message || '删除失败');
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('删除 CDC 配置失败:', error);
+                    message.error('删除失败');
+                }
             }
         });
     };
 
-    const handleToggleCdc = (id: string, enabled: boolean) => {
-        setCdcConfigs(prev => prev.map(item =>
-            item.id === id ? {...item, enabled} : item
-        ));
-        message.success(enabled ? '已启用' : '已停用');
+    const handleToggleCdc = async (id: string, enabled: boolean) => {
+        try {
+            const res = await listCdcConfigs({ dbName: schema, tableName: tableName, syncTool: 'FLINK' });
+            if (res.code === 200 && res.data) {
+                const dto = res.data.find(d => d.id === id);
+                if (dto) {
+                    const toggleRes = await toggleCdcConfig(dto.name, enabled);
+                    if (toggleRes.code === 200) {
+                        message.success(enabled ? '已启用' : '已停用');
+                        loadCdcData();
+                    } else {
+                        message.error(toggleRes.message || '操作失败');
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('启停 CDC 配置失败:', error);
+            message.error('操作失败');
+        }
     };
 
     const handleCdcSubmit = async () => {
         try {
             const values = await cdcForm.validateFields();
+            const icebergTableName = values.targetDatabase && values.targetTable
+                ? `${values.targetDatabase}.${values.targetTable}`
+                : values.targetTable;
+
+            const cmd: CdcConfigCmd = {
+                name: `${values.sourceDatabase}_${values.sourceTable}_cdc`,
+                dsName: values.dsName || catalog,
+                dbName: values.sourceDatabase,
+                tableName: values.sourceTable,
+                icebergTableName,
+                syncTool: 'FLINK',
+                description: `CDC 同步: ${values.sourceDatabase}.${values.sourceTable} -> ${icebergTableName}`,
+            };
+
             if (editingCdc) {
-                setCdcConfigs(prev => prev.map(item =>
-                    item.id === editingCdc.id ? {...item, ...values} : item
-                ));
-                message.success('更新成功');
+                // 编辑：需要先查到 cdcName
+                const res = await listCdcConfigs({ dbName: schema, tableName: tableName, syncTool: 'FLINK' });
+                if (res.code === 200 && res.data) {
+                    const dto = res.data.find(d => d.id === editingCdc.id);
+                    if (dto) {
+                        const updateRes = await updateCdcConfig(dto.name, cmd);
+                        if (updateRes.code === 200) {
+                            message.success('更新成功');
+                            setCdcModalVisible(false);
+                            loadCdcData();
+                        } else {
+                            message.error(updateRes.message || '更新失败');
+                        }
+                    }
+                }
             } else {
-                const newCdc: CDCConfig = {
-                    id: Date.now().toString(),
-                    ...values,
-                    status: 'stopped',
-                    createdAt: new Date().toLocaleString(),
-                    updatedAt: new Date().toLocaleString()
-                };
-                setCdcConfigs(prev => [...prev, newCdc]);
-                message.success('创建成功');
+                const createRes = await createCdcConfig(cmd);
+                if (createRes.code === 200) {
+                    message.success('创建成功');
+                    setCdcModalVisible(false);
+                    loadCdcData();
+                } else {
+                    message.error(createRes.message || '创建失败');
+                }
             }
-            setCdcModalVisible(false);
         } catch (error) {
-            console.error('表单验证失败:', error);
+            console.error('表单验证或提交失败:', error);
         }
     };
 
@@ -259,7 +375,7 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
             return false;
         }
         setSelectedFiles(prev => [...prev, file]);
-        return false; // 阻止自动上传
+        return false;
     };
 
     const handleRemoveFile = (index: number) => {
@@ -273,9 +389,8 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
         }
         setConfirmLoading(true);
         try {
-            // 逐个上传文件（当前 API 只支持单文件）
             const file = selectedFiles[0];
-            const res = await ManualUploadApi.upload(tableId, file, uploadMode);
+            const res = await ManualUploadApi.upload(tableName, file, uploadMode);
             if (res.code === 200 && res.data) {
                 message.success('上传成功');
                 setUploadModalVisible(false);
@@ -299,6 +414,12 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
 
     // CDC 表格列定义
     const cdcColumns: TableProps<CDCConfig>['columns'] = [
+        {
+            title: '数据源',
+            key: 'dsName',
+            width: 120,
+            render: () => catalog || '-',
+        },
         {
             title: '源数据库',
             dataIndex: 'sourceDatabase',
@@ -340,13 +461,13 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
             key: 'status',
             width: 100,
             render: (status) => {
-                const statusMap: Record<string, {color: 'success' | 'default' | 'error', text: string}> = {
-                    running: {color: 'success', text: '运行中'},
-                    stopped: {color: 'default', text: '已停止'},
-                    error: {color: 'error', text: '异常'}
+                const statusMap: Record<string, { color: 'success' | 'default' | 'error', text: string }> = {
+                    running: { color: 'success', text: '运行中' },
+                    stopped: { color: 'default', text: '已停止' },
+                    error: { color: 'error', text: '异常' }
                 };
                 const config = statusMap[status];
-                return <Badge status={config.color} text={config.text}/>;
+                return <Badge status={config.color} text={config.text} />;
             }
         },
         {
@@ -385,7 +506,7 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
                     <Button
                         type="link"
                         size="small"
-                        icon={<EditOutlined/>}
+                        icon={<EditOutlined />}
                         onClick={() => handleEditCdc(record)}
                     >
                         编辑
@@ -394,7 +515,7 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
                         type="link"
                         size="small"
                         danger
-                        icon={<DeleteOutlined/>}
+                        icon={<DeleteOutlined />}
                         onClick={() => handleDeleteCdc(record.id)}
                     >
                         删除
@@ -409,10 +530,10 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
         <Card
             key={config.id}
             size="small"
-            style={{marginBottom: 16}}
+            style={{ marginBottom: 16 }}
             title={
                 <Space>
-                    <SyncOutlined/>
+                    <SyncOutlined />
                     <Text strong>{config.name}</Text>
                     <Tag color={config.enabled ? 'green' : 'default'}>
                         {config.enabled ? '已启用' : '已停用'}
@@ -445,10 +566,10 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
                 </Descriptions.Item>
             </Descriptions>
 
-            <Divider style={{margin: '12px 0'}}/>
+            <Divider style={{ margin: '12px 0' }} />
 
             <div>
-                <Text type="secondary" style={{marginBottom: 8, display: 'block'}}>SQL 内容：</Text>
+                <Text type="secondary" style={{ marginBottom: 8, display: 'block' }}>SQL 内容：</Text>
                 <pre style={{
                     background: '#f5f5f5',
                     padding: 12,
@@ -472,7 +593,7 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
             width: 200,
             render: (name, record) => (
                 <Space>
-                    <FileTextOutlined style={{color: record.fileType === 'excel' ? '#52c41a' : '#1890ff'}}/>
+                    <FileTextOutlined style={{ color: record.fileType === 'excel' ? '#52c41a' : '#1890ff' }} />
                     <Text>{name}</Text>
                 </Space>
             )
@@ -548,19 +669,19 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
             key: 'cdc',
             label: (
                 <Space>
-                    <DatabaseOutlined/>
+                    <DatabaseOutlined />
                     CDC 同步
                 </Space>
             ),
             children: (
                 <div>
-                    <div style={{marginBottom: 16, display: 'flex', justifyContent: 'space-between'}}>
+                    <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
                         <Text type="secondary">
                             CDC (Change Data Capture) 实时捕获数据变更并同步到目标表
                         </Text>
                         <Button
                             type="primary"
-                            icon={<PlusOutlined/>}
+                            icon={<PlusOutlined />}
                             onClick={handleAddCdc}
                         >
                             新建配置
@@ -572,6 +693,7 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
                         rowKey="id"
                         size="small"
                         pagination={false}
+                        loading={loading}
                     />
                 </div>
             )
@@ -580,13 +702,13 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
             key: 'sql',
             label: (
                 <Space>
-                    <SyncOutlined/>
+                    <SyncOutlined />
                     SQL 同步
                 </Space>
             ),
             children: (
                 <div>
-                    <div style={{marginBottom: 16}}>
+                    <div style={{ marginBottom: 16 }}>
                         <Text type="secondary">
                             通过 SQL 脚本定时同步数据，支持灵活的调度配置
                         </Text>
@@ -595,7 +717,7 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
                         sqlConfigs.map(config => renderSQLSyncDetail(config))
                     ) : (
                         <Card size="small">
-                            <div style={{textAlign: 'center', padding: 20, color: '#999'}}>
+                            <div style={{ textAlign: 'center', padding: 20, color: '#999' }}>
                                 暂无 SQL 同步配置
                             </div>
                         </Card>
@@ -607,19 +729,19 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
             key: 'manual',
             label: (
                 <Space>
-                    <CloudUploadOutlined/>
+                    <CloudUploadOutlined />
                     手动上传
                 </Space>
             ),
             children: (
                 <div>
-                    <div style={{marginBottom: 16, display: 'flex', justifyContent: 'space-between'}}>
+                    <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
                         <Text type="secondary">
                             手动上传 Excel 或 CSV 文件导入数据
                         </Text>
                         <Button
                             type="primary"
-                            icon={<UploadOutlined/>}
+                            icon={<UploadOutlined />}
                             onClick={() => setUploadModalVisible(true)}
                         >
                             上传文件
@@ -663,43 +785,49 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
                 <Form
                     form={cdcForm}
                     layout="vertical"
-                    style={{marginTop: 16}}
+                    style={{ marginTop: 16 }}
                 >
+                    <Form.Item
+                        name="dsName"
+                        label="数据源名称"
+                        rules={[{ required: true, message: '请输入数据源名称' }]}
+                    >
+                        <Input placeholder="请输入数据源名称（如 mysql-x99）" defaultValue={catalog} />
+                    </Form.Item>
                     <Form.Item
                         name="sourceDatabase"
                         label="源数据库"
-                        rules={[{required: true, message: '请输入源数据库'}]}
+                        rules={[{ required: true, message: '请输入源数据库' }]}
                     >
-                        <Input placeholder="请输入源数据库名称"/>
+                        <Input placeholder="请输入源数据库名称" />
                     </Form.Item>
                     <Form.Item
                         name="sourceTable"
                         label="源表名"
-                        rules={[{required: true, message: '请输入源表名'}]}
+                        rules={[{ required: true, message: '请输入源表名' }]}
                     >
-                        <Input placeholder="请输入源表名称"/>
+                        <Input placeholder="请输入源表名称" />
                     </Form.Item>
                     <Form.Item
                         name="targetDatabase"
                         label="目标数据库"
-                        rules={[{required: true, message: '请输入目标数据库'}]}
+                        rules={[{ required: true, message: '请输入目标数据库' }]}
                     >
-                        <Input placeholder="请输入目标数据库名称"/>
+                        <Input placeholder="请输入目标数据库（Iceberg Schema）" />
                     </Form.Item>
                     <Form.Item
                         name="targetTable"
                         label="目标表名"
-                        rules={[{required: true, message: '请输入目标表名'}]}
+                        rules={[{ required: true, message: '请输入目标表名' }]}
                     >
-                        <Input placeholder="请输入目标表名称"/>
+                        <Input placeholder="请输入目标表名称（Iceberg 表名）" />
                     </Form.Item>
                     <Form.Item
                         name="syncMode"
                         label="同步模式"
-                        rules={[{required: true, message: '请选择同步模式'}]}
+                        rules={[{ required: true, message: '请选择同步模式' }]}
                     >
-                        <Select placeholder="请选择同步模式">
-                            <Select.Option value="full">全量同步</Select.Option>
+                        <Select placeholder="请选择同步模式" disabled>
                             <Select.Option value="incremental">增量同步</Select.Option>
                         </Select>
                     </Form.Item>
@@ -717,12 +845,12 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
                 cancelText="取消"
                 width={500}
             >
-                <div style={{marginTop: 16}}>
-                    <Form.Item label="上传模式" style={{marginBottom: 16}}>
+                <div style={{ marginTop: 16 }}>
+                    <Form.Item label="上传模式" style={{ marginBottom: 16 }}>
                         <Select
                             value={uploadMode}
                             onChange={setUploadMode}
-                            style={{width: '100%'}}
+                            style={{ width: '100%' }}
                         >
                             <Select.Option value="append">
                                 <Space>
@@ -739,7 +867,7 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
                         </Select>
                     </Form.Item>
 
-                    <Divider/>
+                    <Divider />
 
                     <Upload.Dragger
                         accept=".xlsx,.xls,.csv"
@@ -748,7 +876,7 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
                         multiple
                     >
                         <p className="ant-upload-drag-icon">
-                            <CloudUploadOutlined/>
+                            <CloudUploadOutlined />
                         </p>
                         <p className="ant-upload-text">点击或拖拽文件到此区域</p>
                         <p className="ant-upload-hint">
@@ -757,20 +885,20 @@ const AsyncJob: React.FC<AsyncJobProps> = ({tableId}) => {
                     </Upload.Dragger>
 
                     {selectedFiles.length > 0 && (
-                        <div style={{marginTop: 16}}>
-                            <Text type="secondary" style={{display: 'block', marginBottom: 8}}>
+                        <div style={{ marginTop: 16 }}>
+                            <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
                                 已选择 {selectedFiles.length} 个文件：
                             </Text>
-                            <Space direction="vertical" style={{width: '100%'}}>
+                            <Space direction="vertical" style={{ width: '100%' }}>
                                 {selectedFiles.map((file, index) => (
                                     <Card
                                         key={index}
                                         size="small"
                                         styles={{ body: { padding: '8px 12px' } }}
                                     >
-                                        <Space style={{width: '100%', justifyContent: 'space-between'}}>
+                                        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
                                             <Space>
-                                                <FileTextOutlined style={{color: file.name.endsWith('.csv') ? '#1890ff' : '#52c41a'}}/>
+                                                <FileTextOutlined style={{ color: file.name.endsWith('.csv') ? '#1890ff' : '#52c41a' }} />
                                                 <Text>{file.name}</Text>
                                                 <Text type="secondary">({(file.size / 1024).toFixed(1)} KB)</Text>
                                             </Space>

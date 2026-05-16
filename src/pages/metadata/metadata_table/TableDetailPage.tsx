@@ -175,7 +175,14 @@ const TableDetailPage: React.FC = () => {
                     同步任务
                 </span>
             ),
-            children: <ScheduleInfo tableId={tableId || ''}/>,
+            children: (
+                <ScheduleInfo
+                    tableId={tableId || ''}
+                    catalog={tableData?.table?.catalog || ''}
+                    schema={tableData?.table?.schema || ''}
+                    tableName={tableData?.name || ''}
+                />
+            ),
         },
         {
             key: 'relations',
