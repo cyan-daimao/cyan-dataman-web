@@ -142,6 +142,7 @@ const TableSchemaManagement: React.FC = () => {
     const [cdcForm] = Form.useForm();
     const [subjects, setSubjects] = useState<SubjectDTO[]>([]);
     const [cdcSubmitting, setCdcSubmitting] = useState(false);
+    const [cdcSelectedSubjectCode, setCdcSelectedSubjectCode] = useState<string>('');
 
     useEffect(() => {
         fetchDatasources();
@@ -730,6 +731,7 @@ const TableSchemaManagement: React.FC = () => {
                             placeholder="请选择主题"
                             showSearch
                             optionFilterProp="children"
+                            onChange={(value) => setCdcSelectedSubjectCode(value as string)}
                         >
                             {subjects.map(subject => (
                                 <Select.Option key={subject.subjectCode} value={subject.subjectCode}>
@@ -738,6 +740,14 @@ const TableSchemaManagement: React.FC = () => {
                             ))}
                         </Select>
                     </Form.Item>
+                    {cdcSelectedSubjectCode && selectedDbName && (
+                        <Form.Item label="目标 ODS 表名">
+                            <Input
+                                value={`ods_cdc_raw_${cdcSelectedSubjectCode.replace(/[^a-zA-Z0-9_]/g, '_')}_${selectedDbName.replace(/[^a-zA-Z0-9_]/g, '_')}_${cdcModalTableName.replace(/[^a-zA-Z0-9_]/g, '_')}`}
+                                disabled
+                            />
+                        </Form.Item>
+                    )}
                 </Form>
             </Modal>
         </div>
