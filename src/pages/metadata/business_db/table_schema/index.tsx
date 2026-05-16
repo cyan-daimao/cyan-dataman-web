@@ -530,12 +530,20 @@ const TableSchemaManagement: React.FC = () => {
                             style={{ color: '#1A9F5C' }}
                         />
                     </Tooltip>
-                    <Tooltip title={record.cdcEnabled ? '停用 CDC' : '启用 CDC'}>
+                    <Tooltip title={record.cdcEnabled ? '停用 CDC' : record.cdcConfigId ? '启用 CDC' : '创建 CDC'}>
                         <Button
                             type="text"
                             size="small"
                             icon={<CloudSyncOutlined />}
-                            onClick={() => record.cdcEnabled ? handleToggleCdc(record) : handleOpenCdcModal(record.tableName)}
+                            onClick={() => {
+                                if (record.cdcEnabled) {
+                                    handleToggleCdc(record);
+                                } else if (record.cdcConfigId) {
+                                    handleToggleCdc(record);
+                                } else {
+                                    handleOpenCdcModal(record.tableName);
+                                }
+                            }}
                             style={{ color: record.cdcEnabled ? '#722ED1' : '#8B909A' }}
                         />
                     </Tooltip>
