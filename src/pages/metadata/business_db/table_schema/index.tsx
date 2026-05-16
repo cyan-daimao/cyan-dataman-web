@@ -233,7 +233,7 @@ const TableSchemaManagement: React.FC = () => {
                     return {
                         tableName: tbl.tableName,
                         tableComment: tbl.tableComment,
-                        cdcEnabled: !!cdc,
+                        cdcEnabled: cdc?.enabled ?? false,
                         cdcConfigId: cdc?.id,
                         envStatus: EnvStatus.SYNCED,
                         updatedAt: new Date().toISOString(),
