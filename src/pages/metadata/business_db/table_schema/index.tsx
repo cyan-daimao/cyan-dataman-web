@@ -261,7 +261,7 @@ const TableSchemaManagement: React.FC = () => {
     };
 
     // CDC 相关操作
-    const handleOpenCdcModal = async (tableName: string, configName?: string) => {
+    const handleOpenCdcModal = async (tableName: string, configId?: string) => {
         setCdcModalTableName(tableName);
         cdcForm.resetFields();
         setCdcSelectedSubjectCode('');
@@ -274,14 +274,19 @@ const TableSchemaManagement: React.FC = () => {
             message.error('加载主题列表失败');
         }
 
-        if (configName) {
-            // 查看已有配置
+        if (configId) {
+            // 查看已有配置（通过 listCdcConfigs 查询，避免 id/name 混淆）
             setCdcModalMode('view');
-            setCdcModalConfigName(configName);
+            setCdcModalConfigName(configId);
             try {
-                const res = await getCdcConfig(configName);
-                if (res.code === 200 && res.data) {
-                    const dto = res.data;
+                const res = await listCdcConfigs({
+                    dsName: selectedDsName!,
+                    dbName: selectedDbName!,
+                    tableName,
+                    syncTool: 'FLINK',
+                });
+                if (res.code === 200 && res.data && res.data.length > 0) {
+                    const dto = res.data[0];
                     cdcForm.setFieldsValue({ subjectCode: dto.subjectCode });
                     setCdcSelectedSubjectCode(dto.subjectCode || '');
                     setCdcModalConfigEnabled(dto.enabled);
