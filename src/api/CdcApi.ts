@@ -34,7 +34,8 @@ export interface CdcConfigCmd {
     dsName: string;
     dbName: string;
     tableName: string;
-    icebergTableName: string;
+    subjectCode: string;
+    icebergTableName?: string;
     syncTool: 'SPARK' | 'FLINK';
     syncSql?: string;
     description?: string;

@@ -151,7 +151,7 @@ const mapDtoToCdcConfig = (dto: CdcConfigDTO): CDCConfig => {
 
 const AsyncJob: React.FC<AsyncJobProps> = ({ catalog, schema, tableName }) => {
     const [loading, setLoading] = useState<boolean>(false);
-    const [activeTab, setActiveTab] = useState<string>('cdc');
+    const [activeTab, setActiveTab] = useState<string>('sql');
 
     // CDC 相关状态
     const [cdcConfigs, setCdcConfigs] = useState<CDCConfig[]>([]);
@@ -666,39 +666,6 @@ const AsyncJob: React.FC<AsyncJobProps> = ({ catalog, schema, tableName }) => {
     // Tab 项配置
     const tabItems = [
         {
-            key: 'cdc',
-            label: (
-                <Space>
-                    <DatabaseOutlined />
-                    CDC 同步
-                </Space>
-            ),
-            children: (
-                <div>
-                    <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-                        <Text type="secondary">
-                            CDC (Change Data Capture) 实时捕获数据变更并同步到目标表
-                        </Text>
-                        <Button
-                            type="primary"
-                            icon={<PlusOutlined />}
-                            onClick={handleAddCdc}
-                        >
-                            新建配置
-                        </Button>
-                    </div>
-                    <Table
-                        columns={cdcColumns}
-                        dataSource={cdcConfigs}
-                        rowKey="id"
-                        size="small"
-                        pagination={false}
-                        loading={loading}
-                    />
-                </div>
-            )
-        },
-        {
             key: 'sql',
             label: (
                 <Space>
@@ -773,66 +740,6 @@ const AsyncJob: React.FC<AsyncJobProps> = ({ catalog, schema, tableName }) => {
                 onChange={setActiveTab}
                 items={tabItems}
             />
-
-            {/* CDC 配置模态框 */}
-            <Modal
-                title={editingCdc ? '编辑 CDC 配置' : '新建 CDC 配置'}
-                open={cdcModalVisible}
-                onOk={handleCdcSubmit}
-                onCancel={() => setCdcModalVisible(false)}
-                width={600}
-            >
-                <Form
-                    form={cdcForm}
-                    layout="vertical"
-                    style={{ marginTop: 16 }}
-                >
-                    <Form.Item
-                        name="dsName"
-                        label="数据源名称"
-                        rules={[{ required: true, message: '请输入数据源名称' }]}
-                    >
-                        <Input placeholder="请输入数据源名称（如 mysql-x99）" defaultValue={catalog} />
-                    </Form.Item>
-                    <Form.Item
-                        name="sourceDatabase"
-                        label="源数据库"
-                        rules={[{ required: true, message: '请输入源数据库' }]}
-                    >
-                        <Input placeholder="请输入源数据库名称" />
-                    </Form.Item>
-                    <Form.Item
-                        name="sourceTable"
-                        label="源表名"
-                        rules={[{ required: true, message: '请输入源表名' }]}
-                    >
-                        <Input placeholder="请输入源表名称" />
-                    </Form.Item>
-                    <Form.Item
-                        name="targetDatabase"
-                        label="目标数据库"
-                        rules={[{ required: true, message: '请输入目标数据库' }]}
-                    >
-                        <Input placeholder="请输入目标数据库（Iceberg Schema）" />
-                    </Form.Item>
-                    <Form.Item
-                        name="targetTable"
-                        label="目标表名"
-                        rules={[{ required: true, message: '请输入目标表名' }]}
-                    >
-                        <Input placeholder="请输入目标表名称（Iceberg 表名）" />
-                    </Form.Item>
-                    <Form.Item
-                        name="syncMode"
-                        label="同步模式"
-                        rules={[{ required: true, message: '请选择同步模式' }]}
-                    >
-                        <Select placeholder="请选择同步模式" disabled>
-                            <Select.Option value="incremental">增量同步</Select.Option>
-                        </Select>
-                    </Form.Item>
-                </Form>
-            </Modal>
 
             {/* 上传文件模态框 */}
             <Modal

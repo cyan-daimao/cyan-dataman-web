@@ -25,9 +25,19 @@ import {
     TableOutlined,
     SearchOutlined,
     DatabaseOutlined,
+    CloudSyncOutlined,
 } from '@ant-design/icons';
 import PermissionButton from '@/component/permission/PermissionButton';
 import {Database, databaseApi, DatasourceType, DSApi, DsConfig, tableApi} from '@/api/DSApi';
+import {
+    listCdcConfigs,
+    createCdcConfig,
+    deleteCdcConfig,
+    toggleCdcConfig,
+    CdcConfigDTO,
+    CdcConfigCmd
+} from '@/api/CdcApi';
+import {listSubjects, SubjectDTO} from '@/api/MetadataSubjectAPI';
 import {ColumnType} from 'antd/es/table';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 
@@ -47,6 +57,7 @@ interface TableInfo {
     tableName: string;
     tableComment: string;
     cdcEnabled: boolean;
+    cdcConfigId?: string;
     envStatus: EnvStatus;
     updatedAt: string;
 }
@@ -125,6 +136,13 @@ const TableSchemaManagement: React.FC = () => {
 
     const [initialized, setInitialized] = useState(false);
 
+    // CDC 相关状态
+    const [cdcModalVisible, setCdcModalVisible] = useState(false);
+    const [cdcModalTableName, setCdcModalTableName] = useState<string>('');
+    const [cdcForm] = Form.useForm();
+    const [subjects, setSubjects] = useState<SubjectDTO[]>([]);
+    const [cdcSubmitting, setCdcSubmitting] = useState(false);
+
     useEffect(() => {
         fetchDatasources();
     }, []);
@@ -198,15 +216,28 @@ const TableSchemaManagement: React.FC = () => {
     const fetchTables = async (dsName: string, dbName: string) => {
         setTableLoading(true);
         try {
-            const response = await tableApi.list(dsName, dbName);
-            if (response.code === 200) {
-                const tableInfos: TableInfo[] = (response.data || []).map(tbl => ({
-                    tableName: tbl.tableName,
-                    tableComment: tbl.tableComment,
-                    cdcEnabled: false,
-                    envStatus: EnvStatus.SYNCED,
-                    updatedAt: new Date().toISOString(),
-                }));
+            const [tableRes, cdcRes] = await Promise.all([
+                tableApi.list(dsName, dbName),
+                listCdcConfigs({ dsName, dbName, syncTool: 'FLINK' })
+            ]);
+
+            let cdcMap = new Map<string, CdcConfigDTO>();
+            if (cdcRes.code === 200 && cdcRes.data) {
+                cdcMap = new Map(cdcRes.data.map(c => [`${c.dbName}.${c.tableName}`, c]));
+            }
+
+            if (tableRes.code === 200) {
+                const tableInfos: TableInfo[] = (tableRes.data || []).map(tbl => {
+                    const cdc = cdcMap.get(`${dbName}.${tbl.tableName}`);
+                    return {
+                        tableName: tbl.tableName,
+                        tableComment: tbl.tableComment,
+                        cdcEnabled: !!cdc,
+                        cdcConfigId: cdc?.id,
+                        envStatus: EnvStatus.SYNCED,
+                        updatedAt: new Date().toISOString(),
+                    };
+                });
                 setTables(tableInfos);
             }
         } catch (error) {
@@ -223,6 +254,83 @@ const TableSchemaManagement: React.FC = () => {
 
     const handleDbChange = (dbName: string) => {
         setSelectedDbName(dbName);
+    };
+
+    // CDC 相关操作
+    const handleOpenCdcModal = async (tableName: string) => {
+        setCdcModalTableName(tableName);
+        cdcForm.resetFields();
+
+        // 加载主题列表
+        try {
+            const subjectList = await listSubjects({parentId: '0'});
+            setSubjects(subjectList || []);
+
+            // 查找是否有 code = cdc 的主题
+            const cdcSubject = subjectList?.find(s => s.subjectCode === 'cdc');
+            if (cdcSubject) {
+                cdcForm.setFieldsValue({ subjectCode: cdcSubject.subjectCode });
+            }
+        } catch {
+            message.error('加载主题列表失败');
+        }
+
+        setCdcModalVisible(true);
+    };
+
+    const handleCdcSubmit = async () => {
+        if (!selectedDsName || !selectedDbName) return;
+        try {
+            const values = await cdcForm.validateFields();
+            setCdcSubmitting(true);
+
+            const cmd: CdcConfigCmd = {
+                name: `${selectedDbName}_${cdcModalTableName}_cdc`,
+                dsName: selectedDsName,
+                dbName: selectedDbName,
+                tableName: cdcModalTableName,
+                subjectCode: values.subjectCode,
+                syncTool: 'FLINK',
+                description: `CDC 同步: ${selectedDbName}.${cdcModalTableName}`,
+            };
+
+            const res = await createCdcConfig(cmd);
+            if (res.code === 200) {
+                message.success('CDC 配置创建成功');
+                setCdcModalVisible(false);
+                if (selectedDsName && selectedDbName) {
+                    fetchTables(selectedDsName, selectedDbName);
+                }
+            } else {
+                message.error(res.message || '创建失败');
+            }
+        } catch (error) {
+            console.error('CDC 配置创建失败:', error);
+        } finally {
+            setCdcSubmitting(false);
+        }
+    };
+
+    const handleToggleCdc = async (record: TableInfo) => {
+        if (!record.cdcConfigId) return;
+        try {
+            const res = await listCdcConfigs({ dsName: selectedDsName!, dbName: selectedDbName!, tableName: record.tableName, syncTool: 'FLINK' });
+            if (res.code === 200 && res.data && res.data.length > 0) {
+                const dto = res.data[0];
+                const toggleRes = await toggleCdcConfig(dto.name, !record.cdcEnabled);
+                if (toggleRes.code === 200) {
+                    message.success(record.cdcEnabled ? '已停用' : '已启用');
+                    if (selectedDsName && selectedDbName) {
+                        fetchTables(selectedDsName, selectedDbName);
+                    }
+                } else {
+                    message.error(toggleRes.message || '操作失败');
+                }
+            }
+        } catch (error) {
+            console.error('CDC 启停失败:', error);
+            message.error('操作失败');
+        }
     };
 
     const handleCreateTable = () => {
@@ -421,6 +529,15 @@ const TableSchemaManagement: React.FC = () => {
                             style={{ color: '#1A9F5C' }}
                         />
                     </Tooltip>
+                    <Tooltip title={record.cdcEnabled ? '停用 CDC' : '启用 CDC'}>
+                        <Button
+                            type="text"
+                            size="small"
+                            icon={<CloudSyncOutlined />}
+                            onClick={() => record.cdcEnabled ? handleToggleCdc(record) : handleOpenCdcModal(record.tableName)}
+                            style={{ color: record.cdcEnabled ? '#722ED1' : '#8B909A' }}
+                        />
+                    </Tooltip>
                     <Popconfirm
                         title="确定删除该表吗？此操作不可恢复！"
                         onConfirm={() => handleDelete(record.tableName)}
@@ -577,6 +694,49 @@ const TableSchemaManagement: React.FC = () => {
                             value={newTableName}
                             onChange={e => setNewTableName(e.target.value)}
                         />
+                    </Form.Item>
+                </Form>
+            </Modal>
+
+            {/* CDC 配置模态框 */}
+            <Modal
+                title={`创建 CDC 同步 - ${cdcModalTableName}`}
+                open={cdcModalVisible}
+                onOk={handleCdcSubmit}
+                onCancel={() => setCdcModalVisible(false)}
+                confirmLoading={cdcSubmitting}
+                width={520}
+            >
+                <Form
+                    form={cdcForm}
+                    layout="vertical"
+                    style={{ marginTop: 16 }}
+                >
+                    <Form.Item label="数据源">
+                        <Input value={selectedDsName || ''} disabled />
+                    </Form.Item>
+                    <Form.Item label="数据库">
+                        <Input value={selectedDbName || ''} disabled />
+                    </Form.Item>
+                    <Form.Item label="表名">
+                        <Input value={cdcModalTableName} disabled />
+                    </Form.Item>
+                    <Form.Item
+                        name="subjectCode"
+                        label="主题"
+                        rules={[{ required: true, message: '请选择主题' }]}
+                    >
+                        <Select
+                            placeholder="请选择主题"
+                            showSearch
+                            optionFilterProp="children"
+                        >
+                            {subjects.map(subject => (
+                                <Select.Option key={subject.subjectCode} value={subject.subjectCode}>
+                                    {subject.subjectName} ({subject.subjectCode})
+                                </Select.Option>
+                            ))}
+                        </Select>
                     </Form.Item>
                 </Form>
             </Modal>
