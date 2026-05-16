@@ -591,7 +591,14 @@ const TableSchemaManagement: React.FC = () => {
                             icon={<CloudSyncOutlined />}
                             onClick={() => {
                                 if (record.cdcEnabled) {
-                                    handleOpenCdcModal(record.tableName, record.cdcConfigId);
+                                    Modal.confirm({
+                                        title: '确认停用 CDC 同步',
+                                        content: `关闭后 ${record.tableName} 将不再同步数据到数仓，是否确认？`,
+                                        okText: '确认停用',
+                                        okType: 'danger',
+                                        cancelText: '取消',
+                                        onOk: () => handleToggleCdc(record),
+                                    });
                                 } else if (record.cdcConfigId) {
                                     handleOpenCdcModal(record.tableName, record.cdcConfigId);
                                 } else {
