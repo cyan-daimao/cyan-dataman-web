@@ -139,6 +139,9 @@ const TableSchemaManagement: React.FC = () => {
     // CDC 相关状态
     const [cdcModalVisible, setCdcModalVisible] = useState(false);
     const [cdcModalTableName, setCdcModalTableName] = useState<string>('');
+    const [cdcModalMode, setCdcModalMode] = useState<'create' | 'view'>('create');
+    const [cdcModalConfigName, setCdcModalConfigName] = useState<string>('');
+    const [cdcModalConfigEnabled, setCdcModalConfigEnabled] = useState<boolean>(false);
     const [cdcForm] = Form.useForm();
     const [subjects, setSubjects] = useState<SubjectDTO[]>([]);
     const [cdcSubmitting, setCdcSubmitting] = useState(false);
@@ -258,22 +261,49 @@ const TableSchemaManagement: React.FC = () => {
     };
 
     // CDC 相关操作
-    const handleOpenCdcModal = async (tableName: string) => {
+    const handleOpenCdcModal = async (tableName: string, configName?: string) => {
         setCdcModalTableName(tableName);
         cdcForm.resetFields();
+        setCdcSelectedSubjectCode('');
 
         // 加载主题列表
         try {
             const subjectList = await listSubjects({parentId: '0'});
             setSubjects(subjectList || []);
-
-            // 查找是否有 code = cdc 的主题
-            const cdcSubject = subjectList?.find(s => s.subjectCode === 'cdc');
-            if (cdcSubject) {
-                cdcForm.setFieldsValue({ subjectCode: cdcSubject.subjectCode });
-            }
         } catch {
             message.error('加载主题列表失败');
+        }
+
+        if (configName) {
+            // 查看已有配置
+            setCdcModalMode('view');
+            setCdcModalConfigName(configName);
+            try {
+                const res = await getCdcConfig(configName);
+                if (res.code === 200 && res.data) {
+                    const dto = res.data;
+                    cdcForm.setFieldsValue({ subjectCode: dto.subjectCode });
+                    setCdcSelectedSubjectCode(dto.subjectCode || '');
+                    setCdcModalConfigEnabled(dto.enabled);
+                }
+            } catch {
+                message.error('加载 CDC 配置失败');
+            }
+        } else {
+            // 创建新配置
+            setCdcModalMode('create');
+            setCdcModalConfigName('');
+            setCdcModalConfigEnabled(false);
+            try {
+                const subjectList = await listSubjects({parentId: '0'});
+                const cdcSubject = subjectList?.find(s => s.subjectCode === 'cdc');
+                if (cdcSubject) {
+                    cdcForm.setFieldsValue({ subjectCode: cdcSubject.subjectCode });
+                    setCdcSelectedSubjectCode(cdcSubject.subjectCode);
+                }
+            } catch {
+                // ignore
+            }
         }
 
         setCdcModalVisible(true);
@@ -282,31 +312,55 @@ const TableSchemaManagement: React.FC = () => {
     const handleCdcSubmit = async () => {
         if (!selectedDsName || !selectedDbName) return;
         try {
-            const values = await cdcForm.validateFields();
             setCdcSubmitting(true);
 
-            const cmd: CdcConfigCmd = {
-                name: `${selectedDbName}_${cdcModalTableName}_cdc`,
-                dsName: selectedDsName,
-                dbName: selectedDbName,
-                tableName: cdcModalTableName,
-                subjectCode: values.subjectCode,
-                syncTool: 'FLINK',
-                description: `CDC 同步: ${selectedDbName}.${cdcModalTableName}`,
-            };
-
-            const res = await createCdcConfig(cmd);
-            if (res.code === 200) {
-                message.success('CDC 配置创建成功');
-                setCdcModalVisible(false);
-                if (selectedDsName && selectedDbName) {
-                    fetchTables(selectedDsName, selectedDbName);
+            if (cdcModalMode === 'view' && cdcModalConfigName) {
+                // view 模式：toggle 启用/停用
+                const res = await listCdcConfigs({
+                    dsName: selectedDsName,
+                    dbName: selectedDbName,
+                    tableName: cdcModalTableName,
+                    syncTool: 'FLINK',
+                });
+                if (res.code === 200 && res.data && res.data.length > 0) {
+                    const dto = res.data[0];
+                    const toggleRes = await toggleCdcConfig(dto.name, !dto.enabled);
+                    if (toggleRes.code === 200) {
+                        message.success(dto.enabled ? '已停用' : '已启用');
+                        setCdcModalVisible(false);
+                        if (selectedDsName && selectedDbName) {
+                            fetchTables(selectedDsName, selectedDbName);
+                        }
+                    } else {
+                        message.error(toggleRes.message || '操作失败');
+                    }
                 }
             } else {
-                message.error(res.message || '创建失败');
+                // create 模式：创建新配置
+                const values = await cdcForm.validateFields();
+                const cmd: CdcConfigCmd = {
+                    name: `${selectedDbName}_${cdcModalTableName}_cdc`,
+                    dsName: selectedDsName,
+                    dbName: selectedDbName,
+                    tableName: cdcModalTableName,
+                    subjectCode: values.subjectCode,
+                    syncTool: 'FLINK',
+                    description: `CDC 同步: ${selectedDbName}.${cdcModalTableName}`,
+                };
+
+                const res = await createCdcConfig(cmd);
+                if (res.code === 200) {
+                    message.success('CDC 配置创建成功');
+                    setCdcModalVisible(false);
+                    if (selectedDsName && selectedDbName) {
+                        fetchTables(selectedDsName, selectedDbName);
+                    }
+                } else {
+                    message.error(res.message || '创建失败');
+                }
             }
         } catch (error) {
-            console.error('CDC 配置创建失败:', error);
+            console.error('CDC 操作失败:', error);
         } finally {
             setCdcSubmitting(false);
         }
@@ -537,9 +591,9 @@ const TableSchemaManagement: React.FC = () => {
                             icon={<CloudSyncOutlined />}
                             onClick={() => {
                                 if (record.cdcEnabled) {
-                                    handleToggleCdc(record);
+                                    handleOpenCdcModal(record.tableName, record.cdcConfigId);
                                 } else if (record.cdcConfigId) {
-                                    handleToggleCdc(record);
+                                    handleOpenCdcModal(record.tableName, record.cdcConfigId);
                                 } else {
                                     handleOpenCdcModal(record.tableName);
                                 }
@@ -709,11 +763,12 @@ const TableSchemaManagement: React.FC = () => {
 
             {/* CDC 配置模态框 */}
             <Modal
-                title={`创建 CDC 同步 - ${cdcModalTableName}`}
+                title={cdcModalMode === 'create' ? `创建 CDC 同步 - ${cdcModalTableName}` : `CDC 同步 - ${cdcModalTableName}`}
                 open={cdcModalVisible}
                 onOk={handleCdcSubmit}
                 onCancel={() => setCdcModalVisible(false)}
                 confirmLoading={cdcSubmitting}
+                okText={cdcModalMode === 'view' ? (cdcModalConfigEnabled ? '停用' : '启用') : '确定'}
                 width={520}
             >
                 <Form
