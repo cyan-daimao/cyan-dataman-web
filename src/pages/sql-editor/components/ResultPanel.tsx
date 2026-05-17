@@ -81,12 +81,15 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
         dataIndex: col,
         key: col,
         width: 150,
-        ellipsis: true,
         render: (value: any) => {
             if (value === null || value === undefined) {
                 return <Text type="secondary">NULL</Text>;
             }
-            return <Text>{String(value)}</Text>;
+            return (
+                <Text ellipsis style={{ maxWidth: 150 }}>
+                    {String(value)}
+                </Text>
+            );
         },
     })) || [];
 
