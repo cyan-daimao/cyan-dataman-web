@@ -506,5 +506,5 @@ export interface UserFunctionPermissionDTO {
   permissions: string[];
 }
 
-export const getUserFunctionPermissions = (): Promise<ApiResponse<FunctionPermissionNode[]>> =>
-  dataauthRequest.get('/api/v1/auth/function-permissions/tree');
+export const getUserFunctionPermissions = (passport?: string): Promise<ApiResponse<FunctionPermissionNode[]>> =>
+  dataauthRequest.get('/api/v1/auth/function-permissions/tree', { params: { passport } });

@@ -101,7 +101,9 @@ const PermissionGuard = ({ permission, children }: { permission: string; childre
             }
 
             try {
-                const res = await getUserFunctionPermissions();
+                const currentStr = localStorage.getItem('current');
+                const passport = currentStr ? JSON.parse(currentStr).passport : '';
+                const res = await getUserFunctionPermissions(passport);
                 if (res.code === 200 && res.data) {
                     const keys = extractPermissionKeys(res.data);
                     localStorage.setItem('user_function_permissions', JSON.stringify(keys));

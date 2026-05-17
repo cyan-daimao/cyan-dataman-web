@@ -40,7 +40,8 @@ const LoginPage: React.FC = () => {
             setStorage(KEY.CURRENT, employeeDTO.data);
             // Round1: ready — 登录成功后立即刷新权限缓存
             try {
-                const permRes = await getUserFunctionPermissions();
+                const passport = employeeDTO.data?.passport || '';
+                const permRes = await getUserFunctionPermissions(passport);
                 if (permRes.code === 200 && permRes.data) {
                     const keys = extractPermissionKeys(permRes.data);
                     localStorage.setItem('user_function_permissions', JSON.stringify(keys));
