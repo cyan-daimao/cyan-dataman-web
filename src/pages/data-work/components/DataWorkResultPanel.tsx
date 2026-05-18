@@ -269,7 +269,7 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
                 onChange={onTabChange}
                 items={tabItems}
                 size="small"
-                style={{flex: 1, minHeight: 0}}
+                style={{flex: 1, minHeight: 0, minWidth: 0}}
                 tabBarStyle={{padding: '0 12px', flexShrink: 0, marginBottom: 0}}
             />
         </div>
