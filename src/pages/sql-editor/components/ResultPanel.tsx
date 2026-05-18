@@ -145,7 +145,7 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                 </span>
             ),
             children: (
-                <div style={{height: '100%', display: 'flex', flexDirection: 'column', overflow: 'auto'}}>
+                <div style={{minHeight: '100%', paddingBottom: 20}}>
                     <Spin spinning={loading}>
                         {error ? (
                             <div style={{padding: 24, textAlign: 'center'}}>
