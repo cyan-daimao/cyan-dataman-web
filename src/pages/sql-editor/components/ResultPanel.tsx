@@ -271,6 +271,17 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
         }
     ];
 
+    // DEBUG: 打印 result 状态
+    console.log('[ResultPanel] render:', {
+        resultExists: !!result,
+        resultType: typeof result,
+        resultKeys: result ? Object.keys(result) : null,
+        rowsLength: result?.rows?.length,
+        columnsLength: result?.columns?.length,
+        total: result?.total,
+        duration: result?.duration,
+    });
+
     return (
         <div style={{height: '100%', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '5px solid red'}}>
             <Tabs
