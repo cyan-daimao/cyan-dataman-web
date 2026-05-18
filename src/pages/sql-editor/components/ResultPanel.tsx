@@ -289,13 +289,13 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                 🧪 ABSOLUTE BUTTON TEST
             </div>
 
-            {/* DEBUG: 静态 HTML 测试 - 使用 float 而不是 flex */}
+            {/* DEBUG: 静态 HTML 测试 - 按钮在前，使用 button 标签 */}
             <div dangerouslySetInnerHTML={{__html: `
                 <div style="border:3px solid blue;padding:10px;margin:10px;background:#e6f7ff;">
                     <h3 style="margin:0 0 8px;">🧪 静态 HTML 测试</h3>
-                    <div style="padding:8px 12px;background:#f5f5f5;margin-bottom:8px;border-radius:4px;overflow:hidden;">
-                        <span>LEFT SIDE</span>
-                        <span style="background:blue;color:white;padding:5px 10px;font-size:16px;font-weight:bold;border:2px solid red;float:right;">RIGHT BUTTON</span>
+                    <div style="padding:8px 12px;background:#f5f5f5;margin-bottom:8px;border-radius:4px;">
+                        <button style="background:red;color:yellow;padding:10px 20px;font-size:18px;font-weight:bold;border:3px solid black;">BUTTON TEST</button>
+                        <span style="margin-left:20px;">LEFT SIDE</span>
                     </div>
                     <div style="margin-top:8px;padding:8px;background:yellow;">
                         PAGINATION TEST
