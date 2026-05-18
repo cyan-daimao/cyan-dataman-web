@@ -110,46 +110,43 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
                 </span>
             ),
             children: (
-                <div style={{height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden'}}>
-                    <Spin spinning={loading} style={{flex: 1, minHeight: 0}}>
+                <div style={{height: '100%', display: 'flex', flexDirection: 'column', overflow: 'auto'}}>
+                    <Spin spinning={loading}>
                         {error ? (
                             <div style={{padding: 24, textAlign: 'center'}}>
                                 <Text type="danger">{error}</Text>
                             </div>
                         ) : result ? (
-                            <div style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
+                            <div>
                                 <div style={{
                                     padding: '8px 12px',
                                     background: '#f5f5f5',
                                     marginBottom: 8,
-                                    borderRadius: 4,
-                                    flexShrink: 0
+                                    borderRadius: 4
                                 }}>
                                     <span><ClockCircleOutlined/> 耗时：{result.duration}ms | 返回行数：{result.rows.length} | 总行数：{result.total}</span>
                                     <Button type="link" size="small" icon={<DownloadOutlined/>} onClick={downloadCSV} style={{marginLeft: 12}}>
                                         下载CSV
                                     </Button>
                                 </div>
-                                <div style={{flex: 1, minHeight: 0, overflow: 'auto'}}>
-                                    <Table
-                                        dataSource={rowsWithIndex}
-                                        columns={columnsWithKey}
-                                        rowKey="_idx"
-                                        size="small"
-                                        pagination={{
-                                            current: pagination.current,
-                                            pageSize: pagination.pageSize,
-                                            total: result.rows.length,
-                                            showSizeChanger: true,
-                                            showQuickJumper: true,
-                                            showTotal: (total) => `共 ${total} 条`,
-                                            pageSizeOptions: ['10', '20', '50', '100']
-                                        }}
-                                        onChange={handleTableChange}
-                                        scroll={{x: columnsWithKey.length * 150, y: 'calc(100vh - 500px)'}}
-                                        bordered
-                                    />
-                                </div>
+                                <Table
+                                    dataSource={rowsWithIndex}
+                                    columns={columnsWithKey}
+                                    rowKey="_idx"
+                                    size="small"
+                                    pagination={{
+                                        current: pagination.current,
+                                        pageSize: pagination.pageSize,
+                                        total: result.rows.length,
+                                        showSizeChanger: true,
+                                        showQuickJumper: true,
+                                        showTotal: (total) => `共 ${total} 条`,
+                                        pageSizeOptions: ['10', '20', '50', '100']
+                                    }}
+                                    onChange={handleTableChange}
+                                    scroll={{x: columnsWithKey.length * 150}}
+                                    bordered
+                                />
                             </div>
                         ) : (
                             <Empty description="暂无查询结果，请先执行 SQL" image={Empty.PRESENTED_IMAGE_SIMPLE}/>
