@@ -289,41 +289,17 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                 🧪 ABSOLUTE BUTTON TEST
             </div>
 
-            {/* DEBUG: 独立测试区域，绕过 Tabs */}
+            {/* DEBUG: 极简测试区域 */}
             {result && (
                 <div style={{border: '3px solid blue', padding: 10, margin: 10, background: '#e6f7ff'}}>
-                    <h3 style={{margin: '0 0 8px'}}>🧪 独立测试区域（绕过 Tabs）</h3>
+                    <h3 style={{margin: '0 0 8px'}}>🧪 极简测试</h3>
                     <div style={{padding: '8px 12px', background: '#f5f5f5', marginBottom: 8, borderRadius: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                        <Space split={<span>|</span>}>
-                            <span><ClockCircleOutlined/> 耗时：{result.duration}ms</span>
-                            <span>返回行数：{result.rows.length}</span>
-                            <span>总行数：{result.total}</span>
-                        </Space>
-                        <div
-                            onClick={downloadCSV}
-                            style={{background: '#1890ff', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 12, cursor: 'pointer', display: 'inline-block'}}
-                        >
-                            📥 下载CSV [STANDALONE]
-                        </div>
+                        <span>LEFT SIDE</span>
+                        <span style={{background: 'blue', color: 'white', padding: '5px 10px'}}>RIGHT BUTTON</span>
                     </div>
-                    <Table
-                        dataSource={rowsWithIndex}
-                        columns={columnsWithKey}
-                        rowKey="_idx"
-                        size="small"
-                        pagination={{
-                            current: pagination.current,
-                            pageSize: pagination.pageSize,
-                            total: result.rows.length,
-                            showSizeChanger: true,
-                            showQuickJumper: true,
-                            showTotal: (total) => `共 ${total} 条`,
-                            pageSizeOptions: ['10', '20', '50', '100']
-                        }}
-                        onChange={handleTableChange}
-                        scroll={{x: columnsWithKey.length * 150, y: 300}}
-                        bordered
-                    />
+                    <div style={{marginTop: 8, padding: 8, background: 'yellow'}}>
+                        PAGINATION TEST
+                    </div>
                 </div>
             )}
 
