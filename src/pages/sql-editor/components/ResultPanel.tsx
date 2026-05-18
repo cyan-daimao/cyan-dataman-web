@@ -289,19 +289,19 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                 🧪 ABSOLUTE BUTTON TEST
             </div>
 
-            {/* DEBUG: 极简测试区域 */}
-            {result && (
-                <div style={{border: '3px solid blue', padding: 10, margin: 10, background: '#e6f7ff'}}>
-                    <h3 style={{margin: '0 0 8px'}}>🧪 极简测试</h3>
-                    <div style={{padding: '8px 12px', background: '#f5f5f5', marginBottom: 8, borderRadius: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+            {/* DEBUG: 静态 HTML 测试 */}
+            <div dangerouslySetInnerHTML={{__html: `
+                <div style="border:3px solid blue;padding:10px;margin:10px;background:#e6f7ff;">
+                    <h3 style="margin:0 0 8px;">🧪 静态 HTML 测试</h3>
+                    <div style="padding:8px 12px;background:#f5f5f5;margin-bottom:8px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;">
                         <span>LEFT SIDE</span>
-                        <span style={{background: 'blue', color: 'white', padding: '5px 10px'}}>RIGHT BUTTON</span>
+                        <span style="background:blue;color:white;padding:5px 10px;font-size:16px;font-weight:bold;border:2px solid red;">RIGHT BUTTON</span>
                     </div>
-                    <div style={{marginTop: 8, padding: 8, background: 'yellow'}}>
+                    <div style="margin-top:8px;padding:8px;background:yellow;">
                         PAGINATION TEST
                     </div>
                 </div>
-            )}
+            `}} />
 
             <Tabs
                 activeKey={activeTab}
