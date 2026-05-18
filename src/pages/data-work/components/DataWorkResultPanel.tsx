@@ -136,7 +136,7 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
                                         rowKey="_idx"
                                         size="small"
                                         pagination={false}
-                                        scroll={{x: 'max-content', y: 400}}
+                                        scroll={{x: 5000, y: 400}}
                                         bordered
                                     />
                                 </div>
