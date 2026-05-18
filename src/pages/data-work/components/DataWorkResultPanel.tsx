@@ -93,7 +93,7 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
                                         <span>总行数：{result.total}</span>
                                     </Space>
                                 </div>
-                                <div style={{flex: 1, minHeight: 0, overflow: 'auto'}}>
+                                <div style={{flex: 1, minHeight: 0, overflow: 'hidden'}}>
                                     <Table
                                         dataSource={rowsWithIndex}
                                         columns={columnsWithKey}
@@ -109,7 +109,7 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
                                             pageSizeOptions: ['10', '20', '50', '100']
                                         }}
                                         onChange={handleTableChange}
-                                        scroll={{x: 'max-content', y: 300}}
+                                        scroll={{x: columnsWithKey.length * 150, y: 300}}
                                         bordered
                                     />
                                 </div>
