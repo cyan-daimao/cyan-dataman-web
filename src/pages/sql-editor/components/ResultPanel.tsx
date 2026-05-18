@@ -1,5 +1,5 @@
 import {Card, Empty, Spin, Table, TableProps, Tabs, Tag, Typography, Button, Pagination} from 'antd';
-import {useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {
     ClockCircleOutlined,
     DownloadOutlined,
@@ -42,6 +42,30 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
             pageSize: newPagination.pageSize
         });
     };
+
+    const tableContainerRef = useRef<HTMLDivElement>(null);
+    const [tableScrollY, setTableScrollY] = useState(300);
+
+    useEffect(() => {
+        const el = tableContainerRef.current;
+        if (!el) return;
+
+        const updateScrollY = () => {
+            const header = el.querySelector('.ant-table-header') as HTMLElement | null
+                || el.querySelector('.ant-table-thead') as HTMLElement | null;
+            const headerHeight = header?.offsetHeight ?? 55;
+            setTableScrollY(Math.max(el.clientHeight - headerHeight, 120));
+        };
+
+        updateScrollY();
+
+        const resizeObserver = new ResizeObserver(updateScrollY);
+        resizeObserver.observe(el);
+
+        return () => {
+            resizeObserver.disconnect();
+        };
+    }, [activeTab, result]);
 
     // 下载 CSV
     const downloadCSV = () => {
@@ -145,37 +169,32 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                 </span>
             ),
             children: (
-                <div style={{minHeight: '100%', paddingBottom: 20}}>
-                    <Spin spinning={loading}>
+                <div className="result-table-panel">
+                    <Spin spinning={loading} wrapperClassName="result-table-spin">
                         {error ? (
                             <div style={{padding: 24, textAlign: 'center'}}>
                                 <Text type="danger">{error}</Text>
                             </div>
                         ) : result ? (
-                            <div>
-                                <div style={{
-                                    padding: '8px 12px',
-                                    background: '#f5f5f5',
-                                    marginBottom: 8,
-                                    borderRadius: 4
-                                }}>
+                            <>
+                                <div className="result-table-summary">
                                     <span><ClockCircleOutlined/> 耗时：{result.duration}ms | 返回行数：{result.rows.length} | 总行数：{result.total}</span>
                                     <Button type="link" size="small" icon={<DownloadOutlined/>} onClick={downloadCSV} style={{marginLeft: 12}}>
                                         下载CSV
                                     </Button>
                                 </div>
-                                <div style={{overflow: 'hidden', minWidth: 0}}>
+                                <div className="result-table-container" ref={tableContainerRef}>
                                     <Table
                                         dataSource={rowsWithIndex.slice((pagination.current - 1) * pagination.pageSize, pagination.current * pagination.pageSize)}
                                         columns={columnsWithKey}
                                         rowKey="_idx"
                                         size="small"
                                         pagination={false}
-                                        scroll={{x: columnsWithKey.length * 150, y: 400}}
+                                        scroll={{x: columnsWithKey.length * 150, y: tableScrollY}}
                                         bordered
                                     />
                                 </div>
-                                <div style={{padding: '12px 16px', textAlign: 'right', background: '#fafafa', borderTop: '1px solid #f0f0f0'}}>
+                                <div className="result-pagination">
                                     <Pagination
                                         size="small"
                                         current={pagination.current}
@@ -188,7 +207,7 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                                         onChange={(page, pageSize) => handleTableChange({current: page, pageSize})}
                                     />
                                 </div>
-                            </div>
+                            </>
                         ) : (
                             <Empty description="暂无查询结果，请先执行 SQL" image={Empty.PRESENTED_IMAGE_SIMPLE}/>
                         )}
@@ -252,12 +271,13 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
     ];
 
     return (
-        <div style={{height: '100%', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'auto'}}>
+        <div style={{height: '100%', minHeight: 0, background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden'}}>
             <Tabs
                 activeKey={activeTab}
                 onChange={onTabChange}
                 items={tabItems}
                 size="small"
+                className="result-panel-tabs"
                 style={{flex: 1, minHeight: 0, minWidth: 0}}
                 tabBarStyle={{padding: '0 12px', flexShrink: 0}}
             />
