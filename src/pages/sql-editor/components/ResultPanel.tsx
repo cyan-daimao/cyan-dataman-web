@@ -173,7 +173,20 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                                         <span>返回行数：{result.rows.length}</span>
                                         <span>总行数：{result.total}</span>
                                     </Space>
-                                    <Button type="primary" size="small" icon={<DownloadOutlined/>} onClick={downloadCSV}>下载CSV [V3]</Button>
+                                    <div
+                                        onClick={downloadCSV}
+                                        style={{
+                                            background: '#1890ff',
+                                            color: '#fff',
+                                            padding: '2px 8px',
+                                            borderRadius: 4,
+                                            fontSize: 12,
+                                            cursor: 'pointer',
+                                            display: 'inline-block'
+                                        }}
+                                    >
+                                        📥 下载CSV [V3]
+                                    </div>
                                 </div>
                                 <div style={{flex: 1, minHeight: 0, overflow: 'hidden'}}>
                                     <Table
