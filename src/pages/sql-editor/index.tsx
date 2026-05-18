@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Input, Layout, message, Tabs, Spin} from 'antd';
-import {CodeOutlined, DatabaseOutlined, PlusOutlined} from '@ant-design/icons';
+import {Input, Layout, message, Tabs, Spin, Button} from 'antd';
+import {CodeOutlined, DatabaseOutlined, PlusOutlined, MenuFoldOutlined, MenuUnfoldOutlined} from '@ant-design/icons';
 import Sidebar from './components/Sidebar';
 import SQLEditor from './components/SQLEditor';
 import ResultPanel from './components/ResultPanel';
@@ -107,6 +107,8 @@ const SQLEditorPage: React.FC = () => {
     const [editorHeight, setEditorHeight] = useState(400);
     const [isDraggingSider, setIsDraggingSider] = useState(false);
     const [isDraggingEditor, setIsDraggingEditor] = useState(false);
+    const [siderCollapsed, setSiderCollapsed] = useState(false);
+    const prevSiderWidthRef = useRef(280);
     const containerRef = useRef<HTMLDivElement>(null);
     
     // 使用 ref 保存最新的 activeTab，避免闭包问题
@@ -134,6 +136,18 @@ const SQLEditorPage: React.FC = () => {
         e.preventDefault();
         setIsDraggingSider(true);
     }, []);
+
+    // 左侧边栏折叠/展开
+    const toggleSider = useCallback(() => {
+        if (siderCollapsed) {
+            setSiderWidth(prevSiderWidthRef.current);
+            setSiderCollapsed(false);
+        } else {
+            prevSiderWidthRef.current = siderWidth;
+            setSiderWidth(40);
+            setSiderCollapsed(true);
+        }
+    }, [siderCollapsed, siderWidth]);
 
     // 编辑器高度拖拽处理
     const handleEditorMouseDown = useCallback((e: React.MouseEvent) => {
@@ -466,36 +480,62 @@ const SQLEditorPage: React.FC = () => {
         <Layout style={{height: '100%', background: '#f5f5f5', display: 'flex', flexDirection: 'row'}}>
             {/* 左侧边栏 */}
             <div style={{
-                width: siderWidth,
-                minWidth: 200,
-                maxWidth: 500,
+                width: siderCollapsed ? 40 : siderWidth,
+                minWidth: siderCollapsed ? 40 : 200,
+                maxWidth: siderCollapsed ? 40 : 500,
                 background: '#fff',
                 position: 'relative',
                 flexShrink: 0,
-                height: '100%'
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                transition: 'width 0.2s',
             }}>
-                <Sidebar
-                    currentSql={currentTab?.sql || ''}
-                    onTableSelect={handleTableSelect}
-                    onHistorySelect={handleHistorySelect}
-                    onFavoriteSelect={handleFavoriteSelect}
-                    onTableListLoaded={setAvailableTables}
-                />
-                {/* 左侧拖拽条 */}
-                <div
-                    onMouseDown={handleSiderMouseDown}
-                    style={{
-                        position: 'absolute',
-                        right: 0,
-                        top: 0,
-                        bottom: 0,
-                        width: 6,
-                        cursor: 'col-resize',
-                        background: isDraggingSider ? '#1890ff' : 'transparent',
-                        zIndex: 10,
-                        transition: 'background 0.2s'
-                    }}
-                />
+                {/* 折叠/展开按钮 */}
+                <div style={{
+                    padding: '8px 4px',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    borderBottom: '1px solid #f0f0f0',
+                    flexShrink: 0,
+                }}>
+                    <Button
+                        type="text"
+                        size="small"
+                        icon={siderCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                        onClick={toggleSider}
+                        title={siderCollapsed ? '展开' : '收起'}
+                    />
+                </div>
+                {!siderCollapsed && (
+                    <>
+                        <div style={{flex: 1, overflow: 'hidden'}}>
+                            <Sidebar
+                                currentSql={currentTab?.sql || ''}
+                                onTableSelect={handleTableSelect}
+                                onHistorySelect={handleHistorySelect}
+                                onFavoriteSelect={handleFavoriteSelect}
+                                onTableListLoaded={setAvailableTables}
+                            />
+                        </div>
+                        {/* 左侧拖拽条 */}
+                        <div
+                            onMouseDown={handleSiderMouseDown}
+                            style={{
+                                position: 'absolute',
+                                right: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: 6,
+                                cursor: 'col-resize',
+                                background: isDraggingSider ? '#1890ff' : 'transparent',
+                                zIndex: 10,
+                                transition: 'background 0.2s'
+                            }}
+                        />
+                    </>
+                )}
             </div>
 
             {/* 主内容区 */}

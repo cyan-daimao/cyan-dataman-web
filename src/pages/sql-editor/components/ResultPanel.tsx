@@ -170,7 +170,7 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                                     </Space>
                                     <Button type="link" size="small" icon={<DownloadOutlined/>} onClick={downloadCSV}>下载CSV</Button>
                                 </div>
-                                <div style={{flex: 1, minHeight: 0, overflow: 'auto'}}>
+                                <div style={{flex: 1, minHeight: 0, overflow: 'hidden'}}>
                                     <Table
                                         dataSource={rowsWithIndex}
                                         columns={columnsWithKey}
@@ -186,7 +186,7 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                                             pageSizeOptions: ['10', '20', '50', '100']
                                         }}
                                         onChange={handleTableChange}
-                                        scroll={{x: 'max-content', y: 300}}
+                                        scroll={{x: columnsWithKey.length * 150, y: 300}}
                                         bordered
                                     />
                                 </div>
