@@ -1,0 +1,380 @@
+const fs = require('fs');
+const path = require('path');
+const puppeteer = require('puppeteer');
+
+const SOFTWARE_NAME = 'Cyan数据中台';
+const VERSION = 'V1.0';
+const COPYRIGHT_HOLDER = '闫晨阳';
+
+const docHtml = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>文档鉴别材料 - ${SOFTWARE_NAME}</title>
+<style>
+@page {
+  size: A4;
+  margin: 25mm 25mm 25mm 25mm;
+  @top-center {
+    content: "${SOFTWARE_NAME} ${VERSION}";
+    font-size: 9pt;
+    color: #666;
+  }
+  @bottom-center {
+    content: "第 " counter(page) " 页";
+    font-size: 9pt;
+    color: #666;
+  }
+}
+body {
+  font-family: 'SimSun', 'Songti SC', serif;
+  font-size: 12pt;
+  line-height: 1.8;
+  color: #222;
+  text-align: justify;
+}
+.cover {
+  page-break-after: always;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  text-align: center;
+}
+.cover h1 { font-size: 28pt; margin: 30px 0; font-weight: bold; }
+.cover h2 { font-size: 18pt; margin: 20px 0; color: #444; }
+.cover p { font-size: 14pt; margin: 12px 0; color: #555; }
+.cover .line { width: 60%; border-bottom: 1px solid #999; margin: 15px 0; }
+h1 { font-size: 18pt; font-weight: bold; margin-top: 30px; margin-bottom: 15px; page-break-after: avoid; }
+h2 { font-size: 15pt; font-weight: bold; margin-top: 20px; margin-bottom: 10px; page-break-after: avoid; }
+h3 { font-size: 13pt; font-weight: bold; margin-top: 15px; margin-bottom: 8px; page-break-after: avoid; }
+p { margin: 8px 0; text-indent: 2em; }
+ul, ol { margin: 8px 0; padding-left: 2em; }
+li { margin: 4px 0; }
+table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 11pt; }
+th, td { border: 1px solid #333; padding: 8px; text-align: left; }
+th { background: #f0f0f0; font-weight: bold; }
+.toc { page-break-after: always; }
+.toc h1 { text-align: center; }
+.toc ul { list-style: none; padding-left: 0; }
+.toc li { margin: 8px 0; }
+.toc .level1 { font-weight: bold; }
+.toc .level2 { padding-left: 2em; }
+.toc .level3 { padding-left: 4em; }
+.code-block {
+  font-family: 'Courier New', monospace;
+  font-size: 10pt;
+  background: #f5f5f5;
+  padding: 10px;
+  border-left: 3px solid #4F6DF5;
+  margin: 10px 0;
+  white-space: pre-wrap;
+}
+</style>
+</head>
+<body>
+
+<!-- 封面 -->
+<div class="cover">
+  <h1>软件说明书</h1>
+  <div class="line"></div>
+  <h2>${SOFTWARE_NAME}</h2>
+  <p>版本号：${VERSION}</p>
+  <p>著作权人：${COPYRIGHT_HOLDER}</p>
+  <div class="line"></div>
+  <p style="margin-top: 60px;">文档鉴别材料</p>
+</div>
+
+<!-- 目录 -->
+<div class="toc">
+  <h1>目 录</h1>
+  <ul>
+    <li class="level1">第一章 软件概述</li>
+    <li class="level1">第二章 系统架构与技术特点</li>
+    <li class="level2">2.1 系统架构</li>
+    <li class="level2">2.2 技术栈</li>
+    <li class="level2">2.3 技术特点</li>
+    <li class="level1">第三章 功能模块说明</li>
+    <li class="level2">3.1 元数据平台</li>
+    <li class="level2">3.2 指标平台</li>
+    <li class="level2">3.3 SQL查询编辑器</li>
+    <li class="level2">3.4 数据加工</li>
+    <li class="level2">3.5 智能分析（BI）</li>
+    <li class="level2">3.6 权限管理</li>
+    <li class="level1">第四章 数据库设计</li>
+    <li class="level1">第五章 接口设计</li>
+    <li class="level1">第六章 运行环境</li>
+    <li class="level1">第七章 软件特点与创新</li>
+    <li class="level1">第八章 操作流程说明</li>
+  </ul>
+</div>
+
+<!-- 正文 -->
+<h1>第一章 软件概述</h1>
+<p>${SOFTWARE_NAME}（以下简称"本软件"）是一款面向企业级数据资产管理的前端平台系统。本软件基于现代Web技术栈构建，旨在为数据分析师、BI工程师、业务运营人员、数据产品经理和数据治理人员提供一站式的数据资产管理能力。</p>
+
+<p>本软件的核心定位是企业数据资产管理平台，通过统一的入口整合元数据管理、指标平台、SQL查询、数据加工和智能分析（BI）五大核心模块，实现数据资产的全面治理与高效利用。软件采用前后端分离架构，前端基于React 18 + TypeScript + Vite构建，后端通过RESTful API与各业务服务进行通信。</p>
+
+<p>本软件的主要特色包括：支持多数据源（MySQL、PostgreSQL、Iceberg、Gravitino等）的统一管理；提供基于Monaco Editor的专业SQL编辑器；内置审批流程驱动的细粒度权限控制；支持拖拽式BI看板设计与数据可视化；以及完整的元数据血缘追踪与数据质量管理。</p>
+
+<p>本软件面向的用户群体涵盖企业内的多个数据相关角色。数据分析师可以通过SQL查询编辑器和BI模块快速完成数据探索和分析；BI工程师可以利用指标平台和看板管理构建企业级的指标体系；数据治理人员可以通过元数据平台和权限管理实现数据资产的规范化管理；业务运营人员则可以通过直观的图表和看板获取业务洞察。</p>
+
+<h1>第二章 系统架构与技术特点</h1>
+
+<h2>2.1 系统架构</h2>
+<p>本软件采用经典的前后端分离架构模式。前端为单页应用（Single Page Application，SPA），通过React Router实现客户端路由，使用Axios与后端服务进行HTTP通信。系统整体架构分为表示层、业务逻辑层和数据访问层三个层次。</p>
+
+<p>表示层由React组件构成，采用函数式组件配合Hooks的编程模式。页面布局采用Ant Design的Layout组件，支持响应式设计。核心组件包括：顶层导航栏、嵌套侧边栏布局、Monaco Editor代码编辑器、数据表格、图表渲染组件等。表示层通过props和context进行组件间通信，复杂状态使用Zustand进行全局管理。</p>
+
+<p>业务逻辑层分布在前端API模块中，按业务域划分为多个独立的API文件。每个API模块封装了对应业务域的全部接口调用，包括请求参数构造、响应数据解析和错误处理。API层通过多业务线Axios实例与后端微服务集群通信，支持独立的请求拦截器、响应拦截器和超时配置。</p>
+
+<p>数据访问层由后端微服务集群提供，包括数据管理服务（cyan-dataman）、指标平台服务（cyan-datametric）、数据网关服务（cyan-datagateway）、BI分析服务（cyan-databi）、数据加工服务（cyan-dataworks）和权限认证服务（cyan-dataauth）。各服务通过RESTful API对外暴露能力，前端通过统一的API层进行调用。</p>
+
+<h2>2.2 技术栈</h2>
+<table>
+  <tr><th>类别</th><th>技术/工具</th><th>版本</th></tr>
+  <tr><td>前端框架</td><td>React</td><td>18.2.0</td></tr>
+  <tr><td>开发语言</td><td>TypeScript</td><td>5.7.2（严格模式）</td></tr>
+  <tr><td>构建工具</td><td>Vite</td><td>4.5.2</td></tr>
+  <tr><td>UI组件库</td><td>Ant Design</td><td>5.24.2</td></tr>
+  <tr><td>路由</td><td>react-router-dom</td><td>7.2.0</td></tr>
+  <tr><td>状态管理</td><td>Zustand</td><td>5.0.3</td></tr>
+  <tr><td>HTTP客户端</td><td>Axios</td><td>1.13.2</td></tr>
+  <tr><td>代码编辑器</td><td>Monaco Editor</td><td>0.55.1</td></tr>
+  <tr><td>样式方案</td><td>Less + CSS-in-JS</td><td>Less 4.2.2</td></tr>
+  <tr><td>图表渲染</td><td>自研Canvas图表组件</td><td>-</td></tr>
+  <tr><td>服务端渲染</td><td>Puppeteer</td><td>24.40.0</td></tr>
+  <tr><td>代码规范</td><td>ESLint + typescript-eslint</td><td>9.21.0</td></tr>
+</table>
+
+<h2>2.3 技术特点</h2>
+<p><strong>（1）TypeScript严格模式：</strong>全项目启用TypeScript严格模式，包括strict、noUnusedLocals和noUnusedParameters等编译选项，确保代码的类型安全性和可维护性。所有API接口均定义了完整的TypeScript类型，实现前后端类型的一致性校验。</p>
+
+<p><strong>（2）模块化的API架构：</strong>按业务域拆分API模块，包括DataSourceApi、DSApi、MetadataTableAPI、MetricApi、DatabiApi、DataworksApi、DataAuthApi等。每个模块使用独立的Axios实例，支持自定义的请求和响应拦截器，便于按业务线配置不同的后端地址、认证方式和超时策略。</p>
+
+<p><strong>（3）组件级权限控制：</strong>通过PermissionButton和PermissionGuard组件实现前端按钮级和路由级权限控制。权限数据从后端功能权限树获取并缓存到localStorage，支持超管通配符模式（拥有"*"权限的用户可以访问所有功能）。</p>
+
+<p><strong>（4）状态持久化机制：</strong>SQL编辑器和数据加工页面的标签页状态、查询历史等数据自动持久化到localStorage。页面刷新后，用户的工作状态可以自动恢复，提升了用户体验的连续性。</p>
+
+<p><strong>（5）懒加载优化：</strong>所有页面组件采用React.lazy和动态import实现懒加载，配合Suspense显示加载状态。这种设计显著减少了首屏JavaScript包体积，提升了页面加载速度。</p>
+
+<p><strong>（6）多环境构建支持：</strong>通过import.meta.env.MODE区分开发、预发和生产环境，Vite配置中定义了对应环境的后端地址。支持一键构建不同环境的部署包，通过Jenkins Pipeline实现自动化CI/CD。</p>
+
+<h1>第三章 功能模块说明</h1>
+
+<h2>3.1 元数据平台</h2>
+<p>元数据平台是本软件的核心模块之一，提供对企业数据资产的全面管理能力，包括业务数据库管理、Gravitino元数据管理和主题域管理三个子模块。</p>
+
+<p><strong>业务数据库管理：</strong>支持MySQL、PostgreSQL、Iceberg等多种关系型和湖仓型数据源的配置管理。提供数据源列表浏览、数据库详情查看、表结构管理与编辑、在线SQL执行等功能。表结构管理支持多维度视图展示，包括字段信息（名称、类型、注释、默认值）、索引信息、分区信息和表注释等。SQL执行功能支持选择目标数据源，实时返回执行结果并以表格形式展示。</p>
+
+<p><strong>Gravitino元数据管理：</strong>对接Apache Gravitino统一元数据湖，提供Catalog、Schema、Table三级元数据管理能力。支持元数据表的批量导入、字段信息维护、数据预览（抽样展示表数据）、数据血缘分析（追踪数据流转路径）、数据质量检测（配置质量规则并执行检测）、快照管理和异步任务调度。血缘分析以图形化方式展示表与表之间的依赖关系，帮助用户理解数据的来龙去脉。</p>
+
+<p><strong>主题域管理：</strong>支持按业务主题对元数据进行分类组织，建立主题域与元数据表之间的多对多关联关系。主题域可以按照业务线、部门、项目等维度进行划分，便于业务人员按主题维度检索和发现数据资产。</p>
+
+<h2>3.2 指标平台</h2>
+<p>指标平台为企业提供了统一的指标定义、管理和分析能力，是数据驱动决策的基础设施。平台包含指标概览、指标字典、指标定义、指标分析、维度管理和指标配置六大功能。</p>
+
+<p><strong>指标概览与字典：</strong>提供指标的全局视图Dashboard，展示指标总量、按状态分布、按主题域分布等统计信息。指标字典支持按主题域、业务线、指标类型等维度浏览，每个指标包含完整的定义信息，包括指标名称、业务定义、计算口径、统计周期、维度关联、数据血缘和责任人等。</p>
+
+<p><strong>指标定义与分析：</strong>支持原子指标、派生指标和复合指标的三级定义体系。原子指标定义最基础的度量字段；派生指标基于原子指标增加筛选条件和计算逻辑；复合指标支持多个指标的四则运算。指标分析功能支持按维度下钻、时间序列趋势分析、同环比计算和目标值对比。</p>
+
+<p><strong>维度管理：</strong>统一管理维度分类和维度值，支持维度的创建、编辑、启用/停用和关联。维度作为指标分析的基础切片字段，与指标平台深度集成，在指标分析页面可以直接选择维度进行数据下钻。</p>
+
+<p><strong>指标配置：</strong>提供指标的计算配置（SQL计算逻辑）、调度配置（定时刷新策略）和告警配置（阈值触发告警），支持自定义指标的计算逻辑和更新频率。</p>
+
+<h2>3.3 SQL查询编辑器</h2>
+<p>SQL查询编辑器是基于Monaco Editor构建的专业在线SQL开发工具，提供媲美本地IDE的编码体验和执行能力。</p>
+
+<p><strong>多标签页管理：</strong>支持同时打开多个SQL编辑标签页，每个标签页独立管理SQL内容、执行结果和连接的数据源。标签页支持重命名、关闭和重新排序，状态自动持久化到localStorage，页面刷新后可恢复。</p>
+
+<p><strong>SQL执行与结果展示：</strong>支持选择StarRocks、SparkSQL等多种数据源执行SQL语句。执行结果以专业表格形式展示，支持超长字段自动截断（使用Typography.Text ellipsis组件）、横向滚动条（scroll.x: max-content）和分页浏览。对于大数据量结果，采用前端分页策略，避免一次性渲染导致的性能问题。</p>
+
+<p><strong>执行计划与历史：</strong>展示SQL的执行计划（Explain），包括扫描行数、过滤条件、 join策略等关键信息，帮助用户优化查询性能。自动记录最近50条查询历史，支持收藏常用SQL语句，收藏列表支持搜索和分类。</p>
+
+<p><strong>智能提示：</strong>基于Monaco Editor的语法高亮、自动补全、括号匹配和错误检测功能，支持SQL关键字、表名、字段名的智能提示，显著提升SQL编写效率。</p>
+
+<h2>3.4 数据加工</h2>
+<p>数据加工模块提供SparkSQL和FlinkSQL任务的编辑、保存、执行和调度管理能力，支持批处理和流处理两种数据加工场景。</p>
+
+<p><strong>任务编辑：</strong>基于Monaco Editor的SQL任务编辑器，支持SparkSQL和FlinkSQL两种计算引擎的切换。左侧边栏展示数据源和表结构导航，右侧边栏提供任务属性配置（任务名称、描述、引擎类型、数据源等）。编辑器支持语法高亮、自动补全和SQL格式化。</p>
+
+<p><strong>调度配置：</strong>支持任务的定时调度配置，包括执行周期（分钟级、小时级、天级、周级、月级）、依赖关系（前置任务完成检测）和告警策略（失败告警、超时告警、成功通知）。调度配置采用可视化表单，降低了配置门槛。</p>
+
+<p><strong>执行记录：</strong>记录每次任务执行的完整生命周期，包括提交时间、开始时间、结束时间、执行耗时、最终状态（成功/失败/取消）、输出结果摘要和详细错误日志。支持按时间范围和状态筛选执行记录。</p>
+
+<p><strong>版本管理：</strong>每次保存任务时自动创建版本快照，支持查看历史版本列表、对比版本差异和回退到指定版本。版本管理确保了任务修改的可追溯性和安全性。</p>
+
+<h2>3.5 智能分析（BI）</h2>
+<p>智能分析模块提供数据集管理、图表分析和看板管理三大核心能力，支持业务人员自助完成数据分析与可视化，无需编写代码。</p>
+
+<p><strong>数据集管理：</strong>支持两种数据集创建方式：基于SQL查询创建和基于已有数据表创建。系统自动识别字段的数据类型（数值、文本、日期、布尔等），提供数据预览功能。支持配置数据过滤器、计算字段和数据格式转换。</p>
+
+<p><strong>图表分析：</strong>支持多种图表类型的创建与配置，包括柱状图（分组柱、堆叠柱）、折线图（单线、多线、面积图）、饼图（普通饼图、环形图）、散点图、表格、指标卡等。图表配置采用拖拽式字段映射，X轴、Y轴、颜色、大小等视觉通道直接映射到数据字段。支持过滤器设置（日期范围、枚举值筛选等）和样式配置（颜色主题、图例位置、坐标轴格式等）。</p>
+
+<p><strong>看板管理：</strong>支持拖拽式画布编辑，用户可以将多个图表组件拖拽放置到看板画布上，自由调整大小和位置，快速构建数据看板。看板支持两种模式：编辑模式（用于设计和调整）和查看模式（用于分享和演示）。查看模式去除了编辑控件，呈现纯净的仪表盘效果。同时支持服务端渲染，通过Puppeteer在服务端生成图表图片，确保图表在不同浏览器环境下的显示一致性。</p>
+
+<h2>3.6 权限管理</h2>
+<p>权限管理模块提供了完善的数据资产访问控制体系，采用审批流程驱动的权限授予机制，确保数据访问的合规性和安全性。</p>
+
+<p><strong>角色管理：</strong>支持创建和管理角色，每个角色可以关联一组功能权限（如页面访问权限、按钮操作权限）和数据权限（如数据源访问权限、表查询权限）。角色支持编辑、启用/停用和删除。系统内置超管角色，超管账号（admin、cyan1）拥有全部权限通配符（"*"），不受任何权限限制。</p>
+
+<p><strong>用户权限：</strong>管理用户的角色关联和直接权限授予。支持按用户查看其拥有的全部权限明细，包括角色继承的权限和直接授予的权限。支持为用户批量分配角色和撤销角色。</p>
+
+<p><strong>指标平台权限：</strong>提供指标和维度的权限申请入口，用户可以浏览指标字典和维度列表，选择需要访问的资源提交权限申请。支持批量选择多个资源一次性申请，提高了申请效率。</p>
+
+<p><strong>审批管理：</strong>完整的审批流程包括：用户提交权限申请 → 审批人收到待审批通知 → 审批人审批（通过/驳回）→ 审批通过后系统自动创建PERSONAL_{passport}角色 → 自动创建或复用auth_permission记录 → 自动关联auth_role_permission和auth_user_role。支持"我发起的审批"（查看自己提交的申请记录）和"待我审批"（查看需要自己审批的申请）两种视图。</p>
+
+<p><strong>审计日志：</strong>记录所有权限相关的操作行为，包括权限申请、审批操作、角色变更、SQL执行等。审计日志包含操作人、操作时间、操作类型、操作对象和操作结果，便于安全合规审查和问题追溯。</p>
+
+<h1>第四章 数据库设计</h1>
+
+<p>本软件作为前端系统，本身不直接管理数据库，而是通过RESTful API与后端微服务进行数据交互。后端权限服务（cyan-dataauth）的数据库设计如下：</p>
+
+<p><strong>auth_permission表：</strong>存储权限记录，字段包括id（主键）、passport（用户账号）、resourceType（资源类型：MENU、DATASOURCE、DB、TABLE、METRIC、DIMENSION）、resourceId（资源标识）、action（操作类型：VIEW、SELECT、CREATE、UPDATE、DELETE、ALL）、createdAt（创建时间）、updatedAt（更新时间）。该表是权限控制的核心数据表，记录每个用户对每个资源的操作权限。</p>
+
+<p><strong>auth_role表：</strong>存储角色信息，字段包括id（主键）、roleName（角色名称）、roleCode（角色编码）、roleType（角色类型：SYSTEM系统角色、PERSONAL个人角色）、description（角色描述）、functionPermissionKeys（功能权限键列表，JSON格式）、createdAt、updatedAt。个人角色以PERSONAL_为前缀，由审批通过后系统自动创建。</p>
+
+<p><strong>auth_role_permission表：</strong>角色与权限的关联表，实现角色对权限的批量持有。字段包括id、roleId、permissionId。</p>
+
+<p><strong>auth_user_role表：</strong>用户与角色的关联表，实现用户对角色的持有。字段包括id、passport、roleId。</p>
+
+<p><strong>auth_approval表：</strong>审批记录表，字段包括id、applicant（申请人）、approver（审批人）、resourceType（申请资源类型）、resourceId（资源标识）、action（申请操作）、status（状态：PENDING、APPROVED、REJECTED）、remark（备注）、createdAt、updatedAt。</p>
+
+<p><strong>auth_audit_log表：</strong>审计日志表，记录所有敏感操作，字段包括id、passport（操作人）、actionType（操作类型）、resourceType、resourceId、detail（操作详情）、result（操作结果）、createdAt。</p>
+
+<h1>第五章 接口设计</h1>
+
+<p>本软件通过统一的API层与后端服务通信，API设计遵循RESTful规范。主要接口模块如下：</p>
+
+<p><strong>（1）登录认证接口（LoginApi）：</strong>使用独立的Axios实例，不经过全局拦截器。包含用户登录（获取JWT Token）、登出（清除Token）等接口。</p>
+
+<p><strong>（2）员工信息接口（EmployeeApi）：</strong>获取当前登录用户信息，包括passport、cnName（中文名）、部门等。用户信息存储在localStorage中，供权限校验使用。</p>
+
+<p><strong>（3）元数据接口（DataSourceApi / MetadataTableAPI / MetadataSubjectAPI）：</strong>提供Gravitino Catalog/Schema/Table的CRUD操作、元数据表管理、主题域管理、字段信息维护、数据预览、血缘查询、快照管理和异步任务接口。</p>
+
+<p><strong>（4）业务数据库接口（DSApi）：</strong>提供数据源配置、数据库列表、表结构查询、SQL执行等业务数据库相关接口。</p>
+
+<p><strong>（5）SQL网关接口（DatagawayApi）：</strong>提供StarRocks SQL执行、SparkSQL执行等数据网关接口，通过datagatewayRequest实例调用数据网关服务。</p>
+
+<p><strong>（6）指标平台接口（MetricApi / MetricConfigApi / MetricSubjectApi / DimensionCategoryApi）：</strong>提供指标定义、指标字典、指标分析、维度管理、指标配置、指标主题域等接口。</p>
+
+<p><strong>（7）BI接口（DatabiApi）：</strong>提供数据集管理、图表分析、看板管理、看板发布等接口。</p>
+
+<p><strong>（8）数据加工接口（DataworksApi）：</strong>提供任务管理、调度配置、执行记录、版本管理等接口。</p>
+
+<p><strong>（9）权限接口（DataAuthApi）：</strong>提供功能权限树查询、SQL权限过滤、权限申请提交、审批列表查询、审批操作、角色管理、用户权限管理、审计日志查询等接口。</p>
+
+<p>所有接口响应采用统一的Response结构：{ code: number, message: string, data: T }。前端响应拦截器已将response.data直接返回，API函数中获取的就是后端Response结构，无需二次取.data。</p>
+
+<h1>第六章 运行环境</h1>
+
+<h2>6.1 开发环境</h2>
+<table>
+  <tr><th>项目</th><th>要求</th></tr>
+  <tr><td>操作系统</td><td>Linux / macOS / Windows 10+</td></tr>
+  <tr><td>Node.js</td><td>18.x LTS 及以上版本</td></tr>
+  <tr><td>包管理器</td><td>npm 9+ 或 yarn 1.22+</td></tr>
+  <tr><td>浏览器</td><td>Chrome 100+ / Firefox 100+ / Edge 100+</td></tr>
+  <tr><td>代码编辑器</td><td>VS Code 1.80+（推荐）</td></tr>
+</table>
+
+<h2>6.2 生产环境</h2>
+<table>
+  <tr><th>项目</th><th>要求</th></tr>
+  <tr><td>Web服务器</td><td>Nginx 1.20+</td></tr>
+  <tr><td>容器运行时</td><td>Docker 20.10+</td></tr>
+  <tr><td>容器编排</td><td>Kubernetes 1.24+</td></tr>
+  <tr><td>后端服务</td><td>Spring Boot 3.x 微服务集群</td></tr>
+  <tr><td>数据库</td><td>MySQL 8.0+ / PostgreSQL 14+</td></tr>
+  <tr><td>缓存</td><td>Redis 6.2+</td></tr>
+</table>
+
+<h2>6.3 构建与部署流程</h2>
+<p>本软件使用Vite作为构建工具，支持多种环境构建：</p>
+<div class="code-block"># 安装依赖
+npm install
+
+# 开发模式（热更新，默认端口5173）
+npm run dev
+
+# 预发环境构建
+npm run build:pre
+
+# 生产环境构建
+npm run build:prod
+
+# 本地环境构建
+npm run build:local
+
+# 预览生产构建
+npm run preview</div>
+
+<p>构建产物为dist目录下的纯静态文件（HTML、CSS、JS、图片资源），不包含任何服务端代码。部署时将dist目录内容放置到Nginx的Web根目录即可。</p>
+
+<p>Nginx配置要点包括：SPA路由回退（try_files $uri $uri/ /index.html）、静态资源长期缓存（js/css/png/ico/svg/woff/ttf等缓存1年）、Gzip压缩启用等。</p>
+
+<p>CI/CD流程采用Jenkins Pipeline，在Kubernetes Agent中执行：拉取代码 → yarn install → yarn build → Kaniko构建Docker镜像（Node构建阶段 + Nginx Alpine运行阶段）→ 推送到Harbor镜像仓库 → kubectl部署到K8s集群。</p>
+
+<h1>第七章 软件特点与创新</h1>
+
+<h2>7.1 一体化数据资产管理</h2>
+<p>本软件创新性地将元数据管理、指标平台、SQL查询、数据加工和BI分析五大核心能力整合到统一的平台上，避免了企业在多个独立系统之间频繁切换的低效问题。通过统一的数据资产视图，用户可以在一个入口完成数据发现、分析、加工和可视化的全流程操作，显著提升了数据工作的效率和体验一致性。</p>
+
+<h2>7.2 审批驱动的权限体系</h2>
+<p>区别于传统的静态权限分配模式，本软件采用审批流程驱动的动态权限授予机制。用户申请数据访问权限后，经过审批人审批，系统自动完成角色创建（PERSONAL_{passport}个人角色）和权限关联（auth_permission + auth_role_permission + auth_user_role）。这种设计既保证了权限控制的严谨性（人工审批环节），又提升了权限申请的效率（自动授权环节），实现了安全与效率的平衡。</p>
+
+<h2>7.3 细粒度的SQL权限拦截</h2>
+<p>本软件在SQL执行层面实现了细粒度的权限拦截。系统会解析用户提交的SQL语句，提取涉及的表名，并与用户的权限列表进行比对。权限检查支持层级推导：如果用户没有某张表的SELECT权限，系统会自动检查其是否拥有所在数据库或数据源的权限。同时支持L1公开表自动豁免机制：密级为L1的公开表无需额外权限即可访问。对于元数据中不存在的表（如CDC原始表），系统默认允许访问以避免误拦截。</p>
+
+<h2>7.4 拖拽式BI看板设计</h2>
+<p>智能分析模块提供了拖拽式画布编辑能力，用户可以通过简单的拖拽操作将图表组件放置到看板画布上，自由调整大小和位置，快速构建专业的数据看板。看板支持编辑模式和查看模式两种状态，编辑模式提供完整的配置控件，查看模式呈现纯净的仪表盘效果，便于业务分享和管理层汇报。看板同时支持服务端渲染，通过Puppeteer在服务端生成图表图片，确保图表在不同浏览器和导出场景下的显示一致性。</p>
+
+<h2>7.5 多引擎数据加工能力</h2>
+<p>数据加工模块同时支持SparkSQL和FlinkSQL两种计算引擎，分别满足批处理和流处理两种数据加工场景的需求。用户可以根据业务场景灵活切换引擎，系统会自动适配对应的执行环境、调度策略和监控告警。这种设计使得同一套数据加工界面可以服务于离线数仓建设和实时数据管道两种截然不同的技术场景。</p>
+
+<h2>7.6 组件级功能权限控制</h2>
+<p>本软件在前端实现了组件级的功能权限控制。PermissionButton组件根据用户的功能权限列表动态控制按钮的显隐或禁用状态；PermissionGuard组件在路由层面进行权限校验，无权限时自动跳转403页面或隐藏菜单项。权限数据通过localStorage本地缓存，减少重复请求，同时支持超管通配符模式，为系统管理员提供无障碍的运维体验。</p>
+
+<h1>第八章 操作流程说明</h1>
+
+<h2>8.1 登录与导航</h2>
+<p>用户打开系统后进入登录页面，输入账号密码完成认证。登录成功后，系统自动获取当前用户信息（passport、姓名等）和功能权限树。顶部导航栏根据用户的功能权限动态过滤显示，无权限的模块自动隐藏。点击导航项进入对应模块，模块内部采用嵌套侧边栏布局，左侧展示子功能菜单，右侧展示内容区域。</p>
+
+<h2>8.2 SQL查询操作流程</h2>
+<p>用户进入SQL查询模块后，系统自动恢复上次的标签页状态。在编辑器中编写SQL语句，选择目标数据源，点击执行按钮。系统首先调用authFilterSql接口进行权限校验，校验通过后提交到数据网关执行。执行结果以表格形式展示在下方结果面板，支持分页浏览和横向滚动。用户可以将常用SQL添加到收藏夹，或查看历史执行记录。</p>
+
+<h2>8.3 权限申请操作流程</h2>
+<p>用户进入权限管理模块的"我的权限"页面，查看当前拥有的权限列表。如需申请新权限，点击"申请权限"按钮，选择资源类型（数据源/数据库/表/指标/维度）、目标资源和操作类型，提交申请。申请进入审批流程后，审批人会收到待审批通知。审批通过后，系统自动完成授权，用户在"我的权限"页面可以看到新获得的权限。</p>
+
+<h2>8.4 BI看板设计操作流程</h2>
+<p>用户进入智能分析模块，首先创建或选择已有数据集。在图表分析页面，选择图表类型，将数据字段拖拽到对应的视觉通道（X轴、Y轴、颜色等），配置过滤器和样式。图表创建完成后，进入看板管理页面，点击"新建看板"，将已创建的图表拖拽到画布上，调整大小和位置，保存看板。看板发布后，其他用户可以在查看模式下浏览该看板。</p>
+
+<p style="text-align: center; margin-top: 40px; color: #666;">— 文档结束 —</p>
+
+</body>
+</html>`;
+
+async function generatePdf(html, outputPath) {
+  const browser = await puppeteer.launch({
+    headless: 'new',
+    executablePath: '/home/cy/.cache/puppeteer/chrome/linux-146.0.7680.153/chrome-linux64/chrome',
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
+  const page = await browser.newPage();
+  await page.setContent(html, { waitUntil: 'networkidle0' });
+  await page.pdf({
+    path: outputPath,
+    format: 'A4',
+    printBackground: true,
+    margin: { top: '25mm', right: '25mm', bottom: '25mm', left: '25mm' },
+  });
+  await browser.close();
+  console.log('Generated:', outputPath);
+}
+
+(async () => {
+  fs.writeFileSync(path.join(__dirname, 'document.html'), docHtml, 'utf-8');
+  await generatePdf(docHtml, path.join(__dirname, '文档鉴别材料-软件说明书.pdf'));
+  console.log('Document material generated!');
+})();

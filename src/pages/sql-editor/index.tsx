@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Input, Layout, message, Tabs, Spin, Button} from 'antd';
+const { Sider, Content } = Layout;
 import {CodeOutlined, DatabaseOutlined, PlusOutlined, MenuFoldOutlined, MenuUnfoldOutlined} from '@ant-design/icons';
 import Sidebar from './components/Sidebar';
 import SQLEditor from './components/SQLEditor';
@@ -23,7 +24,7 @@ const loadMonaco = () => {
     });
 };
 
-const {Content} = Layout;
+
 
 // SQL 查询标签页
 interface QueryTab {
@@ -477,29 +478,9 @@ const SQLEditorPage: React.FC = () => {
     })), [tabs, editingTabId, editingTabName, handleStartRename, handleFinishRename]);
 
     return (
-        <Layout style={{height: '100%', background: '#f5f5f5', display: 'flex', flexDirection: 'row'}}>
-            {/* 左侧边栏 */}
-            <div style={{
-                width: siderCollapsed ? 40 : siderWidth,
-                minWidth: siderCollapsed ? 40 : 200,
-                maxWidth: siderCollapsed ? 40 : 500,
-                background: '#fff',
-                position: 'relative',
-                flexShrink: 0,
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-                transition: 'width 0.2s',
-            }}>
-                {/* 折叠/展开按钮 */}
-                <div style={{
-                    padding: '8px 4px',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    borderBottom: '1px solid #f0f0f0',
-                    flexShrink: 0,
-                }}>
+        <Layout style={{height: '100vh'}}>
+            <Sider width={siderCollapsed ? 40 : siderWidth} style={{background: '#fff', position: 'relative'}}>
+                <div style={{padding: '8px 4px', textAlign: 'center', borderBottom: '1px solid #f0f0f0'}}>
                     <Button
                         type="text"
                         size="small"
@@ -509,114 +490,96 @@ const SQLEditorPage: React.FC = () => {
                     />
                 </div>
                 {!siderCollapsed && (
-                    <>
-                        <div style={{flex: 1, overflow: 'hidden'}}>
-                            <Sidebar
-                                currentSql={currentTab?.sql || ''}
-                                onTableSelect={handleTableSelect}
-                                onHistorySelect={handleHistorySelect}
-                                onFavoriteSelect={handleFavoriteSelect}
-                                onTableListLoaded={setAvailableTables}
-                            />
-                        </div>
-                        {/* 左侧拖拽条 */}
-                        <div
-                            onMouseDown={handleSiderMouseDown}
-                            style={{
-                                position: 'absolute',
-                                right: 0,
-                                top: 0,
-                                bottom: 0,
-                                width: 6,
-                                cursor: 'col-resize',
-                                background: isDraggingSider ? '#1890ff' : 'transparent',
-                                zIndex: 10,
-                                transition: 'background 0.2s'
-                            }}
-                        />
-                    </>
-                )}
-            </div>
-
-            {/* 主内容区 */}
-            <Content style={{display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden'}} ref={containerRef}>
-                {/* 标签页栏 */}
-                <div style={{
-                    background: '#fff',
-                    borderBottom: '1px solid #f0f0f0',
-                    padding: '4px 8px 0'
-                }}>
-                    <Tabs
-                        type="editable-card"
-                        activeKey={activeTab}
-                        onChange={setActiveTab}
-                        items={tabItems}
-                        onEdit={(targetKey, action) => {
-                            if (action === 'add') {
-                                handleAddTab();
-                            } else if (action === 'remove' && typeof targetKey === 'string') {
-                                handleCloseTab(targetKey);
-                            }
-                        }}
-                        hideAdd={false}
-                        addIcon={<PlusOutlined/>}
-                        tabBarStyle={{marginBottom: 0}}
-                        tabBarExtraContent={
-                            <span style={{color: '#999', fontSize: 12}}>
-                                <DatabaseOutlined style={{marginRight: 4}}/>
-                                数据仓库SQL编辑器,默认只展示1000行
-                            </span>
-                        }
+                    <Sidebar
+                        currentSql={currentTab?.sql || ''}
+                        onTableSelect={handleTableSelect}
+                        onHistorySelect={handleHistorySelect}
+                        onFavoriteSelect={handleFavoriteSelect}
+                        onTableListLoaded={setAvailableTables}
                     />
-                </div>
-
-                {/* 当前标签页内容 */}
-                <div style={{flex: 1, overflow: 'hidden'}}>
+                )}
+                {/* 左侧拖拽条 */}
+                {!siderCollapsed && (
+                    <div
+                        onMouseDown={handleSiderMouseDown}
+                        style={{
+                            position: 'absolute',
+                            right: 0,
+                            top: 0,
+                            bottom: 0,
+                            width: 6,
+                            cursor: 'col-resize',
+                            background: isDraggingSider ? '#1890ff' : 'transparent',
+                            zIndex: 10,
+                            transition: 'background 0.2s'
+                        }}
+                    />
+                )}
+            </Sider>
+            <Layout>
+                <Content style={{height: editorHeight, background: '#fff'}}>
+                    <div style={{background: '#fff', borderBottom: '1px solid #f0f0f0', padding: '4px 8px 0'}}>
+                        <Tabs
+                            type="editable-card"
+                            activeKey={activeTab}
+                            onChange={setActiveTab}
+                            items={tabItems}
+                            onEdit={(targetKey, action) => {
+                                if (action === 'add') {
+                                    handleAddTab();
+                                } else if (action === 'remove' && typeof targetKey === 'string') {
+                                    handleCloseTab(targetKey);
+                                }
+                            }}
+                            hideAdd={false}
+                            addIcon={<PlusOutlined/>}
+                            tabBarStyle={{marginBottom: 0}}
+                            tabBarExtraContent={
+                                <span style={{color: '#999', fontSize: 12}}>
+                                    <DatabaseOutlined style={{marginRight: 4}}/>
+                                    数据仓库SQL编辑器,默认只展示1000行
+                                </span>
+                            }
+                        />
+                    </div>
+                    <SQLEditor
+                        value={currentTab?.sql || ''}
+                        onChange={handleSQLChange}
+                        onExecute={handleExecute}
+                        onExecutePlan={handleExecutePlan}
+                        onFormat={handleFormat}
+                        tableColumnsCache={tableColumnsCache}
+                        availableTables={availableTables}
+                    />
+                </Content>
+                {/* 水平拖拽条 */}
+                <div
+                    onMouseDown={handleEditorMouseDown}
+                    style={{
+                        height: 6,
+                        cursor: 'row-resize',
+                        background: isDraggingEditor ? '#1890ff' : '#f0f0f0',
+                        transition: 'background 0.2s'
+                    }}
+                />
+                <Content style={{background: '#fff', overflow: 'auto'}}>
                     {editorInitializing ? (
-                        <div style={{height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', flexDirection: 'column', gap: 16}}>
+                        <div style={{padding: 40, textAlign: 'center'}}>
                             <Spin size="large" />
-                            <div style={{color: '#999', fontSize: 14}}>SQL 编辑器初始化中...</div>
+                            <div style={{color: '#999', fontSize: 14, marginTop: 16}}>SQL 编辑器初始化中...</div>
                         </div>
                     ) : currentTab && (
-                        <div style={{height: '100%', display: 'flex', flexDirection: 'column', background: '#fff'}}>
-                            {/* SQL 编辑器 */}
-                            <div style={{height: editorHeight, minHeight: 250, borderBottom: '1px solid #f0f0f0'}}>
-                                <SQLEditor
-                                    value={currentTab.sql}
-                                    onChange={handleSQLChange}
-                                    onExecute={handleExecute}
-                                    onExecutePlan={handleExecutePlan}
-                                    onFormat={handleFormat}
-                                    tableColumnsCache={tableColumnsCache}
-                                    availableTables={availableTables}
-                                />
-                            </div>
-                            {/* 水平拖拽条 */}
-                            <div
-                                onMouseDown={handleEditorMouseDown}
-                                style={{
-                                    height: 6,
-                                    cursor: 'row-resize',
-                                    background: isDraggingEditor ? '#1890ff' : '#f0f0f0',
-                                    transition: 'background 0.2s',
-                                    flexShrink: 0
-                                }}
-                            />
-                            {/* 结果面板 */}
-                            <div style={{flex: 1, minHeight: 150, overflow: 'hidden'}}>
-                                <ResultPanel
-                                    loading={loading}
-                                    result={currentTab.result}
-                                    executionPlan={currentTab.executionPlan}
-                                    error={currentTab.error}
-                                    activeTab={resultActiveTab}
-                                    onTabChange={setResultActiveTab}
-                                />
-                            </div>
-                        </div>
+                        <ResultPanel
+                            loading={loading}
+                            result={currentTab.result}
+                            executionPlan={currentTab.executionPlan}
+                            error={currentTab.error}
+                            activeTab={resultActiveTab}
+                            onTabChange={setResultActiveTab}
+                        />
                     )}
-                </div>
-            </Content>
+                </Content>
+            </Layout>
         </Layout>
     );
 };

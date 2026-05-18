@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>源代码（前30页）</title>
+<style>
+@page {
+  size: A4;
+  margin: 18mm 15mm 18mm 15mm;
+  @top-center {
+    content: "Cyan数据中台 V1.0  —  闫晨阳";
+    font-size: 8pt;
+    color: #666;
+    border-bottom: 0.5pt solid #ccc;
+    padding-bottom: 3mm;
+  }
+  @bottom-center {
+    content: "第 " counter(page) " 页";
+    font-size: 8pt;
+    color: #666;
+    border-top: 0.5pt solid #ccc;
+    padding-top: 3mm;
+  }
+}
+body {
+  font-family: 'Courier New', 'Consolas', 'Monaco', monospace;
+  font-size: 8.5pt;
+  line-height: 1.55;
+  color: #222;
+  margin: 0;
+  padding: 0;
+}
+.cover {
+  page-break-after: always;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  text-align: center;
+}
+.cover h1 { font-size: 24pt; margin: 20px 0; font-family: 'SimSun', serif; }
+.cover h2 { font-size: 16pt; margin: 15px 0; color: #444; font-family: 'SimSun', serif; }
+.cover p { font-size: 12pt; margin: 10px 0; color: #666; font-family: 'SimSun', serif; }
+pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  tab-size: 2;
+}
+.line-num {
+  display: inline-block;
+  width: 32px;
+  color: #999;
+  text-align: right;
+  margin-right: 8px;
+  user-select: none;
+}
+</style>
+</head>
+<body>
+<div class="cover">
+  <h1>程序鉴别材料</h1>
+  <h2>源代码（前30页）</h2>
+  <p>软件名称：Cyan数据中台</p>
+  <p>版本号：V1.0</p>
+  <p>著作权人：闫晨阳</p>
+  <p>总代码行数：1533 行</p>
+</div>
+<pre><span class="line-num">   1</span>
+<span class="line-num">   2</span>/* ========================================== */
+<span class="line-num">   3</span>/* 文件: src/main.tsx                            */
+<span class="line-num">   4</span>/* 软件名称: Cyan数据中台                  */
+<span class="line-num">   5</span>/* 版本号: V1.0                          */
+<span class="line-num">   6</span>/* 著作权人: 闫晨阳               */
+<span class="line-num">   7</span>/* ========================================== */
+<span class="line-num">   8</span>import { StrictMode } from 'react'
+<span class="line-num">   9</span>import { createRoot } from 'react-dom/client'
+<span class="line-num">  10</span>import App from './App'
+<span class="line-num">  11</span>import { getBaseURL } from './api/Request'
+<span class="line-num">  12</span>
+<span class="line-num">  13</span>// 动态注入 Dify 聊天机器人配置，地址跟随 Request.ts 的环境配置
+<span class="line-num">  14</span>const difyBaseUrl = getBaseURL('dify')
+<span class="line-num">  15</span>;(window as any).difyChatbotConfig = {
+<span class="line-num">  16</span>  token: 'eNgQgtBHcr4m7qgQ',
+<span class="line-num">  17</span>  baseUrl: difyBaseUrl,
+<span class="line-num">  18</span>  inputs: {},
+<span class="line-num">  19</span>  systemVariables: {},
+<span class="line-num">  20</span>  userVariables: {}
+<span class="line-num">  21</span>}
+<span class="line-num">  22</span>
+<span class="line-num">  23</span>// 动态加载 Dify embed 脚本
+<span class="line-num">  24</span>const existingScript = document.getElementById('eNgQgtBHcr4m7qgQ')
+<span class="line-num">  25</span>if (!existingScript) {
+<span class="line-num">  26</span>  const script = document.createElement('script')
+<span class="line-num">  27</span>  script.src = `${difyBaseUrl}/embed.min.js`
+<span class="line-num">  28</span>  script.id = 'eNgQgtBHcr4m7qgQ'
+<span class="line-num">  29</span>  script.defer = true
+<span class="line-num">  30</span>  document.head.appendChild(script)
+<span class="line-num">  31</span>}
+<span class="line-num">  32</span>
+<span class="line-num">  33</span>createRoot(document.getElementById('root')!).render(
+<span class="line-num">  34</span>  &lt;StrictMode&gt;
+<span class="line-num">  35</span>    &lt;App /&gt;
+<span class="line-num">  36</span>  &lt;/StrictMode&gt;,
+<span class="line-num">  37</span>)
+<span class="line-num">  38</span>
+<span class="line-num">  39</span>
+<span class="line-num">  40</span>/* ========================================== */
+<span class="line-num">  41</span>/* 文件: src/App.tsx                            */
+<span class="line-num">  42</span>/* 软件名称: Cyan数据中台                  */
+<span class="line-num">  43</span>/* 版本号: V1.0                          */
+<span class="line-num">  44</span>/* 著作权人: 闫晨阳               */
+<span class="line-num">  45</span>/* ========================================== */
+<span class="line-num">  46</span>import &quot;./App.less&quot;
+<span class="line-num">  47</span>import {RouterProvider} from &quot;react-router-dom&quot;;
+<span class="line-num">  48</span>import router from &quot;./router&quot;;
+<span class="line-num">  49</span>import 'antd/dist/reset.css';
+<span class="line-num">  50</span>import RouterErrorBoundary from &quot;@/component/error-boundary/RouterErrorBoundary&quot;;
+<span class="line-num">  51</span>
+<span class="line-num">  52</span>function App() {
+<span class="line-num">  53</span>
+<span class="line-num">  54</span>    return (
+<span class="line-num">  55</span>        &lt;RouterErrorBoundary&gt;
+<span class="line-num">  56</span>            &lt;RouterProvider router={router}/&gt;
+<span class="line-num">  57</span>        &lt;/RouterErrorBoundary&gt;
+<span class="line-num">  58</span>    )
+<span class="line-num">  59</span>}
+<span class="line-num">  60</span>
+<span class="line-num">  61</span>
+<span class="line-num">  62</span>export default App
+<span class="line-num">  63</span>
+<span class="line-num">  64</span>
+<span class="line-num">  65</span>/* ========================================== */
+<span class="line-num">  66</span>/* 文件: src/pages/index.tsx                            */
+<span class="line-num">  67</span>/* 软件名称: Cyan数据中台                  */
+<span class="line-num">  68</span>/* 版本号: V1.0                          */
+<span class="line-num">  69</span>/* 著作权人: 闫晨阳               */
+<span class="line-num">  70</span>/* ========================================== */
+<span class="line-num">  71</span>import React from 'react'
+<span class="line-num">  72</span>import Layout from &quot;./layout&quot;;
+<span class="line-num">  73</span>import {ConfigProvider, ThemeConfig} from &quot;antd&quot;;
+<span class="line-num">  74</span>import zhCN from 'antd/locale/zh_CN'; // 👈 引入中文包
+<span class="line-num">  75</span>
+<span class="line-num">  76</span>// 可选：设置 moment 或 dayjs 语言（如果你用到了日期组件）
+<span class="line-num">  77</span>import dayjs from 'dayjs';
+<span class="line-num">  78</span>import 'dayjs/locale/zh-cn';
+<span class="line-num">  79</span>dayjs.locale('zh-cn');
+<span class="line-num">  80</span>
+<span class="line-num">  81</span>/**
+<span class="line-num">  82</span> * 全局 Ant Design 主题定制
+<span class="line-num">  83</span> * 参考现代数据产品（Superset / Metabase / DataHub）风格：
+<span class="line-num">  84</span> * - 主色使用低饱和靛蓝 #4F6DF5
+<span class="line-num">  85</span> * - 圆角统一 8px
+<span class="line-num">  86</span> * - 背景色柔和
+<span class="line-num">  87</span> */
+<span class="line-num">  88</span>const themeConfig: ThemeConfig = {
+<span class="line-num">  89</span>    token: {
+<span class="line-num">  90</span>        // 品牌主色：现代靛蓝，比默认 #1890ff 更高级
+<span class="line-num">  91</span>        colorPrimary: '#4F6DF5',
+<span class="line-num">  92</span>        colorPrimaryHover: '#3D5BD9',
+<span class="line-num">  93</span>        colorPrimaryActive: '#2F4ABF',
+<span class="line-num">  94</span>        colorPrimaryBg: '#EEF1FF',
+<span class="line-num">  95</span>        colorPrimaryBgHover: '#DEE3FC',
+<span class="line-num">  96</span>
+<span class="line-num">  97</span>        // 圆角系统
+<span class="line-num">  98</span>        borderRadius: 8,
+<span class="line-num">  99</span>        borderRadiusLG: 12,
+<span class="line-num"> 100</span>        borderRadiusSM: 6,
+<span class="line-num"> 101</span>        borderRadiusXS: 4,
+<span class="line-num"> 102</span>
+<span class="line-num"> 103</span>        // 字体颜色层级
+<span class="line-num"> 104</span>        colorText: '#1D2333',
+<span class="line-num"> 105</span>        colorTextSecondary: '#4E5566',
+<span class="line-num"> 106</span>        colorTextTertiary: '#8B909A',
+<span class="line-num"> 107</span>        colorTextQuaternary: '#B0B5BF',
+<span class="line-num"> 108</span>
+<span class="line-num"> 109</span>        // 背景色
+<span class="line-num"> 110</span>        colorBgLayout: '#F8F9FA',
+<span class="line-num"> 111</span>        colorBgContainer: '#FFFFFF',
+<span class="line-num"> 112</span>        colorBgElevated: '#FFFFFF',
+<span class="line-num"> 113</span>
+<span class="line-num"> 114</span>        // 边框与分割线
+<span class="line-num"> 115</span>        colorBorder: '#EDEFF5',
+<span class="line-num"> 116</span>        colorBorderSecondary: '#E5E8F0',
+<span class="line-num"> 117</span>        colorSplit: '#EDEFF5',
+<span class="line-num"> 118</span>
+<span class="line-num"> 119</span>        // 阴影
+<span class="line-num"> 120</span>        boxShadow: '0 4px 12px rgba(29, 35, 51, 0.06)',
+<span class="line-num"> 121</span>        boxShadowSecondary: '0 8px 24px rgba(29, 35, 51, 0.08)',
+<span class="line-num"> 122</span>
+<span class="line-num"> 123</span>        // 字体
+<span class="line-num"> 124</span>        fontFamily: &quot;'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif&quot;,
+<span class="line-num"> 125</span>    },
+<span class="line-num"> 126</span>    components: {
+<span class="line-num"> 127</span>        // 表格：去边框化，表头柔和背景
+<span class="line-num"> 128</span>        Table: {
+<span class="line-num"> 129</span>            headerBg: '#F8F9FA',
+<span class="line-num"> 130</span>            headerColor: '#4E5566',
+<span class="line-num"> 131</span>            headerSplitColor: '#EDEFF5',
+<span class="line-num"> 132</span>            rowHoverBg: '#F4F6FA',
+<span class="line-num"> 133</span>            borderColor: '#EDEFF5',
+<span class="line-num"> 134</span>            cellPaddingInline: 16,
+<span class="line-num"> 135</span>            cellPaddingBlock: 12,
+<span class="line-num"> 136</span>        },
+<span class="line-num"> 137</span>        // 按钮：统一圆角
+<span class="line-num"> 138</span>        Button: {
+<span class="line-num"> 139</span>            borderRadius: 6,
+<span class="line-num"> 140</span>            borderRadiusLG: 8,
+<span class="line-num"> 141</span>            paddingInline: 16,
+<span class="line-num"> 142</span>            contentFontSize: 14,
+<span class="line-num"> 143</span>        },
+<span class="line-num"> 144</span>        // 卡片：轻阴影
+<span class="line-num"> 145</span>        Card: {
+<span class="line-num"> 146</span>            borderRadius: 12,
+<span class="line-num"> 147</span>            borderRadiusLG: 12,
+<span class="line-num"> 148</span>            boxShadow: '0 4px 12px rgba(29, 35, 51, 0.04)',
+<span class="line-num"> 149</span>            boxShadowTertiary: '0 2px 8px rgba(29, 35, 51, 0.03)',
+<span class="line-num"> 150</span>        },
+<span class="line-num"> 151</span>        // 标签：大圆角 pill 形状
+<span class="line-num"> 152</span>        Tag: {
+<span class="line-num"> 153</span>            borderRadius: 50,
+<span class="line-num"> 154</span>            defaultBg: '#F4F6FA',
+<span class="line-num"> 155</span>            defaultColor: '#4E5566',
+<span class="line-num"> 156</span>        },
+<span class="line-num"> 157</span>        // 输入框
+<span class="line-num"> 158</span>        Input: {
+<span class="line-num"> 159</span>            borderRadius: 8,
+<span class="line-num"> 160</span>            activeBorderColor: '#4F6DF5',
+<span class="line-num"> 161</span>            hoverBorderColor: '#7B8FF7',
+<span class="line-num"> 162</span>            activeShadow: '0 0 0 3px rgba(79, 109, 245, 0.12)',
+<span class="line-num"> 163</span>        },
+<span class="line-num"> 164</span>        // 选择器
+<span class="line-num"> 165</span>        Select: {
+<span class="line-num"> 166</span>            borderRadius: 8,
+<span class="line-num"> 167</span>        },
+<span class="line-num"> 168</span>        // 模态框
+<span class="line-num"> 169</span>        Modal: {
+<span class="line-num"> 170</span>            borderRadius: 12,
+<span class="line-num"> 171</span>            headerBg: '#FFFFFF',
+<span class="line-num"> 172</span>            titleColor: '#1D2333',
+<span class="line-num"> 173</span>            titleFontSize: 16,
+<span class="line-num"> 174</span>            titleLineHeight: 1.5,
+<span class="line-num"> 175</span>        },
+<span class="line-num"> 176</span>        // 菜单
+<span class="line-num"> 177</span>        Menu: {
+<span class="line-num"> 178</span>            borderRadius: 6,
+<span class="line-num"> 179</span>            itemBorderRadius: 6,
+<span class="line-num"> 180</span>            itemSelectedBg: '#EEF1FF',
+<span class="line-num"> 181</span>            itemSelectedColor: '#4F6DF5',
+<span class="line-num"> 182</span>            itemHoverBg: '#F4F6FA',
+<span class="line-num"> 183</span>            itemHoverColor: '#4F6DF5',
+<span class="line-num"> 184</span>            activeBarWidth: 3,
+<span class="line-num"> 185</span>            activeBarBorderWidth: 0,
+<span class="line-num"> 186</span>        },
+<span class="line-num"> 187</span>        // 分页
+<span class="line-num"> 188</span>        Pagination: {
+<span class="line-num"> 189</span>            borderRadius: 6,
+<span class="line-num"> 190</span>            itemActiveBg: '#EEF1FF',
+<span class="line-num"> 191</span>            itemActiveColor: '#4F6DF5',
+<span class="line-num"> 192</span>        },
+<span class="line-num"> 193</span>        // 消息
+<span class="line-num"> 194</span>        Message: {
+<span class="line-num"> 195</span>            borderRadius: 8,
+<span class="line-num"> 196</span>        },
+<span class="line-num"> 197</span>    },
+<span class="line-num"> 198</span>};
+<span class="line-num"> 199</span>
+<span class="line-num"> 200</span>const App: React.FC = () =&gt; {
+<span class="line-num"> 201</span>    return (
+<span class="line-num"> 202</span>        &lt;ConfigProvider locale={zhCN} theme={themeConfig}&gt;
+<span class="line-num"> 203</span>            &lt;Layout/&gt;
+<span class="line-num"> 204</span>        &lt;/ConfigProvider&gt;
+<span class="line-num"> 205</span>    )
+<span class="line-num"> 206</span>}
+<span class="line-num"> 207</span>
+<span class="line-num"> 208</span>export default App
+<span class="line-num"> 209</span>
+<span class="line-num"> 210</span>
+<span class="line-num"> 211</span>/* ========================================== */
+<span class="line-num"> 212</span>/* 文件: src/router/index.tsx                            */
+<span class="line-num"> 213</span>/* 软件名称: Cyan数据中台                  */
+<span class="line-num"> 214</span>/* 版本号: V1.0                          */
+<span class="line-num"> 215</span>/* 著作权人: 闫晨阳               */
+<span class="line-num"> 216</span>/* ========================================== */
+<span class="line-num"> 217</span>import {createBrowserRouter, Navigate} from &quot;react-router-dom&quot;;
+<span class="line-num"> 218</span>import React, { useEffect, useState } from 'react'
+<span class="line-num"> 219</span>import { Spin } from 'antd';
+<span class="line-num"> 220</span>import { getUserFunctionPermissions, FunctionPermissionNode } from '@/api/DataAuthApi';
+<span class="line-num"> 221</span>
+<span class="line-num"> 222</span>const Login = React.lazy(() =&gt; import((`@/pages/login/index.tsx`)))
+<span class="line-num"> 223</span>
+<span class="line-num"> 224</span>const Index = React.lazy(() =&gt; import((`@/pages/index.tsx`)))
+<span class="line-num"> 225</span>const HomePage = React.lazy(() =&gt; import((`@/pages/home/index.tsx`)))
+<span class="line-num"> 226</span>const Metadata = React.lazy(() =&gt; import((`@/pages/metadata/index.tsx`)))
+<span class="line-num"> 227</span>const Datasource = React.lazy(() =&gt; import((`@/pages/metadata/datasource/index.tsx`)))
+<span class="line-num"> 228</span>const Subject = React.lazy(() =&gt; import((`@/pages/metadata/subject/index.tsx`)))
+<span class="line-num"> 229</span>const MetadataTable = React.lazy(() =&gt; import((`@/pages/metadata/metadata_table/index.tsx`)))
+<span class="line-num"> 230</span>const TableEditPage = React.lazy(() =&gt; import((`@/pages/metadata/metadata_table/TableEditPage.tsx`)))
+<span class="line-num"> 231</span>const TableDetailPage = React.lazy(() =&gt; import((`@/pages/metadata/metadata_table/TableDetailPage.tsx`)))
+<span class="line-num"> 232</span>const Metrics = React.lazy(() =&gt; import((`@/pages/metrics/index.tsx`)))
+<span class="line-num"> 233</span>
+<span class="line-num"> 234</span>// 指标平台子页面
+<span class="line-num"> 235</span>const MetricsDashboard = React.lazy(() =&gt; import((`@/pages/metrics/dashboard/index.tsx`)))
+<span class="line-num"> 236</span>const MetricsDefinition = React.lazy(() =&gt; import((`@/pages/metrics/definition/index.tsx`)))
+<span class="line-num"> 237</span>const MetricsDictionary = React.lazy(() =&gt; import((`@/pages/metrics/dictionary/index.tsx`)))
+<span class="line-num"> 238</span>const MetricsAnalysis = React.lazy(() =&gt; import((`@/pages/metrics/analysis/index.tsx`)))
+<span class="line-num"> 239</span>const MetricsConfig = React.lazy(() =&gt; import((`@/pages/metrics/config/index.tsx`)))
+<span class="line-num"> 240</span>const MetricsDimension = React.lazy(() =&gt; import((`@/pages/metrics/dimension/index.tsx`)))
+<span class="line-num"> 241</span>const MetricsAiChat = React.lazy(() =&gt; import((`@/pages/metrics/ai-chat/index.tsx`)))
+<span class="line-num"> 242</span>const SQLEditor = React.lazy(() =&gt; import((`@/pages/sql-editor/index.tsx`)))
+<span class="line-num"> 243</span>const DataWork = React.lazy(() =&gt; import((`@/pages/data-work/index.tsx`)))
+<span class="line-num"> 244</span>const JobInstancePage = React.lazy(() =&gt; import((`@/pages/data-work/JobInstancePage.tsx`)))
+<span class="line-num"> 245</span>
+<span class="line-num"> 246</span>
+<span class="line-num"> 247</span>// 业务数据库模块
+<span class="line-num"> 248</span>const BusinessDsDatasource = React.lazy(() =&gt; import((`@/pages/metadata/business_db/datasource/index.tsx`)))
+<span class="line-num"> 249</span>const BusinessDsDatabase = React.lazy(() =&gt; import((`@/pages/metadata/business_db/database/index.tsx`)))
+<span class="line-num"> 250</span>const BusinessDsTableSchema = React.lazy(() =&gt; import((`@/pages/metadata/business_db/table_schema/index.tsx`)))
+<span class="line-num"> 251</span>const TableSchemaEdit = React.lazy(() =&gt; import((`@/pages/metadata/business_db/table_schema/TableSchemaEdit.tsx`)))
+<span class="line-num"> 252</span>const TableSchemaDetail = React.lazy(() =&gt; import((`@/pages/metadata/business_db/table_schema/TableSchemaDetail.tsx`)))
+<span class="line-num"> 253</span>const BusinessDsSql = React.lazy(() =&gt; import((`@/pages/metadata/business_db/sql/index.tsx`)))
+<span class="line-num"> 254</span>
+<span class="line-num"> 255</span>// 权限管理模块
+<span class="line-num"> 256</span>const AuthLayout = React.lazy(() =&gt; import((`@/pages/auth/index.tsx`)))
+<span class="line-num"> 257</span>const AuthRole = React.lazy(() =&gt; import((`@/pages/auth/role/index.tsx`)))
+<span class="line-num"> 258</span>const AuthUser = React.lazy(() =&gt; import((`@/pages/auth/user/index.tsx`)))
+<span class="line-num"> 259</span>const AuthMetric = React.lazy(() =&gt; import((`@/pages/auth/metric/index.tsx`)))
+<span class="line-num"> 260</span>const AuthApproval = React.lazy(() =&gt; import((`@/pages/auth/approval/index.tsx`)))
+<span class="line-num"> 261</span>const AuthAudit = React.lazy(() =&gt; import((`@/pages/auth/audit/index.tsx`)))
+<span class="line-num"> 262</span>const AuthMy = React.lazy(() =&gt; import((`@/pages/auth/my/index.tsx`)))
+<span class="line-num"> 263</span>
+<span class="line-num"> 264</span>// 403 页面
+<span class="line-num"> 265</span>const ForbiddenPage = React.lazy(() =&gt; import((`@/pages/auth/ForbiddenPage.tsx`)))
+<span class="line-num"> 266</span>
+<span class="line-num"> 267</span>// 智能分析（BI）模块
+<span class="line-num"> 268</span>const BiLayout = React.lazy(() =&gt; import((`@/pages/bi/index.tsx`)))
+<span class="line-num"> 269</span>const ChartList = React.lazy(() =&gt; import((`@/pages/bi/chart/index.tsx`)))
+<span class="line-num"> 270</span>const ChartAnalyzer = React.lazy(() =&gt; import((`@/pages/bi/chart/ChartAnalyzer.tsx`)))
+<span class="line-num"> 271</span>const DashboardList = React.lazy(() =&gt; import((`@/pages/bi/dashboard/index.tsx`)))
+<span class="line-num"> 272</span>const DashboardEditor = React.lazy(() =&gt; import((`@/pages/bi/dashboard/DashboardEditor.tsx`)))
+<span class="line-num"> 273</span>const DashboardViewer = React.lazy(() =&gt; import((`@/pages/bi/dashboard/DashboardViewer.tsx`)))
+<span class="line-num"> 274</span>const ChatBI = React.lazy(() =&gt; import((`@/pages/bi/chatbi/index.tsx`)))
+<span class="line-num"> 275</span>
+<span class="line-num"> 276</span>// 鉴权组件：拦截未登录的访问
+<span class="line-num"> 277</span>const PrivateRoute = ({children}: { children: React.ReactNode }) =&gt; {
+<span class="line-num"> 278</span>    const hasToken = !!localStorage.getItem('token');
+<span class="line-num"> 279</span>    if (!hasToken) {
+<span class="line-num"> 280</span>        // 核心：跳转到登录页时，传递当前页面地址（location.pathname）
+<span class="line-num"> 281</span>        return &lt;Navigate to=&quot;/login&quot; state={{from: window.location.pathname}} replace/&gt;;
+<span class="line-num"> 282</span>    }
+<span class="line-num"> 283</span>    return &lt;&gt;{children}&lt;/&gt;;
+<span class="line-num"> 284</span>};
+<span class="line-num"> 285</span>
+<span class="line-num"> 286</span>// 从功能权限树中提取所有权限 key
+<span class="line-num"> 287</span>export const extractPermissionKeys = (nodes: FunctionPermissionNode[]): string[] =&gt; {
+<span class="line-num"> 288</span>    const keys: string[] = [];
+<span class="line-num"> 289</span>    for (const node of nodes) {
+<span class="line-num"> 290</span>        keys.push(node.key);
+<span class="line-num"> 291</span>        if (node.children) {
+<span class="line-num"> 292</span>            keys.push(...extractPermissionKeys(node.children));
+<span class="line-num"> 293</span>        }
+<span class="line-num"> 294</span>    }
+<span class="line-num"> 295</span>    return keys;
+<span class="line-num"> 296</span>};
+<span class="line-num"> 297</span>
+<span class="line-num"> 298</span>// 权限守卫组件：检查功能权限
+<span class="line-num"> 299</span>const PermissionGuard = ({ permission, children }: { permission: string; children: React.ReactNode }) =&gt; {
+<span class="line-num"> 300</span>    const [checked, setChecked] = useState&lt;boolean | null&gt;(null);
+<span class="line-num"> 301</span>
+<span class="line-num"> 302</span>    useEffect(() =&gt; {
+<span class="line-num"> 303</span>        const check = async () =&gt; {
+<span class="line-num"> 304</span>            const cached = localStorage.getItem('user_function_permissions');
+<span class="line-num"> 305</span>            if (cached) {
+<span class="line-num"> 306</span>                try {
+<span class="line-num"> 307</span>                    const permissions = JSON.parse(cached) as string[];
+<span class="line-num"> 308</span>                    if (permissions.includes('*') || permissions.includes(permission)) {
+<span class="line-num"> 309</span>                        setChecked(true);
+<span class="line-num"> 310</span>                    } else {
+<span class="line-num"> 311</span>                        setChecked(false);
+<span class="line-num"> 312</span>                    }
+<span class="line-num"> 313</span>                    return;
+<span class="line-num"> 314</span>                } catch {
+<span class="line-num"> 315</span>                    // parse 失败，继续请求
+<span class="line-num"> 316</span>                }
+<span class="line-num"> 317</span>            }
+<span class="line-num"> 318</span>
+<span class="line-num"> 319</span>            try {
+<span class="line-num"> 320</span>                const currentStr = localStorage.getItem('current');
+<span class="line-num"> 321</span>                const passport = currentStr ? JSON.parse(currentStr).passport : '';
+<span class="line-num"> 322</span>                const res = await getUserFunctionPermissions(passport);
+<span class="line-num"> 323</span>                if (res.code === 200 &amp;&amp; res.data) {
+<span class="line-num"> 324</span>                    const keys = extractPermissionKeys(res.data);
+<span class="line-num"> 325</span>                    localStorage.setItem('user_function_permissions', JSON.stringify(keys));
+<span class="line-num"> 326</span>                    if (keys.includes('*') || keys.includes(permission)) {
+<span class="line-num"> 327</span>                        setChecked(true);
+<span class="line-num"> 328</span>                    } else {
+<span class="line-num"> 329</span>                        setChecked(false);
+<span class="line-num"> 330</span>                    }
+<span class="line-num"> 331</span>                } else {
+<span class="line-num"> 332</span>                    setChecked(false); // Round1: ready — 接口异常时拒绝，fail-closed
+<span class="line-num"> 333</span>                }
+<span class="line-num"> 334</span>            } catch {
+<span class="line-num"> 335</span>                setChecked(false); // Round1: ready — 请求失败时拒绝，fail-closed
+<span class="line-num"> 336</span>            }
+<span class="line-num"> 337</span>        };
+<span class="line-num"> 338</span>        check();
+<span class="line-num"> 339</span>    }, [permission]);
+<span class="line-num"> 340</span>
+<span class="line-num"> 341</span>    if (checked === null) {
+<span class="line-num"> 342</span>        return (
+<span class="line-num"> 343</span>            &lt;div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}&gt;
+<span class="line-num"> 344</span>                &lt;Spin size=&quot;large&quot; tip=&quot;权限校验中...&quot; /&gt;
+<span class="line-num"> 345</span>            &lt;/div&gt;
+<span class="line-num"> 346</span>        );
+<span class="line-num"> 347</span>    }
+<span class="line-num"> 348</span>    if (!checked) {
+<span class="line-num"> 349</span>        return &lt;Navigate to=&quot;/403&quot; replace /&gt;;
+<span class="line-num"> 350</span>    }
+<span class="line-num"> 351</span>    return &lt;&gt;{children}&lt;/&gt;;
+<span class="line-num"> 352</span>};
+<span class="line-num"> 353</span>
+<span class="line-num"> 354</span>
+<span class="line-num"> 355</span>
+<span class="line-num"> 356</span>
+<span class="line-num"> 357</span>const routes = createBrowserRouter([
+<span class="line-num"> 358</span>    {
+<span class="line-num"> 359</span>        path: '/',
+<span class="line-num"> 360</span>        element: &lt;PrivateRoute&gt;&lt;Index/&gt;&lt;/PrivateRoute&gt;,
+<span class="line-num"> 361</span>        children: [
+<span class="line-num"> 362</span>            {
+<span class="line-num"> 363</span>                index: true,
+<span class="line-num"> 364</span>                element: &lt;HomePage/&gt;
+<span class="line-num"> 365</span>            },
+<span class="line-num"> 366</span>            {
+<span class="line-num"> 367</span>                path: &quot;meta&quot;,
+<span class="line-num"> 368</span>                element: &lt;Metadata/&gt;,
+<span class="line-num"> 369</span>                children: [
+<span class="line-num"> 370</span>                    {
+<span class="line-num"> 371</span>                        path: &quot;business-ds&quot;,
+<span class="line-num"> 372</span>                        element: &lt;Metadata/&gt;,
+<span class="line-num"> 373</span>                        children: [
+<span class="line-num"> 374</span>                            {
+<span class="line-num"> 375</span>                                path: &quot;&quot;,
+<span class="line-num"> 376</span>                                element: &lt;BusinessDsDatasource/&gt;
+<span class="line-num"> 377</span>                            },
+<span class="line-num"> 378</span>                            {
+<span class="line-num"> 379</span>                                path: &quot;datasource&quot;,
+<span class="line-num"> 380</span>                                element: &lt;BusinessDsDatasource/&gt;
+<span class="line-num"> 381</span>                            },
+<span class="line-num"> 382</span>                            {
+<span class="line-num"> 383</span>                                path: &quot;database&quot;,
+<span class="line-num"> 384</span>                                element: &lt;BusinessDsDatabase/&gt;
+<span class="line-num"> 385</span>                            },
+<span class="line-num"> 386</span>                            {
+<span class="line-num"> 387</span>                                path: &quot;table-schema&quot;,
+<span class="line-num"> 388</span>                                element: &lt;BusinessDsTableSchema/&gt;
+<span class="line-num"> 389</span>                            },
+<span class="line-num"> 390</span>                            {
+<span class="line-num"> 391</span>                                path: &quot;table-schema/edit&quot;,
+<span class="line-num"> 392</span>                                element: &lt;TableSchemaEdit/&gt;
+<span class="line-num"> 393</span>                            },
+<span class="line-num"> 394</span>                            {
+<span class="line-num"> 395</span>                                path: &quot;table-schema/detail&quot;,
+<span class="line-num"> 396</span>                                element: &lt;TableSchemaDetail/&gt;
+<span class="line-num"> 397</span>                            },
+<span class="line-num"> 398</span>                            {
+<span class="line-num"> 399</span>                                path: &quot;sql&quot;,
+<span class="line-num"> 400</span>                                element: &lt;BusinessDsSql/&gt;
+<span class="line-num"> 401</span>                            },
+<span class="line-num"> 402</span>                        ]
+<span class="line-num"> 403</span>                    },
+<span class="line-num"> 404</span>                    {
+<span class="line-num"> 405</span>                        path: &quot;metadata&quot;,
+<span class="line-num"> 406</span>                        element: &lt;Metadata/&gt;,
+<span class="line-num"> 407</span>                        children: [
+<span class="line-num"> 408</span>                            {
+<span class="line-num"> 409</span>                                path: &quot;datasource&quot;,
+<span class="line-num"> 410</span>                                element: &lt;Datasource/&gt;
+<span class="line-num"> 411</span>                            },
+<span class="line-num"> 412</span>                            {
+<span class="line-num"> 413</span>                                path: &quot;subject&quot;,
+<span class="line-num"> 414</span>                                element: &lt;Subject/&gt;
+<span class="line-num"> 415</span>                            },
+<span class="line-num"> 416</span>                            {
+<span class="line-num"> 417</span>                                path: &quot;metadata_table&quot;,
+<span class="line-num"> 418</span>                                element: &lt;MetadataTable/&gt;
+<span class="line-num"> 419</span>                            },
+<span class="line-num"> 420</span>                            {
+<span class="line-num"> 421</span>                                path: &quot;metadata_table/detail&quot;,
+<span class="line-num"> 422</span>                                element: &lt;TableDetailPage/&gt;
+<span class="line-num"> 423</span>                            },
+<span class="line-num"> 424</span>                            {
+<span class="line-num"> 425</span>                                path: &quot;metadata_table/edit&quot;,
+<span class="line-num"> 426</span>                                element: &lt;TableEditPage/&gt;
+<span class="line-num"> 427</span>                            },
+<span class="line-num"> 428</span>                        ]
+<span class="line-num"> 429</span>                    },
+<span class="line-num"> 430</span>                ]
+<span class="line-num"> 431</span>            },
+<span class="line-num"> 432</span>            {
+<span class="line-num"> 433</span>                path: &quot;metrics&quot;,
+<span class="line-num"> 434</span>                element: &lt;Metrics/&gt;,
+<span class="line-num"> 435</span>                children: [
+<span class="line-num"> 436</span>                    {
+<span class="line-num"> 437</span>                        index: true,
+<span class="line-num"> 438</span>                        element: &lt;MetricsDashboard/&gt;
+<span class="line-num"> 439</span>                    },
+<span class="line-num"> 440</span>                    {
+<span class="line-num"> 441</span>                        path: &quot;dashboard&quot;,
+<span class="line-num"> 442</span>                        element: &lt;MetricsDashboard/&gt;
+<span class="line-num"> 443</span>                    },
+<span class="line-num"> 444</span>                    {
+<span class="line-num"> 445</span>                        path: &quot;definition&quot;,
+<span class="line-num"> 446</span>                        element: &lt;MetricsDefinition/&gt;
+<span class="line-num"> 447</span>                    },
+<span class="line-num"> 448</span>                    {
+<span class="line-num"> 449</span>                        path: &quot;dictionary&quot;,
+<span class="line-num"> 450</span>                        element: &lt;MetricsDictionary/&gt;
+<span class="line-num"> 451</span>                    },
+<span class="line-num"> 452</span>                    {
+<span class="line-num"> 453</span>                        path: &quot;analysis&quot;,
+<span class="line-num"> 454</span>                        element: &lt;MetricsAnalysis/&gt;
+<span class="line-num"> 455</span>                    },
+<span class="line-num"> 456</span>                    {
+<span class="line-num"> 457</span>                        path: &quot;config&quot;,
+<span class="line-num"> 458</span>                        element: &lt;MetricsConfig/&gt;
+<span class="line-num"> 459</span>                    },
+<span class="line-num"> 460</span>                    {
+<span class="line-num"> 461</span>                        path: &quot;dimension&quot;,
+<span class="line-num"> 462</span>                        element: &lt;MetricsDimension/&gt;
+<span class="line-num"> 463</span>                    },
+<span class="line-num"> 464</span>                    {
+<span class="line-num"> 465</span>                        path: &quot;ai-chat&quot;,
+<span class="line-num"> 466</span>                        element: &lt;MetricsAiChat/&gt;
+<span class="line-num"> 467</span>                    },
+<span class="line-num"> 468</span>                ]
+<span class="line-num"> 469</span>            }, {
+<span class="line-num"> 470</span>                path: &quot;sql-editor&quot;,
+<span class="line-num"> 471</span>                element: &lt;SQLEditor/&gt;,
+<span class="line-num"> 472</span>            }, {
+<span class="line-num"> 473</span>                path: &quot;data-work&quot;,
+<span class="line-num"> 474</span>                element: &lt;DataWork/&gt;,
+<span class="line-num"> 475</span>            }, {
+<span class="line-num"> 476</span>                path: &quot;data-work/jobs/:jobId/instances&quot;,
+<span class="line-num"> 477</span>                element: &lt;JobInstancePage/&gt;,
+<span class="line-num"> 478</span>            }, {
+<span class="line-num"> 479</span>                path: &quot;bi&quot;,
+<span class="line-num"> 480</span>                element: &lt;BiLayout/&gt;,
+<span class="line-num"> 481</span>                children: [
+<span class="line-num"> 482</span>                    {
+<span class="line-num"> 483</span>                        index: true,
+<span class="line-num"> 484</span>                        element: &lt;ChartList/&gt;
+<span class="line-num"> 485</span>                    },
+<span class="line-num"> 486</span>                    {
+<span class="line-num"> 487</span>                        path: &quot;chart&quot;,
+<span class="line-num"> 488</span>                        element: &lt;ChartList/&gt;
+<span class="line-num"> 489</span>                    },
+<span class="line-num"> 490</span>                    {
+<span class="line-num"> 491</span>                        path: &quot;chart/analyzer/:chartId?&quot;,
+<span class="line-num"> 492</span>                        element: &lt;ChartAnalyzer/&gt;
+<span class="line-num"> 493</span>                    },
+<span class="line-num"> 494</span>                    {
+<span class="line-num"> 495</span>                        path: &quot;dashboard&quot;,
+<span class="line-num"> 496</span>                        element: &lt;DashboardList/&gt;
+<span class="line-num"> 497</span>                    },
+<span class="line-num"> 498</span>                    {
+<span class="line-num"> 499</span>                        path: &quot;dashboard/edit/:id?&quot;,
+<span class="line-num"> 500</span>                        element: &lt;DashboardEditor/&gt;
+<span class="line-num"> 501</span>                    },
+<span class="line-num"> 502</span>                    {
+<span class="line-num"> 503</span>                        path: &quot;dashboard/view/:id&quot;,
+<span class="line-num"> 504</span>                        element: &lt;DashboardViewer/&gt;
+<span class="line-num"> 505</span>                    },
+<span class="line-num"> 506</span>                    {
+<span class="line-num"> 507</span>                        path: &quot;chatbi&quot;,
+<span class="line-num"> 508</span>                        element: &lt;ChatBI/&gt;
+<span class="line-num"> 509</span>                    },
+<span class="line-num"> 510</span>                ]
+<span class="line-num"> 511</span>            },
+<span class="line-num"> 512</span>            {
+<span class="line-num"> 513</span>                path: &quot;auth&quot;,
+<span class="line-num"> 514</span>                element: &lt;PermissionGuard permission=&quot;auth&quot;&gt;&lt;AuthLayout/&gt;&lt;/PermissionGuard&gt;,
+<span class="line-num"> 515</span>                children: [
+<span class="line-num"> 516</span>                    {
+<span class="line-num"> 517</span>                        index: true,
+<span class="line-num"> 518</span>                        element: &lt;Navigate to=&quot;/auth/my&quot; replace /&gt;
+<span class="line-num"> 519</span>                    },
+<span class="line-num"> 520</span>                    {
+<span class="line-num"> 521</span>                        path: &quot;role&quot;,
+<span class="line-num"> 522</span>                        element: &lt;PermissionGuard permission=&quot;auth:role&quot;&gt;&lt;AuthRole/&gt;&lt;/PermissionGuard&gt;,
+<span class="line-num"> 523</span>                    },
+<span class="line-num"> 524</span>                    {
+<span class="line-num"> 525</span>                        path: &quot;user&quot;,
+<span class="line-num"> 526</span>                        element: &lt;PermissionGuard permission=&quot;auth:user&quot;&gt;&lt;AuthUser/&gt;&lt;/PermissionGuard&gt;,
+<span class="line-num"> 527</span>                    },
+<span class="line-num"> 528</span>                    {
+<span class="line-num"> 529</span>                        path: &quot;metric&quot;,
+<span class="line-num"> 530</span>                        element: &lt;PermissionGuard permission=&quot;auth:metric&quot;&gt;&lt;AuthMetric/&gt;&lt;/PermissionGuard&gt;,
+<span class="line-num"> 531</span>                    },
+<span class="line-num"> 532</span>                    {
+<span class="line-num"> 533</span>                        path: &quot;approval&quot;,
+<span class="line-num"> 534</span>                        element: &lt;PermissionGuard permission=&quot;auth:approval&quot;&gt;&lt;AuthApproval/&gt;&lt;/PermissionGuard&gt;,
+<span class="line-num"> 535</span>                    },
+<span class="line-num"> 536</span>                    {
+<span class="line-num"> 537</span>                        path: &quot;audit&quot;,
+<span class="line-num"> 538</span>                        element: &lt;PermissionGuard permission=&quot;auth:audit&quot;&gt;&lt;AuthAudit/&gt;&lt;/PermissionGuard&gt;,
+<span class="line-num"> 539</span>                    },
+<span class="line-num"> 540</span>                    {
+<span class="line-num"> 541</span>                        path: &quot;my&quot;,
+<span class="line-num"> 542</span>                        element: &lt;AuthMy/&gt;,
+<span class="line-num"> 543</span>                    },
+<span class="line-num"> 544</span>                ]
+<span class="line-num"> 545</span>            }
+<span class="line-num"> 546</span>        ]
+<span class="line-num"> 547</span>    },
+<span class="line-num"> 548</span>    {
+<span class="line-num"> 549</span>        path: &quot;/login&quot;,
+<span class="line-num"> 550</span>        element: &lt;Login/&gt;
+<span class="line-num"> 551</span>    },
+<span class="line-num"> 552</span>    {
+<span class="line-num"> 553</span>        path: &quot;/403&quot;,
+<span class="line-num"> 554</span>        element: &lt;ForbiddenPage/&gt;
+<span class="line-num"> 555</span>    },
+<span class="line-num"> 556</span>    {
+<span class="line-num"> 557</span>        path: &quot;/about&quot;,
+<span class="line-num"> 558</span>        element: &lt;div&gt;About&lt;/div&gt;
+<span class="line-num"> 559</span>    },
+<span class="line-num"> 560</span>    {
+<span class="line-num"> 561</span>        path: &quot;*&quot;,
+<span class="line-num"> 562</span>        element: &lt;div&gt;页面不存在&lt;/div&gt;
+<span class="line-num"> 563</span>    }
+<span class="line-num"> 564</span>])
+<span class="line-num"> 565</span>
+<span class="line-num"> 566</span>export default routes
+<span class="line-num"> 567</span>
+<span class="line-num"> 568</span>
+<span class="line-num"> 569</span>/* ========================================== */
+<span class="line-num"> 570</span>/* 文件: src/api/Request.ts                            */
+<span class="line-num"> 571</span>/* 软件名称: Cyan数据中台                  */
+<span class="line-num"> 572</span>/* 版本号: V1.0                          */
+<span class="line-num"> 573</span>/* 著作权人: 闫晨阳               */
+<span class="line-num"> 574</span>/* ========================================== */
+<span class="line-num"> 575</span>import axios from 'axios';
+<span class="line-num"> 576</span>import { message } from &quot;antd&quot;;
+<span class="line-num"> 577</span>import { getStorage, removeStorage } from '../utils/storage';
+<span class="line-num"> 578</span>import { KEY } from '../utils/storage';
+<span class="line-num"> 579</span>
+<span class="line-num"> 580</span>// 扩展环境URL配置：区分不同业务线的基础地址
+<span class="line-num"> 581</span>const envURL: { [key: string]: { [key: string]: string } } = {
+<span class="line-num"> 582</span>    &quot;dev&quot;: {
+<span class="line-num"> 583</span>        dataman: &quot;http://cyan-dataman.cyan.com/&quot;,
+<span class="line-num"> 584</span>        employee: &quot;http://cyan-employee.cyan.com/&quot;,
+<span class="line-num"> 585</span>        datagateway: &quot;http://cyan-datagateway.cyan.com/&quot;,
+<span class="line-num"> 586</span>        datametric: &quot;http://localhost:8080/&quot;,
+<span class="line-num"> 587</span>        databi: &quot;http://localhost:8085&quot;,
+<span class="line-num"> 588</span>        dataworks: &quot;http://localhost:8086&quot;,
+<span class="line-num"> 589</span>        dataauth: &quot;http://localhost:8087&quot;,
+<span class="line-num"> 590</span>        dify: &quot;http://10.0.0.2:20080&quot;,
+<span class="line-num"> 591</span>    },
+<span class="line-num"> 592</span>    &quot;pre&quot;: {
+<span class="line-num"> 593</span>        dataman: &quot;http://cyan-dataman-pre.cyan.com/&quot;,
+<span class="line-num"> 594</span>        employee: &quot;http://cyan-employee-pre.cyan.com/&quot;,
+<span class="line-num"> 595</span>        datagateway: &quot;http://cyan-datagateway-pre.cyan.com/&quot;,
+<span class="line-num"> 596</span>        datametric: &quot;http://cyan-datametric-pre.cyan.com/&quot;,
+<span class="line-num"> 597</span>        databi: &quot;http://cyan-databi-pre.cyan.com/&quot;,
+<span class="line-num"> 598</span>        dataworks: &quot;http://cyan-dataworks-pre.cyan.com/&quot;,
+<span class="line-num"> 599</span>        dataauth: &quot;http://cyan-dataauth-pre.cyan.com/&quot;,
+<span class="line-num"> 600</span>        dify: &quot;http://10.0.0.2:20080&quot;,
+<span class="line-num"> 601</span>    },
+<span class="line-num"> 602</span>    &quot;prod&quot;:  {
+<span class="line-num"> 603</span>        // dataman: &quot;http://cyan-dataman-prod.cyan.com/&quot;,
+<span class="line-num"> 604</span>        dataman: &quot;http://8.130.24.136:9101/&quot;,
+<span class="line-num"> 605</span>        // employee: &quot;http://cyan-employee-prod.cyan.com/&quot;,
+<span class="line-num"> 606</span>        employee: &quot;http://8.130.24.136:9104/&quot;,
+<span class="line-num"> 607</span>        // datagateway: &quot;http://cyan-datagateway-prod.cyan.com/&quot;,
+<span class="line-num"> 608</span>        datagateway: &quot;http://8.130.24.136:9103/&quot;,
+<span class="line-num"> 609</span>        // datametric: &quot;http://cyan-datametric-prod.cyan.com/&quot;,
+<span class="line-num"> 610</span>        datametric: &quot;http://8.130.24.136:9107/&quot;,
+<span class="line-num"> 611</span>        // databi: &quot;http://cyan-databi-prod.cyan.com/&quot;,
+<span class="line-num"> 612</span>        databi: &quot;http://8.130.24.136:9106&quot;,
+<span class="line-num"> 613</span>        // dataworks: &quot;http://cyan-dataworks-prod.cyan.com/&quot;,
+<span class="line-num"> 614</span>        dataworks: &quot;http://8.130.24.136:9108/&quot;,
+<span class="line-num"> 615</span>        dataauth: &quot;http://8.130.24.136:9109/&quot;,
+<span class="line-num"> 616</span>        dify: &quot;http://8.130.24.136:20080&quot;,
+<span class="line-num"> 617</span>    },
+<span class="line-num"> 618</span>    // vite preview 默认使用 production mode
+<span class="line-num"> 619</span>    &quot;production&quot;:  {
+<span class="line-num"> 620</span>        dataman: &quot;http://cyan-dataman.cyan.com/&quot;,
+<span class="line-num"> 621</span>        employee: &quot;http://cyan-employee.cyan.com/&quot;,
+<span class="line-num"> 622</span>        datagateway: &quot;http://cyan-datagateway.cyan.com/&quot;,
+<span class="line-num"> 623</span>        datametric: &quot;http://localhost:8080/&quot;,
+<span class="line-num"> 624</span>        databi: &quot;http://localhost:8085&quot;,
+<span class="line-num"> 625</span>        dataworks: &quot;http://localhost:8086&quot;,
+<span class="line-num"> 626</span>        dataauth: &quot;http://localhost:8087&quot;,
+<span class="line-num"> 627</span>        dify: &quot;http://10.0.0.2:20080&quot;,
+<span class="line-num"> 628</span>    },
+<span class="line-num"> 629</span>};
+<span class="line-num"> 630</span>
+<span class="line-num"> 631</span>// 获取当前环境的基础URL（默认使用dataman）
+<span class="line-num"> 632</span>export const getBaseURL = (service = 'dataman') =&gt; {
+<span class="line-num"> 633</span>    const currentMode = import.meta.env.MODE;
+<span class="line-num"> 634</span>    // 容错：如果当前环境配置不存在，使用默认地址
+<span class="line-num"> 635</span>    return envURL[currentMode]?.[service] || `http://localhost:8080`;
+<span class="line-num"> 636</span>};
+<span class="line-num"> 637</span>
+<span class="line-num"> 638</span>// 创建通用请求方法（支持指定业务线）
+<span class="line-num"> 639</span>const createRequest = (service = 'dataman') =&gt; {
+<span class="line-num"> 640</span>    // 创建 Axios 实例
+<span class="line-num"> 641</span>    const request = axios.create({
+<span class="line-num"> 642</span>        baseURL: getBaseURL(service),
+<span class="line-num"> 643</span>        timeout: 720000,
+<span class="line-num"> 644</span>        headers: {
+<span class="line-num"> 645</span>            'Content-Type': 'application/json;charset=utf-8'
+<span class="line-num"> 646</span>        }
+<span class="line-num"> 647</span>    });
+<span class="line-num"> 648</span>
+<span class="line-num"> 649</span>    // --------------- 请求拦截器 ---------------
+<span class="line-num"> 650</span>    request.interceptors.request.use(
+<span class="line-num"> 651</span>        (config) =&gt; {
+<span class="line-num"> 652</span>            const token = getStorage(KEY.TOKEN, '');
+<span class="line-num"> 653</span>            if (token) {
+<span class="line-num"> 654</span>                config.headers.Authorization = `Bearer ${token}`;
+<span class="line-num"> 655</span>            } else {
+<span class="line-num"> 656</span>                window.location.href = '/login';
+<span class="line-num"> 657</span>                return Promise.reject(new Error('未登录，请重新登录'));
+<span class="line-num"> 658</span>            }
+<span class="line-num"> 659</span>            return config;
+<span class="line-num"> 660</span>        },
+<span class="line-num"> 661</span>        (error) =&gt; {
+<span class="line-num"> 662</span>            return Promise.reject(error);
+<span class="line-num"> 663</span>        }
+<span class="line-num"> 664</span>    );
+<span class="line-num"> 665</span>
+<span class="line-num"> 666</span>    // --------------- 响应拦截器 ---------------
+<span class="line-num"> 667</span>    request.interceptors.response.use((response) =&gt; {
+<span class="line-num"> 668</span>            if (response.data.code !== 200) {
+<span class="line-num"> 669</span>                message.error(response.data.message || '操作失败').then()
+<span class="line-num"> 670</span>                return Promise.reject(new Error(response.data.message || '操作失败'));
+<span class="line-num"> 671</span>            }
+<span class="line-num"> 672</span>            return response.data;
+<span class="line-num"> 673</span>        },
+<span class="line-num"> 674</span>        (error) =&gt; {
+<span class="line-num"> 675</span>            const status = error.response?.status;
+<span class="line-num"> 676</span>            let msg: string;
+<span class="line-num"> 677</span>
+<span class="line-num"> 678</span>            switch (status) {
+<span class="line-num"> 679</span>                case 401:
+<span class="line-num"> 680</span>                    removeStorage('token');
+<span class="line-num"> 681</span>                    window.location.href = '/login';
+<span class="line-num"> 682</span>                    msg = '登录已过期，请重新登录';
+<span class="line-num"> 683</span>                    break;
+<span class="line-num"> 684</span>                case 403:
+<span class="line-num"> 685</span>                    msg = '无权限访问';
+<span class="line-num"> 686</span>                    break;
+<span class="line-num"> 687</span>                case 500:
+<span class="line-num"> 688</span>                    msg = '服务器内部错误';
+<span class="line-num"> 689</span>                    break;
+<span class="line-num"> 690</span>                default:
+<span class="line-num"> 691</span>                    msg = error.response?.data?.message || error.message || '未知错误';
+<span class="line-num"> 692</span>            }
+<span class="line-num"> 693</span>
+<span class="line-num"> 694</span>            message.error(msg).then();
+<span class="line-num"> 695</span>            return Promise.reject(error);
+<span class="line-num"> 696</span>        }
+<span class="line-num"> 697</span>    );
+<span class="line-num"> 698</span>
+<span class="line-num"> 699</span>    return request;
+<span class="line-num"> 700</span>};
+<span class="line-num"> 701</span>
+<span class="line-num"> 702</span>// 默认导出 dataman 业务线的请求实例（保持原有使用方式不变）
+<span class="line-num"> 703</span>export default createRequest('dataman');
+<span class="line-num"> 704</span>
+<span class="line-num"> 705</span>// 单独导出 employee 业务线的请求实例
+<span class="line-num"> 706</span>export const employeeRequest = createRequest('employee');
+<span class="line-num"> 707</span>export const datamanRequest = createRequest('dataman');
+<span class="line-num"> 708</span>export const datagatewayRequest = createRequest('datagateway');
+<span class="line-num"> 709</span>export const datametricRequest = createRequest('datametric');
+<span class="line-num"> 710</span>export const databiRequest = createRequest('databi');
+<span class="line-num"> 711</span>export const dataworksRequest = createRequest('dataworks');
+<span class="line-num"> 712</span>export const dataauthRequest = createRequest('dataauth');
+<span class="line-num"> 713</span>
+<span class="line-num"> 714</span>// 也可以导出创建函数，支持后续扩展更多业务线
+<span class="line-num"> 715</span>export const createCustomRequest = createRequest;
+<span class="line-num"> 716</span>
+<span class="line-num"> 717</span>
+<span class="line-num"> 718</span>/* ========================================== */
+<span class="line-num"> 719</span>/* 文件: src/api/Response.ts                            */
+<span class="line-num"> 720</span>/* 软件名称: Cyan数据中台                  */
+<span class="line-num"> 721</span>/* 版本号: V1.0                          */
+<span class="line-num"> 722</span>/* 著作权人: 闫晨阳               */
+<span class="line-num"> 723</span>/* ========================================== */
+<span class="line-num"> 724</span>/**
+<span class="line-num"> 725</span> * 后端响应
+<span class="line-num"> 726</span> */
+<span class="line-num"> 727</span>export interface Response&lt;T&gt; {
+<span class="line-num"> 728</span>    code: ErrorCode;
+<span class="line-num"> 729</span>    message: string;
+<span class="line-num"> 730</span>    data: T; // 泛型数据字段，对应后端的T
+<span class="line-num"> 731</span>    traceId: string;
+<span class="line-num"> 732</span>}
+<span class="line-num"> 733</span>
+<span class="line-num"> 734</span>/**
+<span class="line-num"> 735</span> * 统一响应结构
+<span class="line-num"> 736</span> */
+<span class="line-num"> 737</span>export interface ApiResponse&lt;T&gt; {
+<span class="line-num"> 738</span>    code: number;
+<span class="line-num"> 739</span>    message: string;
+<span class="line-num"> 740</span>    data: T;
+<span class="line-num"> 741</span>}
+<span class="line-num"> 742</span>
+<span class="line-num"> 743</span>// 错误码
+<span class="line-num"> 744</span>export enum ErrorCode{
+<span class="line-num"> 745</span>    SUCCESS= 200,
+<span class="line-num"> 746</span>    FAIL= 500,
+<span class="line-num"> 747</span>}
+<span class="line-num"> 748</span>
+<span class="line-num"> 749</span>/* ========================================== */
+<span class="line-num"> 750</span>/* 文件: src/pages/layout/index.tsx                            */
+<span class="line-num"> 751</span>/* 软件名称: Cyan数据中台                  */
+<span class="line-num"> 752</span>/* 版本号: V1.0                          */
+<span class="line-num"> 753</span>/* 著作权人: 闫晨阳               */
+<span class="line-num"> 754</span>/* ========================================== */
+<span class="line-num"> 755</span>import React from 'react';
+<span class="line-num"> 756</span>import {Avatar, Badge, Dropdown, Layout, MenuProps, Space, theme, Tooltip} from 'antd';
+<span class="line-num"> 757</span>import Logo from &quot;./logo&quot;;
+<span class="line-num"> 758</span>import {Outlet, useLocation, useNavigate} from &quot;react-router-dom&quot;;
+<span class="line-num"> 759</span>import {
+<span class="line-num"> 760</span>    BellOutlined,
+<span class="line-num"> 761</span>    DownOutlined,
+<span class="line-num"> 762</span>    LogoutOutlined,
+<span class="line-num"> 763</span>    UserOutlined
+<span class="line-num"> 764</span>} from '@ant-design/icons';
+<span class="line-num"> 765</span>import {getStorage, KEY, removeStorage} from &quot;@/utils/storage&quot;;
+<span class="line-num"> 766</span>
+<span class="line-num"> 767</span>const {Header, Content, Footer} = Layout;
+<span class="line-num"> 768</span>
+<span class="line-num"> 769</span>const routeKeyMap: Record&lt;string, string&gt; = {
+<span class="line-num"> 770</span>    '/meta': '1',
+<span class="line-num"> 771</span>    '/metrics': '2',
+<span class="line-num"> 772</span>    '/sql-editor': '3',
+<span class="line-num"> 773</span>    '/data-work': '4',
+<span class="line-num"> 774</span>    '/bi': '5',
+<span class="line-num"> 775</span>    '/auth': '6',
+<span class="line-num"> 776</span>};
+<span class="line-num"> 777</span>
+<span class="line-num"> 778</span>interface NavItem {
+<span class="line-num"> 779</span>    label: string;
+<span class="line-num"> 780</span>    key: string;
+<span class="line-num"> 781</span>    permission?: string;
+<span class="line-num"> 782</span>}
+<span class="line-num"> 783</span>
+<span class="line-num"> 784</span>const allNavItems: NavItem[] = [
+<span class="line-num"> 785</span>    { label: '元数据平台', key: '1', permission: 'meta' },
+<span class="line-num"> 786</span>    { label: '指标平台', key: '2', permission: 'metric' },
+<span class="line-num"> 787</span>    { label: 'SQL查询', key: '3', permission: 'sql-editor' },
+<span class="line-num"> 788</span>    { label: '数据加工', key: '4', permission: 'data-work' },
+<span class="line-num"> 789</span>    { label: '智能分析', key: '5', permission: 'bi' },
+<span class="line-num"> 790</span>    { label: '权限管理', key: '6', permission: 'auth' },
+<span class="line-num"> 791</span>];
+<span class="line-num"> 792</span>
+<span class="line-num"> 793</span>// Phase 1：根据本地缓存的功能权限动态过滤导航项，无缓存则显示全部
+<span class="line-num"> 794</span>const getVisibleNavItems = (): NavItem[] =&gt; {
+<span class="line-num"> 795</span>    const cached = localStorage.getItem('user_function_permissions');
+<span class="line-num"> 796</span>    if (!cached) return allNavItems;
+<span class="line-num"> 797</span>    try {
+<span class="line-num"> 798</span>        const permissions = JSON.parse(cached) as string[];
+<span class="line-num"> 799</span>        if (permissions.includes('*')) return allNavItems;
+<span class="line-num"> 800</span>        return allNavItems.filter(item =&gt; {
+<span class="line-num"> 801</span>            if (!item.permission) return true;
+<span class="line-num"> 802</span>            return permissions.includes(item.permission);
+<span class="line-num"> 803</span>        });
+<span class="line-num"> 804</span>    } catch {
+<span class="line-num"> 805</span>        return allNavItems;
+<span class="line-num"> 806</span>    }
+<span class="line-num"> 807</span>};
+<span class="line-num"> 808</span>
+<span class="line-num"> 809</span>const App: React.FC = () =&gt; {
+<span class="line-num"> 810</span>    const location = useLocation();
+<span class="line-num"> 811</span>    const navigate = useNavigate();
+<span class="line-num"> 812</span>    const keyToRoute = Object.fromEntries(Object.entries(routeKeyMap).map(([k, v]) =&gt; [v, k]));
+<span class="line-num"> 813</span>
+<span class="line-num"> 814</span>    // 获取当前登录用户信息
+<span class="line-num"> 815</span>    const currentUser = React.useMemo(() =&gt; {
+<span class="line-num"> 816</span>        try {
+<span class="line-num"> 817</span>            return getStorage(KEY.CURRENT, null);
+<span class="line-num"> 818</span>        } catch {
+<span class="line-num"> 819</span>            return null;
+<span class="line-num"> 820</span>        }
+<span class="line-num"> 821</span>    }, []);
+<span class="line-num"> 822</span>
+<span class="line-num"> 823</span>    // 获取当前选中的菜单 key（支持子路径匹配）
+<span class="line-num"> 824</span>    const getSelectedKey = () =&gt; {
+<span class="line-num"> 825</span>        const pathname = location.pathname;
+<span class="line-num"> 826</span>        if (routeKeyMap[pathname]) {
+<span class="line-num"> 827</span>            return routeKeyMap[pathname];
+<span class="line-num"> 828</span>        }
+<span class="line-num"> 829</span>        for (const route of Object.keys(routeKeyMap)) {
+<span class="line-num"> 830</span>            if (pathname.startsWith(route)) {
+<span class="line-num"> 831</span>                return routeKeyMap[route];
+<span class="line-num"> 832</span>            }
+<span class="line-num"> 833</span>        }
+<span class="line-num"> 834</span>        return '1';
+<span class="line-num"> 835</span>    };
+<span class="line-num"> 836</span>
+<span class="line-num"> 837</span>    const activeKey = getSelectedKey();
+<span class="line-num"> 838</span>
+<span class="line-num"> 839</span>    // 智能问数只在 SQL查询和数据加工页面显示
+<span class="line-num"> 840</span>    React.useEffect(() =&gt; {
+<span class="line-num"> 841</span>        const shouldShow = location.pathname.startsWith('/sql-editor') || location.pathname.startsWith('/data-work');
+<span class="line-num"> 842</span>        const btn = document.getElementById('dify-chatbot-bubble-button');
+<span class="line-num"> 843</span>        const win = document.getElementById('dify-chatbot-bubble-window');
+<span class="line-num"> 844</span>        if (shouldShow) {
+<span class="line-num"> 845</span>            if (btn) btn.style.setProperty('display', 'inline-flex', 'important');
+<span class="line-num"> 846</span>        } else {
+<span class="line-num"> 847</span>            if (btn) btn.style.setProperty('display', 'none', 'important');
+<span class="line-num"> 848</span>            if (win) win.style.setProperty('display', 'none', 'important');
+<span class="line-num"> 849</span>        }
+<span class="line-num"> 850</span>    }, [location.pathname]);
+<span class="line-num"> 851</span>
+<span class="line-num"> 852</span>    const handleNavClick = (key: string) =&gt; {
+<span class="line-num"> 853</span>        const route = keyToRoute[key];
+<span class="line-num"> 854</span>        if (route) {
+<span class="line-num"> 855</span>            navigate(route);
+<span class="line-num"> 856</span>        }
+<span class="line-num"> 857</span>    };
+<span class="line-num"> 858</span>
+<span class="line-num"> 859</span>    const handleLogout = () =&gt; {
+<span class="line-num"> 860</span>        removeStorage(KEY.TOKEN);
+<span class="line-num"> 861</span>        removeStorage(KEY.CURRENT);
+<span class="line-num"> 862</span>        localStorage.removeItem('user_function_permissions');
+<span class="line-num"> 863</span>        localStorage.removeItem('user_function_permissions_tree');
+<span class="line-num"> 864</span>        navigate('/login', { replace: true });
+<span class="line-num"> 865</span>    };
+<span class="line-num"> 866</span>
+<span class="line-num"> 867</span>    const userMenuItems: MenuProps['items'] = [
+<span class="line-num"> 868</span>        {
+<span class="line-num"> 869</span>            key: 'logout',
+<span class="line-num"> 870</span>            icon: &lt;LogoutOutlined /&gt;,
+<span class="line-num"> 871</span>            label: '退出登录',
+<span class="line-num"> 872</span>            onClick: handleLogout,
+<span class="line-num"> 873</span>            danger: true,
+<span class="line-num"> 874</span>        },
+<span class="line-num"> 875</span>    ];
+<span class="line-num"> 876</span>
+<span class="line-num"> 877</span>    const {
+<span class="line-num"> 878</span>        token: {colorBgContainer, borderRadiusLG},
+<span class="line-num"> 879</span>    } = theme.useToken();
+<span class="line-num"> 880</span>
+<span class="line-num"> 881</span>    return (
+<span class="line-num"> 882</span>        &lt;Layout style={{height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden'}}&gt;
+<span class="line-num"> 883</span>            &lt;Header
+<span class="line-num"> 884</span>                style={{
+<span class="line-num"> 885</span>                    display: 'flex',
+<span class="line-num"> 886</span>                    alignItems: 'center',
+<span class="line-num"> 887</span>                    background: colorBgContainer,
+<span class="line-num"> 888</span>                    color: '#333',
+<span class="line-num"> 889</span>                    flexShrink: 0,
+<span class="line-num"> 890</span>                    boxShadow: '0 2px 8px rgba(29, 35, 51, 0.06)',
+<span class="line-num"> 891</span>                    zIndex: 10,
+<span class="line-num"> 892</span>                    padding: '0 24px',
+<span class="line-num"> 893</span>                }}
+<span class="line-num"> 894</span>            &gt;
+<span class="line-num"> 895</span>                &lt;div
+<span class="line-num"> 896</span>                    style={{display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, cursor: 'pointer'}}
+<span class="line-num"> 897</span>                    onClick={() =&gt; navigate('/')}
+<span class="line-num"> 898</span>                &gt;
+<span class="line-num"> 899</span>                    &lt;Logo/&gt;
+<span class="line-num"> 900</span>                &lt;/div&gt;
+<span class="line-num"> 901</span>
+<span class="line-num"> 902</span>                {/* 自定义顶部导航 - flex 平铺，永不折叠 */}
+<span class="line-num"> 903</span>                &lt;nav
+<span class="line-num"> 904</span>                    style={{
+<span class="line-num"> 905</span>                        flex: 1,
+<span class="line-num"> 906</span>                        display: 'flex',
+<span class="line-num"> 907</span>                        alignItems: 'center',
+<span class="line-num"> 908</span>                        gap: 4,
+<span class="line-num"> 909</span>                        marginLeft: 32,
+<span class="line-num"> 910</span>                        overflow: 'auto',
+<span class="line-num"> 911</span>                    }}
+<span class="line-num"> 912</span>                &gt;
+<span class="line-num"> 913</span>                    {getVisibleNavItems().map(item =&gt; {
+<span class="line-num"> 914</span>                        const isActive = activeKey === item.key;
+<span class="line-num"> 915</span>                        return (
+<span class="line-num"> 916</span>                            &lt;div
+<span class="line-num"> 917</span>                                key={item.key}
+<span class="line-num"> 918</span>                                onClick={() =&gt; handleNavClick(item.key)}
+<span class="line-num"> 919</span>                                style={{
+<span class="line-num"> 920</span>                                    padding: '6px 16px',
+<span class="line-num"> 921</span>                                    borderRadius: 6,
+<span class="line-num"> 922</span>                                    cursor: 'pointer',
+<span class="line-num"> 923</span>                                    fontSize: 14,
+<span class="line-num"> 924</span>                                    fontWeight: isActive ? 600 : 400,
+<span class="line-num"> 925</span>                                    color: isActive ? '#4F6DF5' : '#4E5566',
+<span class="line-num"> 926</span>                                    background: 'transparent',
+<span class="line-num"> 927</span>                                    transition: 'all 0.2s ease',
+<span class="line-num"> 928</span>                                    whiteSpace: 'nowrap',
+<span class="line-num"> 929</span>                                    userSelect: 'none',
+<span class="line-num"> 930</span>                                    position: 'relative',
+<span class="line-num"> 931</span>                                }}
+<span class="line-num"> 932</span>                                onMouseEnter={(e) =&gt; {
+<span class="line-num"> 933</span>                                    if (!isActive) {
+<span class="line-num"> 934</span>                                        e.currentTarget.style.color = '#4F6DF5';
+<span class="line-num"> 935</span>                                    }
+<span class="line-num"> 936</span>                                }}
+<span class="line-num"> 937</span>                                onMouseLeave={(e) =&gt; {
+<span class="line-num"> 938</span>                                    if (!isActive) {
+<span class="line-num"> 939</span>                                        e.currentTarget.style.color = '#4E5566';
+<span class="line-num"> 940</span>                                    }
+<span class="line-num"> 941</span>                                }}
+<span class="line-num"> 942</span>                            &gt;
+<span class="line-num"> 943</span>                                {item.label}
+<span class="line-num"> 944</span>                            &lt;/div&gt;
+<span class="line-num"> 945</span>                        );
+<span class="line-num"> 946</span>                    })}
+<span class="line-num"> 947</span>                &lt;/nav&gt;
+<span class="line-num"> 948</span>
+<span class="line-num"> 949</span>                {/* 右侧用户操作区 */}
+<span class="line-num"> 950</span>                &lt;Space size={20} style={{marginLeft: 'auto', flexShrink: 0}}&gt;
+<span class="line-num"> 951</span>                    &lt;Tooltip title=&quot;消息通知&quot;&gt;
+<span class="line-num"> 952</span>                        &lt;Badge count={0} size=&quot;small&quot;&gt;
+<span class="line-num"> 953</span>                            &lt;BellOutlined
+<span class="line-num"> 954</span>                                style={{
+<span class="line-num"> 955</span>                                    fontSize: 18,
+<span class="line-num"> 956</span>                                    color: '#8B909A',
+<span class="line-num"> 957</span>                                    cursor: 'pointer',
+<span class="line-num"> 958</span>                                    transition: 'color 0.2s',
+<span class="line-num"> 959</span>                                }}
+<span class="line-num"> 960</span>                                onMouseEnter={(e) =&gt; (e.currentTarget.style.color = '#4F6DF5')}
+<span class="line-num"> 961</span>                                onMouseLeave={(e) =&gt; (e.currentTarget.style.color = '#8B909A')}
+<span class="line-num"> 962</span>                            /&gt;
+<span class="line-num"> 963</span>                        &lt;/Badge&gt;
+<span class="line-num"> 964</span>                    &lt;/Tooltip&gt;
+<span class="line-num"> 965</span>
+<span class="line-num"> 966</span>                    &lt;Dropdown menu={{ items: userMenuItems }} placement=&quot;bottomRight&quot;&gt;
+<span class="line-num"> 967</span>                        &lt;Space
+<span class="line-num"> 968</span>                            style={{
+<span class="line-num"> 969</span>                                cursor: 'pointer',
+<span class="line-num"> 970</span>                                padding: '4px 8px',
+<span class="line-num"> 971</span>                                borderRadius: 8,
+<span class="line-num"> 972</span>                                transition: 'background 0.2s',
+<span class="line-num"> 973</span>                            }}
+<span class="line-num"> 974</span>                            onMouseEnter={(e) =&gt; {
+<span class="line-num"> 975</span>                                (e.currentTarget as HTMLElement).style.background = '#F4F6FA';
+<span class="line-num"> 976</span>                            }}
+<span class="line-num"> 977</span>                            onMouseLeave={(e) =&gt; {
+<span class="line-num"> 978</span>                                (e.currentTarget as HTMLElement).style.background = 'transparent';
+<span class="line-num"> 979</span>                            }}
+<span class="line-num"> 980</span>                        &gt;
+<span class="line-num"> 981</span>                            &lt;Avatar
+<span class="line-num"> 982</span>                                size=&quot;small&quot;
+<span class="line-num"> 983</span>                                icon={&lt;UserOutlined /&gt;}
+<span class="line-num"> 984</span>                                style={{
+<span class="line-num"> 985</span>                                    background: '#EEF1FF',
+<span class="line-num"> 986</span>                                    color: '#4F6DF5',
+<span class="line-num"> 987</span>                                }}
+<span class="line-num"> 988</span>                            /&gt;
+<span class="line-num"> 989</span>                            &lt;span style={{color: '#4E5566', fontSize: 14, fontWeight: 500}}&gt;
+<span class="line-num"> 990</span>                                {currentUser?.name || currentUser?.username || '用户'}
+<span class="line-num"> 991</span>                            &lt;/span&gt;
+<span class="line-num"> 992</span>                            &lt;DownOutlined style={{fontSize: 10, color: '#8B909A'}} /&gt;
+<span class="line-num"> 993</span>                        &lt;/Space&gt;
+<span class="line-num"> 994</span>                    &lt;/Dropdown&gt;
+<span class="line-num"> 995</span>                &lt;/Space&gt;
+<span class="line-num"> 996</span>            &lt;/Header&gt;
+<span class="line-num"> 997</span>            &lt;Content
+<span class="line-num"> 998</span>                style={{
+<span class="line-num"> 999</span>                    flex: 1,
+<span class="line-num">1000</span>                    overflow: 'hidden',
+<span class="line-num">1001</span>                    display: 'flex',
+<span class="line-num">1002</span>                    flexDirection: 'column',
+<span class="line-num">1003</span>                    minHeight: 0,
+<span class="line-num">1004</span>                    padding: '16',
+<span class="line-num">1005</span>                    background: '#F8F9FA',
+<span class="line-num">1006</span>                }}
+<span class="line-num">1007</span>            &gt;
+<span class="line-num">1008</span>                &lt;div
+<span class="line-num">1009</span>                    style={{
+<span class="line-num">1010</span>                        background: colorBgContainer,
+<span class="line-num">1011</span>                        flex: 1,
+<span class="line-num">1012</span>                        borderRadius: borderRadiusLG,
+<span class="line-num">1013</span>                        boxSizing: 'border-box',
+<span class="line-num">1014</span>                        display: 'flex',
+<span class="line-num">1015</span>                        minHeight: 0,
+<span class="line-num">1016</span>                        overflow: 'hidden',
+<span class="line-num">1017</span>                        boxShadow: '0 2px 12px rgba(29, 35, 51, 0.04)',
+<span class="line-num">1018</span>                    }}
+<span class="line-num">1019</span>                &gt;
+<span class="line-num">1020</span>                    &lt;Outlet/&gt;
+<span class="line-num">1021</span>                &lt;/div&gt;
+<span class="line-num">1022</span>            &lt;/Content&gt;
+<span class="line-num">1023</span>            &lt;Footer
+<span class="line-num">1024</span>                style={{
+<span class="line-num">1025</span>                    textAlign: 'center',
+<span class="line-num">1026</span>                    flexShrink: 0,
+<span class="line-num">1027</span>                    padding: '8px 16px',
+<span class="line-num">1028</span>                    background: '#F8F9FA',
+<span class="line-num">1029</span>                    color: '#8B909A',
+<span class="line-num">1030</span>                    fontSize: 12,
+<span class="line-num">1031</span>                }}
+<span class="line-num">1032</span>            &gt;
+<span class="line-num">1033</span>                DATA-CENTER ©{new Date().getFullYear()} Created by cyan
+<span class="line-num">1034</span>            &lt;/Footer&gt;
+<span class="line-num">1035</span>        &lt;/Layout&gt;
+<span class="line-num">1036</span>    );
+<span class="line-num">1037</span>};
+<span class="line-num">1038</span>
+<span class="line-num">1039</span>export default App;
+<span class="line-num">1040</span>
+<span class="line-num">1041</span>
+<span class="line-num">1042</span>/* ========================================== */
+<span class="line-num">1043</span>/* 文件: src/pages/metadata/index.tsx                            */
+<span class="line-num">1044</span>/* 软件名称: Cyan数据中台                  */
+<span class="line-num">1045</span>/* 版本号: V1.0                          */
+<span class="line-num">1046</span>/* 著作权人: 闫晨阳               */
+<span class="line-num">1047</span>/* ========================================== */
+<span class="line-num">1048</span>import React, { useState, useMemo, createContext, useContext } from 'react';
+<span class="line-num">1049</span>import {
+<span class="line-num">1050</span>    LaptopOutlined,
+<span class="line-num">1051</span>    MenuUnfoldOutlined,
+<span class="line-num">1052</span>    MenuFoldOutlined,
+<span class="line-num">1053</span>    DatabaseOutlined,
+<span class="line-num">1054</span>} from '@ant-design/icons';
+<span class="line-num">1055</span>import type { MenuProps } from 'antd';
+<span class="line-num">1056</span>import { Button, Layout, Menu, theme } from 'antd';
+<span class="line-num">1057</span>import {Link, Outlet, useLocation} from &quot;react-router-dom&quot;;
+<span class="line-num">1058</span>
+<span class="line-num">1059</span>const { Sider } = Layout;
+<span class="line-num">1060</span>
+<span class="line-num">1061</span>// 用于追踪 Metadata 组件嵌套层级的 Context
+<span class="line-num">1062</span>const MetadataLevelContext = createContext(0);
+<span class="line-num">1063</span>
+<span class="line-num">1064</span>// 路由到菜单 key 的映射
+<span class="line-num">1065</span>const pathToKeyMap: Record&lt;string, string&gt; = {
+<span class="line-num">1066</span>    '/meta/business-ds': 'bd-datasource',
+<span class="line-num">1067</span>    '/meta/business-ds/datasource': 'bd-datasource',
+<span class="line-num">1068</span>    '/meta/business-ds/database': 'bd-database',
+<span class="line-num">1069</span>    '/meta/business-ds/table-schema': 'bd-table-schema',
+<span class="line-num">1070</span>    '/meta/business-ds/sql': 'bd-table-sql',
+<span class="line-num">1071</span>    '/meta/metadata/datasource': 'datasource',
+<span class="line-num">1072</span>    '/meta/metadata/subject': 'subjectManage',
+<span class="line-num">1073</span>    '/meta/metadata/metadata_table': 'metadataTable',
+<span class="line-num">1074</span>};
+<span class="line-num">1075</span>
+<span class="line-num">1076</span>const items: MenuProps['items'] = [
+<span class="line-num">1077</span>    {
+<span class="line-num">1078</span>        key: 'business-ds',
+<span class="line-num">1079</span>        label: '业务数据库',
+<span class="line-num">1080</span>        icon: &lt;DatabaseOutlined /&gt;,
+<span class="line-num">1081</span>        children: [
+<span class="line-num">1082</span>            {
+<span class="line-num">1083</span>                key:'bd-datasource',
+<span class="line-num">1084</span>                label: &lt;Link to='/meta/business-ds/datasource'&gt;数据源&lt;/Link&gt;,
+<span class="line-num">1085</span>            },
+<span class="line-num">1086</span>            {
+<span class="line-num">1087</span>                key:'bd-database',
+<span class="line-num">1088</span>                label: &lt;Link to='/meta/business-ds/database'&gt;数据库&lt;/Link&gt;,
+<span class="line-num">1089</span>            },
+<span class="line-num">1090</span>            {
+<span class="line-num">1091</span>                key: 'bd-table-schema',
+<span class="line-num">1092</span>                label: &lt;Link to={'/meta/business-ds/table-schema'}&gt;表结构&lt;/Link&gt;,
+<span class="line-num">1093</span>            },
+<span class="line-num">1094</span>            {
+<span class="line-num">1095</span>                key: 'bd-table-sql',
+<span class="line-num">1096</span>                label: &lt;Link to={'/meta/business-ds/sql'}&gt;SQL执行&lt;/Link&gt;,
+<span class="line-num">1097</span>            },
+<span class="line-num">1098</span>        ]
+<span class="line-num">1099</span>    },
+<span class="line-num">1100</span>    {
+<span class="line-num">1101</span>        key: 'metadata',
+<span class="line-num">1102</span>        label: '元数据',
+<span class="line-num">1103</span>        icon: &lt;LaptopOutlined /&gt;,
+<span class="line-num">1104</span>        children: [
+<span class="line-num">1105</span>            {
+<span class="line-num">1106</span>                key:'datasource',
+<span class="line-num">1107</span>                label: &lt;Link to='/meta/metadata/datasource'&gt;数据源&lt;/Link&gt;,
+<span class="line-num">1108</span>            },
+<span class="line-num">1109</span>            {
+<span class="line-num">1110</span>                key:'subjectManage',
+<span class="line-num">1111</span>                label: &lt;Link to='/meta/metadata/subject'&gt;主题管理&lt;/Link&gt;,
+<span class="line-num">1112</span>            },
+<span class="line-num">1113</span>            {
+<span class="line-num">1114</span>                key: 'metadataTable',
+<span class="line-num">1115</span>                label: &lt;Link to={'/meta/metadata/metadata_table'}&gt;元数据表&lt;/Link&gt;,
+<span class="line-num">1116</span>            },
+<span class="line-num">1117</span>        ]
+<span class="line-num">1118</span>    }
+<span class="line-num">1119</span>];
+<span class="line-num">1120</span>
+<span class="line-num">1121</span>const App: React.FC = () =&gt; {
+<span class="line-num">1122</span>    const level = useContext(MetadataLevelContext);
+<span class="line-num">1123</span>    const isNestedLayer = level &gt; 0;
+<span class="line-num">1124</span>
+<span class="line-num">1125</span>    const { token } = theme.useToken();
+<span class="line-num">1126</span>    const location = useLocation();
+<span class="line-num">1127</span>
+<span class="line-num">1128</span>    const [collapsed, setCollapsed] = useState(false);
+<span class="line-num">1129</span>    const [openKeys, setOpenKeys] = useState&lt;string[]&gt;(['business-ds', 'metadata']);
+<span class="line-num">1130</span>
+<span class="line-num">1131</span>    const selectedKeys = useMemo(() =&gt; {
+<span class="line-num">1132</span>        const key = pathToKeyMap[location.pathname];
+<span class="line-num">1133</span>        if (key) return [key];
+<span class="line-num">1134</span>        // 前缀匹配，支持详情/编辑等子路由
+<span class="line-num">1135</span>        for (const [path, k] of Object.entries(pathToKeyMap)) {
+<span class="line-num">1136</span>            if (location.pathname.startsWith(path + '/')) {
+<span class="line-num">1137</span>                return [k];
+<span class="line-num">1138</span>            }
+<span class="line-num">1139</span>        }
+<span class="line-num">1140</span>        return ['bd-datasource'];
+<span class="line-num">1141</span>    }, [location.pathname]);
+<span class="line-num">1142</span>
+<span class="line-num">1143</span>    const handleOpenChange: MenuProps['onOpenChange'] = (keys) =&gt; {
+<span class="line-num">1144</span>        setOpenKeys(keys as string[]);
+<span class="line-num">1145</span>    };
+<span class="line-num">1146</span>
+<span class="line-num">1147</span>    if (isNestedLayer) {
+<span class="line-num">1148</span>        return (
+<span class="line-num">1149</span>            &lt;MetadataLevelContext.Provider value={level + 1}&gt;
+<span class="line-num">1150</span>                &lt;Outlet /&gt;
+<span class="line-num">1151</span>            &lt;/MetadataLevelContext.Provider&gt;
+<span class="line-num">1152</span>        );
+<span class="line-num">1153</span>    }
+<span class="line-num">1154</span>
+<span class="line-num">1155</span>    return (
+<span class="line-num">1156</span>        &lt;div style={{ width: '100%', height: '100%' }}&gt;
+<span class="line-num">1157</span>            &lt;Layout
+<span class="line-num">1158</span>                style={{
+<span class="line-num">1159</span>                    background: token.colorBgContainer,
+<span class="line-num">1160</span>                    borderRadius: token.colorBorderRadiusLG,
+<span class="line-num">1161</span>                    width: '100%',
+<span class="line-num">1162</span>                    height: '100%',
+<span class="line-num">1163</span>                }}
+<span class="line-num">1164</span>            &gt;
+<span class="line-num">1165</span>                &lt;Sider
+<span class="line-num">1166</span>                    trigger={null}
+<span class="line-num">1167</span>                    collapsible
+<span class="line-num">1168</span>                    collapsed={collapsed}
+<span class="line-num">1169</span>                    width={220}
+<span class="line-num">1170</span>                    style={{
+<span class="line-num">1171</span>                        background: '#FFFFFF',
+<span class="line-num">1172</span>                        height: '100%',
+<span class="line-num">1173</span>                        boxShadow: '2px 0 8px rgba(29, 35, 51, 0.04)',
+<span class="line-num">1174</span>                        zIndex: 2,
+<span class="line-num">1175</span>                    }}
+<span class="line-num">1176</span>                &gt;
+<span class="line-num">1177</span>                    {/* 侧边栏标题 */}
+<span class="line-num">1178</span>                    &lt;div
+<span class="line-num">1179</span>                        style={{
+<span class="line-num">1180</span>                            height: 56,
+<span class="line-num">1181</span>                            display: 'flex',
+<span class="line-num">1182</span>                            alignItems: 'center',
+<span class="line-num">1183</span>                            justifyContent: collapsed ? 'center' : 'space-between',
+<span class="line-num">1184</span>                            padding: collapsed ? '0 8px' : '0 16px',
+<span class="line-num">1185</span>                            borderBottom: '1px solid #F4F6FA',
+<span class="line-num">1186</span>                            flexShrink: 0,
+<span class="line-num">1187</span>                        }}
+<span class="line-num">1188</span>                    &gt;
+<span class="line-num">1189</span>                        {!collapsed &amp;&amp; (
+<span class="line-num">1190</span>                            &lt;span
+<span class="line-num">1191</span>                                style={{
+<span class="line-num">1192</span>                                    fontSize: 14,
+<span class="line-num">1193</span>                                    fontWeight: 600,
+<span class="line-num">1194</span>                                    color: '#1D2333',
+<span class="line-num">1195</span>                                    letterSpacing: 0.5,
+<span class="line-num">1196</span>                                    whiteSpace: 'nowrap',
+<span class="line-num">1197</span>                                    overflow: 'hidden',
+<span class="line-num">1198</span>                                    textOverflow: 'ellipsis',
+<span class="line-num">1199</span>                                }}
+<span class="line-num">1200</span>                            &gt;
+<span class="line-num">1201</span>                                元数据平台
+<span class="line-num">1202</span>                            &lt;/span&gt;
+<span class="line-num">1203</span>                        )}
+<span class="line-num">1204</span>                        &lt;Button
+<span class="line-num">1205</span>                            type=&quot;text&quot;
+<span class="line-num">1206</span>                            size=&quot;small&quot;
+<span class="line-num">1207</span>                            icon={collapsed ? &lt;MenuUnfoldOutlined /&gt; : &lt;MenuFoldOutlined /&gt;}
+<span class="line-num">1208</span>                            onClick={() =&gt; setCollapsed(!collapsed)}
+<span class="line-num">1209</span>                            style={{ color: '#8B909A', padding: '4px 8px' }}
+<span class="line-num">1210</span>                        /&gt;
+<span class="line-num">1211</span>                    &lt;/div&gt;
+<span class="line-num">1212</span>
+<span class="line-num">1213</span>                    &lt;Menu
+<span class="line-num">1214</span>                        mode=&quot;inline&quot;
+<span class="line-num">1215</span>                        style={{
+<span class="line-num">1216</span>                            height: 'calc(100% - 56px)',
+<span class="line-num">1217</span>                            borderRight: 0,
+<span class="line-num">1218</span>                            paddingTop: 8,
+<span class="line-num">1219</span>                            background: 'transparent',
+<span class="line-num">1220</span>                        }}
+<span class="line-num">1221</span>                        items={items}
+<span class="line-num">1222</span>                        selectedKeys={selectedKeys}
+<span class="line-num">1223</span>                        openKeys={openKeys}
+<span class="line-num">1224</span>                        onOpenChange={handleOpenChange}
+<span class="line-num">1225</span>                        inlineCollapsed={collapsed}
+<span class="line-num">1226</span>                    /&gt;
+<span class="line-num">1227</span>                &lt;/Sider&gt;
+<span class="line-num">1228</span>
+<span class="line-num">1229</span>                &lt;Layout.Content
+<span class="line-num">1230</span>                    style={{
+<span class="line-num">1231</span>                        padding: 0,
+<span class="line-num">1232</span>                        height: '100%',
+<span class="line-num">1233</span>                        overflow: 'auto',
+<span class="line-num">1234</span>                        background: '#F8F9FA',
+<span class="line-num">1235</span>                    }}
+<span class="line-num">1236</span>                &gt;
+<span class="line-num">1237</span>                    &lt;MetadataLevelContext.Provider value={level + 1}&gt;
+<span class="line-num">1238</span>                        &lt;Outlet /&gt;
+<span class="line-num">1239</span>                    &lt;/MetadataLevelContext.Provider&gt;
+<span class="line-num">1240</span>                &lt;/Layout.Content&gt;
+<span class="line-num">1241</span>            &lt;/Layout&gt;
+<span class="line-num">1242</span>        &lt;/div&gt;
+<span class="line-num">1243</span>    );
+<span class="line-num">1244</span>};
+<span class="line-num">1245</span>
+<span class="line-num">1246</span>export default App;
+<span class="line-num">1247</span>
+<span class="line-num">1248</span>
+<span class="line-num">1249</span>/* ========================================== */
+<span class="line-num">1250</span>/* 文件: src/pages/home/index.tsx                            */
+<span class="line-num">1251</span>/* 软件名称: Cyan数据中台                  */
+<span class="line-num">1252</span>/* 版本号: V1.0                          */
+<span class="line-num">1253</span>/* 著作权人: 闫晨阳               */
+<span class="line-num">1254</span>/* ========================================== */
+<span class="line-num">1255</span>import React from 'react';
+<span class="line-num">1256</span>import { useNavigate } from 'react-router-dom';
+<span class="line-num">1257</span>import {
+<span class="line-num">1258</span>    Card,
+<span class="line-num">1259</span>    Row,
+<span class="line-num">1260</span>    Col,
+<span class="line-num">1261</span>    Typography,
+<span class="line-num">1262</span>    Space,
+<span class="line-num">1263</span>    Divider,
+<span class="line-num">1264</span>    Tag,
+<span class="line-num">1265</span>    Button,
+<span class="line-num">1266</span>} from 'antd';
+<span class="line-num">1267</span>import {
+<span class="line-num">1268</span>    FileTextOutlined,
+<span class="line-num">1269</span>    DatabaseOutlined,
+<span class="line-num">1270</span>    BarChartOutlined,
+<span class="line-num">1271</span>    CodeOutlined,
+<span class="line-num">1272</span>    BuildOutlined,
+<span class="line-num">1273</span>    PieChartOutlined,
+<span class="line-num">1274</span>    DashboardOutlined,
+<span class="line-num">1275</span>    AppstoreOutlined,
+<span class="line-num">1276</span>    ApartmentOutlined,
+<span class="line-num">1277</span>    TableOutlined,
+<span class="line-num">1278</span>    SearchOutlined,
+<span class="line-num">1279</span>    SettingOutlined,
+<span class="line-num">1280</span>    BulbOutlined,
+<span class="line-num">1281</span>    BookOutlined,
+<span class="line-num">1282</span>    ThunderboltOutlined,
+<span class="line-num">1283</span>    LineChartOutlined,
+<span class="line-num">1284</span>    ContainerOutlined,
+<span class="line-num">1285</span>    EditOutlined,
+<span class="line-num">1286</span>    EyeOutlined,
+<span class="line-num">1287</span>    CloudServerOutlined,
+<span class="line-num">1288</span>    BranchesOutlined,
+<span class="line-num">1289</span>} from '@ant-design/icons';
+<span class="line-num">1290</span>
+<span class="line-num">1291</span>const { Title, Text, Paragraph } = Typography;
+<span class="line-num">1292</span>
+<span class="line-num">1293</span>// ==================== 文档链接配置 ====================
+<span class="line-num">1294</span>
+<span class="line-num">1295</span>interface DocLink {
+<span class="line-num">1296</span>    title: string;
+<span class="line-num">1297</span>    icon: React.ReactNode;
+<span class="line-num">1298</span>    path?: string;
+<span class="line-num">1299</span>}
+<span class="line-num">1300</span>
+<span class="line-num">1301</span>const docLinks: DocLink[] = [
+<span class="line-num">1302</span>    { title: '业务数据库使用文档', icon: &lt;DatabaseOutlined /&gt; },
+<span class="line-num">1303</span>    { title: '元数据管理使用文档', icon: &lt;AppstoreOutlined /&gt; },
+<span class="line-num">1304</span>    { title: '指标平台使用文档', icon: &lt;BarChartOutlined /&gt; },
+<span class="line-num">1305</span>    { title: 'SQL编辑器使用文档', icon: &lt;CodeOutlined /&gt; },
+<span class="line-num">1306</span>    { title: '数据加工使用文档', icon: &lt;BuildOutlined /&gt; },
+<span class="line-num">1307</span>    { title: '智能分析使用文档', icon: &lt;PieChartOutlined /&gt; },
+<span class="line-num">1308</span>    { title: '主题域管理指南', icon: &lt;ApartmentOutlined /&gt; },
+<span class="line-num">1309</span>    { title: '数据看板使用文档', icon: &lt;DashboardOutlined /&gt; },
+<span class="line-num">1310</span>];
+<span class="line-num">1311</span>
+<span class="line-num">1312</span>// ==================== 功能模块配置 ====================
+<span class="line-num">1313</span>
+<span class="line-num">1314</span>interface FeatureItem {
+<span class="line-num">1315</span>    title: string;
+<span class="line-num">1316</span>    desc: string;
+<span class="line-num">1317</span>    icon: React.ReactNode;
+<span class="line-num">1318</span>    path?: string;
+<span class="line-num">1319</span>}
+<span class="line-num">1320</span>
+<span class="line-num">1321</span>interface FeatureModule {
+<span class="line-num">1322</span>    title: string;
+<span class="line-num">1323</span>    icon: React.ReactNode;
+<span class="line-num">1324</span>    color: string;
+<span class="line-num">1325</span>    features: FeatureItem[];
+<span class="line-num">1326</span>}
+<span class="line-num">1327</span>
+<span class="line-num">1328</span>const featureModules: FeatureModule[] = [
+<span class="line-num">1329</span>    {
+<span class="line-num">1330</span>        title: '元数据平台',
+<span class="line-num">1331</span>        icon: &lt;AppstoreOutlined /&gt;,
+<span class="line-num">1332</span>        color: '#4F6DF5',
+<span class="line-num">1333</span>        features: [
+<span class="line-num">1334</span>            { title: '业务数据库', desc: '管理MySQL/PostgreSQL/Iceberg等业务数据源与表结构', icon: &lt;DatabaseOutlined /&gt;, path: '/meta/business-ds' },
+<span class="line-num">1335</span>            { title: '数据源管理', desc: '管理Gravitino目录、Schema与元数据表', icon: &lt;CloudServerOutlined /&gt;, path: '/meta/metadata/datasource' },
+<span class="line-num">1336</span>            { title: '主题域管理', desc: '构建主题域体系，组织元数据资产', icon: &lt;ApartmentOutlined /&gt;, path: '/meta/metadata/subject' },
+<span class="line-num">1337</span>            { title: '元数据表', desc: '查看表结构、字段信息、数据预览与血缘', icon: &lt;TableOutlined /&gt;, path: '/meta/metadata/metadata_table' },
+<span class="line-num">1338</span>        ],
+<span class="line-num">1339</span>    },
+<span class="line-num">1340</span>    {
+<span class="line-num">1341</span>        title: '指标平台',
+<span class="line-num">1342</span>        icon: &lt;BarChartOutlined /&gt;,
+<span class="line-num">1343</span>        color: '#52C41A',
+<span class="line-num">1344</span>        features: [
+<span class="line-num">1345</span>            { title: '指标概览', desc: '查看指标全景与核心指标监控', icon: &lt;DashboardOutlined /&gt;, path: '/metrics/dashboard' },
+<span class="line-num">1346</span>            { title: '指标定义', desc: '定义原子指标、派生指标与复合指标', icon: &lt;EditOutlined /&gt;, path: '/metrics/definition' },
+<span class="line-num">1347</span>            { title: '指标字典', desc: '浏览与搜索全量指标，快速定位', icon: &lt;BookOutlined /&gt;, path: '/metrics/dictionary' },
+<span class="line-num">1348</span>            { title: '指标分析', desc: '基于指标进行多维分析', icon: &lt;LineChartOutlined /&gt;, path: '/metrics/analysis' },
+<span class="line-num">1349</span>            { title: '指标配置', desc: '管理修饰词、时间周期与公共维度', icon: &lt;SettingOutlined /&gt;, path: '/metrics/config' },
+<span class="line-num">1350</span>        ],
+<span class="line-num">1351</span>    },
+<span class="line-num">1352</span>    {
+<span class="line-num">1353</span>        title: '数据探索与加工',
+<span class="line-num">1354</span>        icon: &lt;CodeOutlined /&gt;,
+<span class="line-num">1355</span>        color: '#FA8C16',
+<span class="line-num">1356</span>        features: [
+<span class="line-num">1357</span>            { title: 'SQL查询编辑器', desc: '基于Monaco Editor的在线SQL编辑器，支持多标签页与执行计划', icon: &lt;CodeOutlined /&gt;, path: '/sql-editor' },
+<span class="line-num">1358</span>            { title: '数据加工', desc: 'SparkSQL / FlinkSQL任务编辑与调度配置', icon: &lt;BuildOutlined /&gt;, path: '/data-work' },
+<span class="line-num">1359</span>        ],
+<span class="line-num">1360</span>    },
+<span class="line-num">1361</span>    {
+<span class="line-num">1362</span>        title: '智能分析',
+<span class="line-num">1363</span>        icon: &lt;PieChartOutlined /&gt;,
+<span class="line-num">1364</span>        color: '#722ED1',
+<span class="line-num">1365</span>        features: [
+<span class="line-num">1366</span>            { title: '图表分析', desc: '拖拽式图表分析，支持指标模式与数据集模式', icon: &lt;BarChartOutlined /&gt;, path: '/bi/chart' },
+<span class="line-num">1367</span>            { title: '数据看板', desc: '构建可视化数据看板，实时展示业务数据', icon: &lt;DashboardOutlined /&gt;, path: '/bi/dashboard' },
+<span class="line-num">1368</span>        ],
+<span class="line-num">1369</span>    },
+<span class="line-num">1370</span>];
+<span class="line-num">1371</span>
+<span class="line-num">1372</span>// ==================== 常用功能快捷入口 ====================
+<span class="line-num">1373</span>
+<span class="line-num">1374</span>const quickLinks = [
+<span class="line-num">1375</span>    { title: 'SQL编辑器', icon: &lt;CodeOutlined /&gt;, path: '/sql-editor' },
+<span class="line-num">1376</span>    { title: '图表分析', icon: &lt;BarChartOutlined /&gt;, path: '/bi/chart' },
+<span class="line-num">1377</span>    { title: '指标字典', icon: &lt;BookOutlined /&gt;, path: '/metrics/dictionary' },
+<span class="line-num">1378</span>    { title: '数据加工', icon: &lt;BuildOutlined /&gt;, path: '/data-work' },
+<span class="line-num">1379</span>    { title: '业务数据库', icon: &lt;DatabaseOutlined /&gt;, path: '/meta/business-ds' },
+<span class="line-num">1380</span>    { title: '元数据表', icon: &lt;TableOutlined /&gt;, path: '/meta/metadata/metadata_table' },
+<span class="line-num">1381</span>];
+<span class="line-num">1382</span>
+<span class="line-num">1383</span>// ==================== 平台公告 ====================
+<span class="line-num">1384</span>
+<span class="line-num">1385</span>const notices = [
+<span class="line-num">1386</span>    { title: '智能分析-图表分析新增搜索与样式优化', date: '2026-04-29' },
+<span class="line-num">1387</span>    { title: '指标平台BI分析引擎正式上线', date: '2026-04-28' },
+<span class="line-num">1388</span>    { title: 'SQL编辑器支持查询历史与收藏功能', date: '2026-04-20' },
+<span class="line-num">1389</span>    { title: '元数据表管理新增数据血缘与质量模块', date: '2026-04-15' },
+<span class="line-num">1390</span>];
+<span class="line-num">1391</span>
+<span class="line-num">1392</span>// ==================== 子组件 ====================
+<span class="line-num">1393</span>
+<span class="line-num">1394</span>const FeatureCard: React.FC&lt;{ item: FeatureItem }&gt; = ({ item }) =&gt; {
+<span class="line-num">1395</span>    const navigate = useNavigate();
+<span class="line-num">1396</span>    return (
+<span class="line-num">1397</span>        &lt;div
+<span class="line-num">1398</span>            onClick={() =&gt; item.path &amp;&amp; navigate(item.path)}
+<span class="line-num">1399</span>            style={{
+<span class="line-num">1400</span>                padding: '10px 14px',
+<span class="line-num">1401</span>                borderRadius: 8,
+<span class="line-num">1402</span>                background: '#FAFBFC',
+<span class="line-num">1403</span>                border: '1px solid transparent',
+<span class="line-num">1404</span>                cursor: item.path ? 'pointer' : 'default',
+<span class="line-num">1405</span>                transition: 'all 0.2s ease',
+<span class="line-num">1406</span>                height: '100%',
+<span class="line-num">1407</span>            }}
+<span class="line-num">1408</span>            onMouseEnter={(e) =&gt; {
+<span class="line-num">1409</span>                e.currentTarget.style.borderColor = '#DEE3FC';
+<span class="line-num">1410</span>                e.currentTarget.style.background = '#F4F6FA';
+<span class="line-num">1411</span>                e.currentTarget.style.transform = 'translateY(-2px)';
+<span class="line-num">1412</span>                e.currentTarget.style.boxShadow = '0 4px 12px rgba(79, 109, 245, 0.08)';
+<span class="line-num">1413</span>            }}
+<span class="line-num">1414</span>            onMouseLeave={(e) =&gt; {
+<span class="line-num">1415</span>                e.currentTarget.style.borderColor = 'transparent';
+<span class="line-num">1416</span>                e.currentTarget.style.background = '#FAFBFC';
+<span class="line-num">1417</span>                e.currentTarget.style.transform = 'translateY(0)';
+<span class="line-num">1418</span>                e.currentTarget.style.boxShadow = 'none';
+<span class="line-num">1419</span>            }}
+<span class="line-num">1420</span>        &gt;
+<span class="line-num">1421</span>            &lt;Space align=&quot;start&quot; size={12}&gt;
+<span class="line-num">1422</span>                &lt;div style={{
+<span class="line-num">1423</span>                    width: 32,
+<span class="line-num">1424</span>                    height: 32,
+<span class="line-num">1425</span>                    borderRadius: 8,
+<span class="line-num">1426</span>                    background: '#EEF1FF',
+<span class="line-num">1427</span>                    display: 'flex',
+<span class="line-num">1428</span>                    alignItems: 'center',
+<span class="line-num">1429</span>                    justifyContent: 'center',
+<span class="line-num">1430</span>                    fontSize: 14,
+<span class="line-num">1431</span>                    color: '#4F6DF5',
+<span class="line-num">1432</span>                    flexShrink: 0,
+<span class="line-num">1433</span>                }}&gt;
+<span class="line-num">1434</span>                    {item.icon}
+<span class="line-num">1435</span>                &lt;/div&gt;
+<span class="line-num">1436</span>                &lt;div&gt;
+<span class="line-num">1437</span>                    &lt;Text strong style={{ fontSize: 13, color: '#1D2333' }}&gt;{item.title}&lt;/Text&gt;
+<span class="line-num">1438</span>                    &lt;Paragraph ellipsis={{ rows: 1 }} style={{ fontSize: 11, color: '#8B909A', marginBottom: 0, marginTop: 2, lineHeight: 1.4 }}&gt;
+<span class="line-num">1439</span>                        {item.desc}
+<span class="line-num">1440</span>                    &lt;/Paragraph&gt;
+<span class="line-num">1441</span>                &lt;/div&gt;
+<span class="line-num">1442</span>            &lt;/Space&gt;
+<span class="line-num">1443</span>        &lt;/div&gt;
+<span class="line-num">1444</span>    );
+<span class="line-num">1445</span>};
+<span class="line-num">1446</span>
+<span class="line-num">1447</span>// ==================== 主组件 ====================
+<span class="line-num">1448</span>
+<span class="line-num">1449</span>const HomePage: React.FC = () =&gt; {
+<span class="line-num">1450</span>    const navigate = useNavigate();
+<span class="line-num">1451</span>
+<span class="line-num">1452</span>    return (
+<span class="line-num">1453</span>        &lt;div style={{ padding: '16px 24px', background: '#F8F9FA', minHeight: '100%' }}&gt;
+<span class="line-num">1454</span>            {/* 平台标题 */}
+<span class="line-num">1455</span>            &lt;div style={{ marginBottom: 16 }}&gt;
+<span class="line-num">1456</span>                &lt;Title level={5} style={{ marginBottom: 2, color: '#1D2333', fontSize: 16 }}&gt;
+<span class="line-num">1457</span>                    &lt;BulbOutlined style={{ marginRight: 6, color: '#4F6DF5' }} /&gt;
+<span class="line-num">1458</span>                    平台介绍
+<span class="line-num">1459</span>                &lt;/Title&gt;
+<span class="line-num">1460</span>                &lt;Text type=&quot;secondary&quot; style={{ fontSize: 12 }}&gt;
+<span class="line-num">1461</span>                    DATA-CENTER 数据资产管理平台，面向数据分析师、BI工程师、业务运营人员，提供元数据管理、指标平台、SQL查询、数据加工与智能分析等核心能力
+<span class="line-num">1462</span>                &lt;/Text&gt;
+<span class="line-num">1463</span>            &lt;/div&gt;
+<span class="line-num">1464</span>
+<span class="line-num">1465</span>            &lt;Row gutter={[16, 16]}&gt;
+<span class="line-num">1466</span>                {/* 左侧主要内容 */}
+<span class="line-num">1467</span>                &lt;Col xs={24} lg={18}&gt;
+<span class="line-num">1468</span>                    {/* 使用文档 */}
+<span class="line-num">1469</span>                    &lt;Card
+<span class="line-num">1470</span>                        title={&lt;Text strong style={{ fontSize: 15 }}&gt;&lt;BookOutlined style={{ marginRight: 8 }} /&gt;使用文档&lt;/Text&gt;}
+<span class="line-num">1471</span>                        extra={&lt;Button type=&quot;link&quot; size=&quot;small&quot;&gt;查看更多 &amp;gt;&lt;/Button&gt;}
+<span class="line-num">1472</span>                        style={{ marginBottom: 16, borderRadius: 12 }}
+<span class="line-num">1473</span>                        bodyStyle={{ padding: '12px 20px' }}
+<span class="line-num">1474</span>                    &gt;
+<span class="line-num">1475</span>                        &lt;Row gutter={[16, 12]}&gt;
+<span class="line-num">1476</span>                            {docLinks.map((doc, i) =&gt; (
+<span class="line-num">1477</span>                                &lt;Col xs={24} sm={12} md={8} key={i}&gt;
+<span class="line-num">1478</span>                                    &lt;Space
+<span class="line-num">1479</span>                                        size={8}
+<span class="line-num">1480</span>                                        style={{
+<span class="line-num">1481</span>                                            cursor: 'pointer',
+<span class="line-num">1482</span>                                            padding: '8px 12px',
+<span class="line-num">1483</span>                                            borderRadius: 6,
+<span class="line-num">1484</span>                                            width: '100%',
+<span class="line-num">1485</span>                                            transition: 'background 0.2s',
+<span class="line-num">1486</span>                                        }}
+<span class="line-num">1487</span>                                        onMouseEnter={(e) =&gt; {
+<span class="line-num">1488</span>                                            (e.currentTarget as HTMLElement).style.background = '#F4F6FA';
+<span class="line-num">1489</span>                                        }}
+<span class="line-num">1490</span>                                        onMouseLeave={(e) =&gt; {
+<span class="line-num">1491</span>                                            (e.currentTarget as HTMLElement).style.background = 'transparent';
+<span class="line-num">1492</span>                                        }}
+<span class="line-num">1493</span>                                    &gt;
+<span class="line-num">1494</span>                                        &lt;FileTextOutlined style={{ color: '#8B909A', fontSize: 14 }} /&gt;
+<span class="line-num">1495</span>                                        &lt;Text style={{ fontSize: 13, color: '#4E5566' }}&gt;{doc.title}&lt;/Text&gt;
+<span class="line-num">1496</span>                                        {i === 0 &amp;&amp; &lt;Tag color=&quot;blue&quot; style={{ fontSize: 11, lineHeight: '16px', height: 18, padding: '0 4px' }}&gt;置顶&lt;/Tag&gt;}
+<span class="line-num">1497</span>                                    &lt;/Space&gt;
+<span class="line-num">1498</span>                                &lt;/Col&gt;
+<span class="line-num">1499</span>                            ))}
+<span class="line-num">1500</span>                        &lt;/Row&gt;
+<span class="line-num">1501</span>                    &lt;/Card&gt;
+<span class="line-num">1502</span>
+<span class="line-num">1503</span>                    {/* 功能模块 — 两两一行 */}
+<span class="line-num">1504</span>                    &lt;Row gutter={[16, 16]}&gt;
+<span class="line-num">1505</span>                        {featureModules.map((module) =&gt; (
+<span class="line-num">1506</span>                            &lt;Col xs={24} md={12} key={module.title}&gt;
+<span class="line-num">1507</span>                                &lt;Card
+<span class="line-num">1508</span>                                    title={
+<span class="line-num">1509</span>                                        &lt;Space size={6}&gt;
+<span class="line-num">1510</span>                                            &lt;span style={{ color: module.color, fontSize: 15 }}&gt;{module.icon}&lt;/span&gt;
+<span class="line-num">1511</span>                                            &lt;Text strong style={{ fontSize: 14, color: '#1D2333' }}&gt;{module.title}&lt;/Text&gt;
+<span class="line-num">1512</span>                                        &lt;/Space&gt;
+<span class="line-num">1513</span>                                    }
+<span class="line-num">1514</span>                                    style={{ borderRadius: 12, height: '100%' }}
+<span class="line-num">1515</span>                                    bodyStyle={{ padding: '10px 12px' }}
+<span class="line-num">1516</span>                                &gt;
+<span class="line-num">1517</span>                                    &lt;Row gutter={[8, 8]}&gt;
+<span class="line-num">1518</span>                                        {module.features.map((feature) =&gt; (
+<span class="line-num">1519</span>                                            &lt;Col xs={24} sm={12} key={feature.title}&gt;
+<span class="line-num">1520</span>                                                &lt;FeatureCard item={feature} /&gt;
+<span class="line-num">1521</span>                                            &lt;/Col&gt;
+<span class="line-num">1522</span>                                        ))}
+<span class="line-num">1523</span>                                    &lt;/Row&gt;
+<span class="line-num">1524</span>                                &lt;/Card&gt;
+<span class="line-num">1525</span>                            &lt;/Col&gt;
+<span class="line-num">1526</span>                        ))}
+<span class="line-num">1527</span>                    &lt;/Row&gt;
+<span class="line-num">1528</span>                &lt;/Col&gt;
+<span class="line-num">1529</span>
+<span class="line-num">1530</span>                {/* 右侧边栏 */}
+<span class="line-num">1531</span>                &lt;Col xs={24} lg={6}&gt;
+<span class="line-num">1532</span>                    {/* 常用功能 */}
+<span class="line-num">1533</span>                    &lt;Card
+<span class="line-num">1534</span>                        title={&lt;Text strong style={{ fontSize: 15 }}&gt;&lt;ThunderboltOutlined style={{ marginRight: 8 }} /&gt;常用功能&lt;/Text&gt;}
+<span class="line-num">1535</span>                        style={{ marginBottom: 16, borderRadius: 12 }}
+<span class="line-num">1536</span>                        bodyStyle={{ padding: '10px 14px' }}
+<span class="line-num">1537</span>                    &gt;
+<span class="line-num">1538</span>                        &lt;Row gutter={[8, 8]}&gt;
+<span class="line-num">1539</span>                            {quickLinks.map((link) =&gt; (
+<span class="line-num">1540</span>                                &lt;Col span={8} key={link.title}&gt;
+<span class="line-num">1541</span>                                    &lt;div
+<span class="line-num">1542</span>                                        onClick={() =&gt; navigate(link.path)}
+<span class="line-num">1543</span>                                        style={{
+<span class="line-num">1544</span>                                            display: 'flex',
+<span class="line-num">1545</span>                                            flexDirection: 'column',
+<span class="line-num">1546</span>                                            alignItems: 'center',
+<span class="line-num">1547</span>                                            justifyContent: 'center',
+<span class="line-num">1548</span>                                            padding: '8px 4px',
+<span class="line-num">1549</span>                                            borderRadius: 8,
+<span class="line-num">1550</span>                                            cursor: 'pointer',
+<span class="line-num">1551</span>                                            transition: 'all 0.2s',
+<span class="line-num">1552</span>                                            background: '#FAFBFC',
+<span class="line-num">1553</span>                                        }}
+<span class="line-num">1554</span>                                        onMouseEnter={(e) =&gt; {
+<span class="line-num">1555</span>                                            e.currentTarget.style.background = '#EEF1FF';
+<span class="line-num">1556</span>                                            e.currentTarget.style.color = '#4F6DF5';
+<span class="line-num">1557</span>                                        }}
+<span class="line-num">1558</span>                                        onMouseLeave={(e) =&gt; {
+<span class="line-num">1559</span>                                            e.currentTarget.style.background = '#FAFBFC';
+<span class="line-num">1560</span>                                            e.currentTarget.style.color = 'inherit';
+<span class="line-num">1561</span>                                        }}
+<span class="line-num">1562</span>                                    &gt;
+<span class="line-num">1563</span>                                        &lt;div style={{ fontSize: 20, marginBottom: 6, color: '#4F6DF5' }}&gt;{link.icon}&lt;/div&gt;
+<span class="line-num">1564</span>                                        &lt;Text style={{ fontSize: 12, color: '#4E5566' }}&gt;{link.title}&lt;/Text&gt;
+<span class="line-num">1565</span>                                    &lt;/div&gt;
+<span class="line-num">1566</span>                                &lt;/Col&gt;
+<span class="line-num">1567</span>                            ))}
+<span class="line-num">1568</span>                        &lt;/Row&gt;
+<span class="line-num">1569</span>                    &lt;/Card&gt;
+<span class="line-num">1570</span>
+<span class="line-num">1571</span>                    {/* 平台公告 */}
+<span class="line-num">1572</span>                    &lt;Card
+<span class="line-num">1573</span>                        title={&lt;Text strong style={{ fontSize: 15 }}&gt;&lt;ContainerOutlined style={{ marginRight: 8 }} /&gt;平台公告&lt;/Text&gt;}
+<span class="line-num">1574</span>                        extra={&lt;Button type=&quot;link&quot; size=&quot;small&quot;&gt;查看更多 &amp;gt;&lt;/Button&gt;}
+<span class="line-num">1575</span>                        style={{ borderRadius: 12 }}
+<span class="line-num">1576</span>                        bodyStyle={{ padding: '8px 16px' }}
+<span class="line-num">1577</span>                    &gt;
+<span class="line-num">1578</span>                        &lt;Space direction=&quot;vertical&quot; style={{ width: '100%' }} split={&lt;Divider style={{ margin: '8px 0' }} /&gt;}&gt;
+<span class="line-num">1579</span>                            {notices.map((notice, i) =&gt; (
+<span class="line-num">1580</span>                                &lt;div key={i} style={{ padding: '4px 0' }}&gt;
+<span class="line-num">1581</span>                                    &lt;Text ellipsis style={{ fontSize: 13, color: '#4E5566', display: 'block' }}&gt;
+<span class="line-num">1582</span>                                        {notice.title}
+<span class="line-num">1583</span>                                    &lt;/Text&gt;
+<span class="line-num">1584</span>                                    &lt;Text style={{ fontSize: 11, color: '#B0B5BF' }}&gt;{notice.date}&lt;/Text&gt;
+<span class="line-num">1585</span>                                &lt;/div&gt;
+<span class="line-num">1586</span>                            ))}
+<span class="line-num">1587</span>                        &lt;/Space&gt;
+<span class="line-num">1588</span>                    &lt;/Card&gt;
+<span class="line-num">1589</span>                &lt;/Col&gt;
+<span class="line-num">1590</span>            &lt;/Row&gt;
+<span class="line-num">1591</span>        &lt;/div&gt;
+<span class="line-num">1592</span>    );
+<span class="line-num">1593</span>};
+<span class="line-num">1594</span>
+<span class="line-num">1595</span>export default HomePage;
+<span class="line-num">1596</span>
+<span class="line-num">1597</span></pre>
+</body>
+</html>

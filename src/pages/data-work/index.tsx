@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {message, Spin, Button, Space, Divider, Row, Col, Tooltip, Modal} from 'antd';
+import {message, Spin, Button, Space, Divider, Row, Col, Tooltip, Modal, Layout} from 'antd';
+const { Content } = Layout;
 import {
     PlayCircleOutlined,
     SaveOutlined,
@@ -11,8 +12,7 @@ import {
     ThunderboltOutlined,
     BranchesOutlined,
     SettingOutlined,
-    PlusOutlined,
-    CloseOutlined,
+
 } from '@ant-design/icons';
 import {loader} from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
@@ -99,11 +99,6 @@ const createNewTab = (): TabData => ({
     isModified: false,
 });
 
-// 生成 Tab 显示名称
-const getTabLabel = (tab: TabData): string => {
-    return tab.task.name || '未命名任务';
-};
-
 // localStorage keys（使用新 key 避免与旧数据结构冲突）
 const STORAGE_KEY = 'data_work_workspace_tabs_v2';
 const ACTIVE_TAB_KEY = 'data_work_workspace_active_tab_v2';
@@ -168,10 +163,6 @@ const DataWorkWorkspace: React.FC = () => {
     const [activeTabId, setActiveTabId] = useState<string>(initialState.activeTabId);
 
     const activeTab = tabs.find(t => t.tabId === activeTabId) || tabs[0];
-
-    const updateActiveTab = useCallback((updater: (tab: TabData) => TabData) => {
-        setTabs(prev => prev.map(t => t.tabId === activeTabId ? updater({...t}) : t));
-    }, [activeTabId]);
 
     // 持久化 tabs 到 localStorage（只保存基本信息，不保存运行时结果）
     useEffect(() => {
@@ -506,8 +497,8 @@ const DataWorkWorkspace: React.FC = () => {
                     logs: [...t.logs, `[${new Date().toLocaleString()}] WARN 执行状态未知: ${record.status}`],
                 } : t));
             }
-        } catch (e: any) {
-            const errMsg = e.message || '执行异常';
+        } catch (e: unknown) {
+            const errMsg = e instanceof Error ? e.message : '执行异常';
             setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
                 ...t,
                 result: null,
@@ -549,14 +540,14 @@ const DataWorkWorkspace: React.FC = () => {
 
         setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
             ...t,
-            loading: true as any,
+            loading: true as boolean,
         } : t));
         try {
             const {executeSql} = await import('@/api/DatagawayApi');
             const explainSql = `EXPLAIN ${tab.sqlContent}`;
             const resp = await executeSql(explainSql);
             const result = resp.data;
-            const plan: ExecutionPlan[] = result.data.map((row: any, idx: number) => ({
+            const plan: ExecutionPlan[] = result.data.map((row: Record<string, unknown>) => ({
                 id: String(idx + 1),
                 operation: row.operation || row.Operation || '',
                 rowCount: row.rows || row.Rows || 0,
@@ -575,7 +566,7 @@ const DataWorkWorkspace: React.FC = () => {
         } finally {
             setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
                 ...t,
-                loading: false as any,
+                loading: false as boolean,
             } : t));
         }
     }, [tabs, activeTabId]);
@@ -668,11 +659,6 @@ const DataWorkWorkspace: React.FC = () => {
         message.info(`已加载历史 SQL: ${record.taskName}`);
     }, [activeTabId]);
 
-    // ========== Tab 操作 ==========
-    const handleTabChange = useCallback((tabId: string) => {
-        setActiveTabId(tabId);
-    }, []);
-
     // ========== 渲染 ==========
     return (
         <div style={{flex: 1, display: 'flex', flexDirection: 'column', background: '#f5f5f5', minHeight: 0}}>
@@ -688,9 +674,8 @@ const DataWorkWorkspace: React.FC = () => {
                 padding: '0 8px 0 0',
                 gap: 2,
             }}>
-                {tabs.map((tab, idx) => {
+                {tabs.map((tab) => {
                     const isActive = tab.tabId === activeTabId;
-                    const isFirst = idx === 0;
                     return (
                         <div
                             key={tab.tabId}
@@ -860,7 +845,7 @@ const DataWorkWorkspace: React.FC = () => {
             </div>
 
             {/* 主体三栏布局 */}
-            <Row wrap={false} style={{ flex: 1, overflow: 'hidden', height: '100%' }}>
+            <Row wrap={false} style={{ flex: 1, height: '100%' }}>
                 {/* 左侧边栏 */}
                 <Col flex={`0 0 ${siderWidth}px`} style={{ height: '100%', position: 'relative', overflow: 'hidden' }}>
                     <LeftSidebar
@@ -889,17 +874,18 @@ const DataWorkWorkspace: React.FC = () => {
                 </Col>
 
                 {/* 中央区域 */}
-                <Col flex="1 1 auto" style={{ height: '100%', overflow: 'hidden', minWidth: 0 }}>
-                    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} ref={containerRef}>
+                <Col flex="1 1 auto" style={{ height: '100%' }}>
+                    <Layout style={{height: '100%'}} ref={containerRef}>
                         {editorInitializing ? (
-                            <div style={{height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', flexDirection: 'column', gap: 16}}>
-                                <Spin size="large" />
-                                <div style={{color: '#999', fontSize: 14}}>SQL 编辑器初始化中...</div>
-                            </div>
+                            <Content style={{background: '#fff'}}>
+                                <div style={{padding: 40, textAlign: 'center'}}>
+                                    <Spin size="large" />
+                                    <div style={{color: '#999', fontSize: 14, marginTop: 16}}>SQL 编辑器初始化中...</div>
+                                </div>
+                            </Content>
                         ) : (
                             <>
-                                {/* SQL 编辑器 */}
-                                <div style={{height: editorHeight, minHeight: 200, borderBottom: '1px solid #f0f0f0'}}>
+                                <Content style={{height: editorHeight, background: '#fff'}}>
                                     <SQLEditor
                                         value={activeTab.sqlContent}
                                         onChange={(val) => setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
@@ -915,7 +901,7 @@ const DataWorkWorkspace: React.FC = () => {
                                         showRun={false}
                                         showFormat={false}
                                     />
-                                </div>
+                                </Content>
                                 {/* 水平拖拽条 */}
                                 <div
                                     onMouseDown={handleEditorMouseDown}
@@ -924,11 +910,9 @@ const DataWorkWorkspace: React.FC = () => {
                                         cursor: 'row-resize',
                                         background: isDraggingEditor ? '#1890ff' : '#f0f0f0',
                                         transition: 'background 0.2s',
-                                        flexShrink: 0,
                                     }}
                                 />
-                                {/* 结果面板 */}
-                                <div style={{flex: 1, minHeight: 150, overflow: 'hidden'}}>
+                                <Content style={{background: '#fff', overflow: 'auto'}}>
                                     <DataWorkResultPanel
                                         loading={false}
                                         result={activeTab.result}
@@ -941,10 +925,10 @@ const DataWorkWorkspace: React.FC = () => {
                                         } : t))}
                                         logs={activeTab.logs}
                                     />
-                                </div>
+                                </Content>
                             </>
                         )}
-                    </div>
+                    </Layout>
                 </Col>
 
                 {/* 右侧边栏 */}

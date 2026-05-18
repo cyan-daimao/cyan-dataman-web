@@ -255,6 +255,7 @@ const App: React.FC = () => {
                     style={{
                         background: colorBgContainer,
                         flex: 1,
+                        height: '100%',
                         borderRadius: borderRadiusLG,
                         boxSizing: 'border-box',
                         display: 'flex',

@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>源代码（后30页）</title>
+<style>
+@page {
+  size: A4;
+  margin: 18mm 15mm 18mm 15mm;
+  @top-center {
+    content: "Cyan数据中台 V1.0  —  闫晨阳";
+    font-size: 8pt;
+    color: #666;
+    border-bottom: 0.5pt solid #ccc;
+    padding-bottom: 3mm;
+  }
+  @bottom-center {
+    content: "第 " counter(page) " 页";
+    font-size: 8pt;
+    color: #666;
+    border-top: 0.5pt solid #ccc;
+    padding-top: 3mm;
+  }
+}
+body {
+  font-family: 'Courier New', 'Consolas', 'Monaco', monospace;
+  font-size: 8.5pt;
+  line-height: 1.55;
+  color: #222;
+  margin: 0;
+  padding: 0;
+}
+.cover {
+  page-break-after: always;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  text-align: center;
+}
+.cover h1 { font-size: 24pt; margin: 20px 0; font-family: 'SimSun', serif; }
+.cover h2 { font-size: 16pt; margin: 15px 0; color: #444; font-family: 'SimSun', serif; }
+.cover p { font-size: 12pt; margin: 10px 0; color: #666; font-family: 'SimSun', serif; }
+pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  tab-size: 2;
+}
+.line-num {
+  display: inline-block;
+  width: 32px;
+  color: #999;
+  text-align: right;
+  margin-right: 8px;
+  user-select: none;
+}
+</style>
+</head>
+<body>
+<div class="cover">
+  <h1>程序鉴别材料</h1>
+  <h2>源代码（后30页）</h2>
+  <p>软件名称：Cyan数据中台</p>
+  <p>版本号：V1.0</p>
+  <p>著作权人：闫晨阳</p>
+  <p>总代码行数：1505 行</p>
+</div>
+<pre><span class="line-num">   1</span>
+<span class="line-num">   2</span>/* ========================================== */
+<span class="line-num">   3</span>/* 文件: src/pages/metadata/business_db/table_schema/index.tsx                            */
+<span class="line-num">   4</span>/* 软件名称: Cyan数据中台                  */
+<span class="line-num">   5</span>/* 版本号: V1.0                          */
+<span class="line-num">   6</span>/* 著作权人: 闫晨阳               */
+<span class="line-num">   7</span>/* ========================================== */
+<span class="line-num">   8</span>import React, {useEffect, useState} from 'react';
+<span class="line-num">   9</span>import {
+<span class="line-num">  10</span>    Button,
+<span class="line-num">  11</span>    Card,
+<span class="line-num">  12</span>    Col,
+<span class="line-num">  13</span>    Form,
+<span class="line-num">  14</span>    Input,
+<span class="line-num">  15</span>    message,
+<span class="line-num">  16</span>    Modal,
+<span class="line-num">  17</span>    Popconfirm,
+<span class="line-num">  18</span>    Row,
+<span class="line-num">  19</span>    Select,
+<span class="line-num">  20</span>    Space,
+<span class="line-num">  21</span>    Table,
+<span class="line-num">  22</span>    Tag,
+<span class="line-num">  23</span>    Tooltip,
+<span class="line-num">  24</span>    Typography
+<span class="line-num">  25</span>} from 'antd';
+<span class="line-num">  26</span>import {
+<span class="line-num">  27</span>    DeleteOutlined,
+<span class="line-num">  28</span>    EditOutlined,
+<span class="line-num">  29</span>    EyeOutlined,
+<span class="line-num">  30</span>    HistoryOutlined,
+<span class="line-num">  31</span>    PlusOutlined,
+<span class="line-num">  32</span>    TableOutlined,
+<span class="line-num">  33</span>    SearchOutlined,
+<span class="line-num">  34</span>    DatabaseOutlined,
+<span class="line-num">  35</span>    CloudSyncOutlined,
+<span class="line-num">  36</span>} from '@ant-design/icons';
+<span class="line-num">  37</span>import PermissionButton from '@/component/permission/PermissionButton';
+<span class="line-num">  38</span>import {Database, databaseApi, DatasourceType, DSApi, DsConfig, tableApi} from '@/api/DSApi';
+<span class="line-num">  39</span>import {
+<span class="line-num">  40</span>    listCdcConfigs,
+<span class="line-num">  41</span>    createCdcConfig,
+<span class="line-num">  42</span>    deleteCdcConfig,
+<span class="line-num">  43</span>    toggleCdcConfig,
+<span class="line-num">  44</span>    CdcConfigDTO,
+<span class="line-num">  45</span>    CdcConfigCmd
+<span class="line-num">  46</span>} from '@/api/CdcApi';
+<span class="line-num">  47</span>import {listSubjects, SubjectDTO} from '@/api/MetadataSubjectAPI';
+<span class="line-num">  48</span>import {ColumnType} from 'antd/es/table';
+<span class="line-num">  49</span>import {useNavigate, useSearchParams} from 'react-router-dom';
+<span class="line-num">  50</span>
+<span class="line-num">  51</span>const {Title, Text} = Typography;
+<span class="line-num">  52</span>
+<span class="line-num">  53</span>// 环境状态枚举
+<span class="line-num">  54</span>enum EnvStatus {
+<span class="line-num">  55</span>    SYNCED = 'SYNCED',
+<span class="line-num">  56</span>    PENDING = 'PENDING',
+<span class="line-num">  57</span>    TEST_BEHIND = 'TEST_BEHIND',
+<span class="line-num">  58</span>    APPROVING = 'APPROVING',
+<span class="line-num">  59</span>    REJECTED = 'REJECTED',
+<span class="line-num">  60</span>}
+<span class="line-num">  61</span>
+<span class="line-num">  62</span>// 扩展的表信息（包含前端状态）
+<span class="line-num">  63</span>interface TableInfo {
+<span class="line-num">  64</span>    tableName: string;
+<span class="line-num">  65</span>    tableComment: string;
+<span class="line-num">  66</span>    cdcEnabled: boolean;
+<span class="line-num">  67</span>    cdcConfigId?: string;
+<span class="line-num">  68</span>    envStatus: EnvStatus;
+<span class="line-num">  69</span>    updatedAt: string;
+<span class="line-num">  70</span>}
+<span class="line-num">  71</span>
+<span class="line-num">  72</span>// 字段类型转换：MySQL/PostgreSQL 类型 -&gt; Iceberg 类型
+<span class="line-num">  73</span>const convertToIcebergType = (dbType: string): string =&gt; {
+<span class="line-num">  74</span>    const upperType = dbType.toUpperCase().split('(')[0].trim();
+<span class="line-num">  75</span>
+<span class="line-num">  76</span>    const commonTypeMap: Record&lt;string, string&gt; = {
+<span class="line-num">  77</span>        'CHAR': 'STRING',
+<span class="line-num">  78</span>        'VARCHAR': 'STRING',
+<span class="line-num">  79</span>        'TEXT': 'STRING',
+<span class="line-num">  80</span>        'MEDIUMTEXT': 'STRING',
+<span class="line-num">  81</span>        'LONGTEXT': 'STRING',
+<span class="line-num">  82</span>        'CLOB': 'STRING',
+<span class="line-num">  83</span>        'TINYINT': 'LONG',
+<span class="line-num">  84</span>        'SMALLINT': 'LONG',
+<span class="line-num">  85</span>        'INT': 'LONG',
+<span class="line-num">  86</span>        'INTEGER': 'LONG',
+<span class="line-num">  87</span>        'MEDIUMINT': 'LONG',
+<span class="line-num">  88</span>        'BIGINT': 'LONG',
+<span class="line-num">  89</span>        'SERIAL': 'LONG',
+<span class="line-num">  90</span>        'SMALLSERIAL': 'LONG',
+<span class="line-num">  91</span>        'BIGSERIAL': 'LONG',
+<span class="line-num">  92</span>        'FLOAT': 'FLOAT',
+<span class="line-num">  93</span>        'REAL': 'FLOAT',
+<span class="line-num">  94</span>        'DOUBLE': 'DOUBLE',
+<span class="line-num">  95</span>        'DOUBLE PRECISION': 'DOUBLE',
+<span class="line-num">  96</span>        'DECIMAL': 'DECIMAL',
+<span class="line-num">  97</span>        'NUMERIC': 'DECIMAL',
+<span class="line-num">  98</span>        'BOOLEAN': 'BOOLEAN',
+<span class="line-num">  99</span>        'BOOL': 'BOOLEAN',
+<span class="line-num"> 100</span>        'DATE': 'DATE',
+<span class="line-num"> 101</span>        'TIME': 'TIME',
+<span class="line-num"> 102</span>        'DATETIME': 'TIMESTAMP',
+<span class="line-num"> 103</span>        'TIMESTAMP': 'TIMESTAMP',
+<span class="line-num"> 104</span>        'TIMESTAMP WITH TIME ZONE': 'TIMESTAMP_TZ',
+<span class="line-num"> 105</span>        'BLOB': 'BINARY',
+<span class="line-num"> 106</span>        'MEDIUMBLOB': 'BINARY',
+<span class="line-num"> 107</span>        'LONGBLOB': 'BINARY',
+<span class="line-num"> 108</span>        'BYTEA': 'BINARY',
+<span class="line-num"> 109</span>        'BINARY': 'BINARY',
+<span class="line-num"> 110</span>        'VARBINARY': 'BINARY',
+<span class="line-num"> 111</span>        'UUID': 'UUID',
+<span class="line-num"> 112</span>        'JSON': 'STRING',
+<span class="line-num"> 113</span>        'JSONB': 'STRING',
+<span class="line-num"> 114</span>        'ENUM': 'STRING',
+<span class="line-num"> 115</span>        'SET': 'STRING',
+<span class="line-num"> 116</span>    };
+<span class="line-num"> 117</span>
+<span class="line-num"> 118</span>    return commonTypeMap[upperType] || 'STRING';
+<span class="line-num"> 119</span>};
+<span class="line-num"> 120</span>
+<span class="line-num"> 121</span>const TableSchemaManagement: React.FC = () =&gt; {
+<span class="line-num"> 122</span>    const navigate = useNavigate();
+<span class="line-num"> 123</span>    const [searchParams] = useSearchParams();
+<span class="line-num"> 124</span>
+<span class="line-num"> 125</span>    const urlDsName = searchParams.get('dsName');
+<span class="line-num"> 126</span>    const urlDbName = searchParams.get('dbName');
+<span class="line-num"> 127</span>
+<span class="line-num"> 128</span>    const [datasources, setDatasources] = useState&lt;DsConfig[]&gt;([]);
+<span class="line-num"> 129</span>    const [databases, setDatabases] = useState&lt;Database[]&gt;([]);
+<span class="line-num"> 130</span>    const [tables, setTables] = useState&lt;TableInfo[]&gt;([]);
+<span class="line-num"> 131</span>
+<span class="line-num"> 132</span>    const [selectedDsName, setSelectedDsName] = useState&lt;string | null&gt;(urlDsName);
+<span class="line-num"> 133</span>    const [selectedDbName, setSelectedDbName] = useState&lt;string | null&gt;(urlDbName);
+<span class="line-num"> 134</span>
+<span class="line-num"> 135</span>    const [dsLoading, setDsLoading] = useState(false);
+<span class="line-num"> 136</span>    const [dbLoading, setDbLoading] = useState(false);
+<span class="line-num"> 137</span>    const [tableLoading, setTableLoading] = useState(false);
+<span class="line-num"> 138</span>
+<span class="line-num"> 139</span>    const [searchKeyword, setSearchKeyword] = useState('');
+<span class="line-num"> 140</span>
+<span class="line-num"> 141</span>    const [createModalVisible, setCreateModalVisible] = useState(false);
+<span class="line-num"> 142</span>    const [newTableName, setNewTableName] = useState('');
+<span class="line-num"> 143</span>
+<span class="line-num"> 144</span>    const [initialized, setInitialized] = useState(false);
+<span class="line-num"> 145</span>
+<span class="line-num"> 146</span>    // CDC 相关状态
+<span class="line-num"> 147</span>    const [cdcModalVisible, setCdcModalVisible] = useState(false);
+<span class="line-num"> 148</span>    const [cdcModalTableName, setCdcModalTableName] = useState&lt;string&gt;('');
+<span class="line-num"> 149</span>    const [cdcModalMode, setCdcModalMode] = useState&lt;'create' | 'view'&gt;('create');
+<span class="line-num"> 150</span>    const [cdcModalConfigName, setCdcModalConfigName] = useState&lt;string&gt;('');
+<span class="line-num"> 151</span>    const [cdcModalConfigEnabled, setCdcModalConfigEnabled] = useState&lt;boolean&gt;(false);
+<span class="line-num"> 152</span>    const [cdcForm] = Form.useForm();
+<span class="line-num"> 153</span>    const [subjects, setSubjects] = useState&lt;SubjectDTO[]&gt;([]);
+<span class="line-num"> 154</span>    const [cdcSubmitting, setCdcSubmitting] = useState(false);
+<span class="line-num"> 155</span>    const [cdcSelectedSubjectCode, setCdcSelectedSubjectCode] = useState&lt;string&gt;('');
+<span class="line-num"> 156</span>
+<span class="line-num"> 157</span>    useEffect(() =&gt; {
+<span class="line-num"> 158</span>        fetchDatasources();
+<span class="line-num"> 159</span>    }, []);
+<span class="line-num"> 160</span>
+<span class="line-num"> 161</span>    useEffect(() =&gt; {
+<span class="line-num"> 162</span>        if (datasources.length &gt; 0 &amp;&amp; urlDsName &amp;&amp; !initialized) {
+<span class="line-num"> 163</span>            const dsExists = datasources.some(ds =&gt; ds.name === urlDsName);
+<span class="line-num"> 164</span>            if (dsExists) {
+<span class="line-num"> 165</span>                setSelectedDsName(urlDsName);
+<span class="line-num"> 166</span>                fetchDatabases(urlDsName);
+<span class="line-num"> 167</span>            }
+<span class="line-num"> 168</span>            setInitialized(true);
+<span class="line-num"> 169</span>        }
+<span class="line-num"> 170</span>    }, [datasources, urlDsName, initialized]);
+<span class="line-num"> 171</span>
+<span class="line-num"> 172</span>    useEffect(() =&gt; {
+<span class="line-num"> 173</span>        if (databases.length &gt; 0 &amp;&amp; urlDbName &amp;&amp; selectedDsName === urlDsName &amp;&amp; !selectedDbName) {
+<span class="line-num"> 174</span>            const dbExists = databases.some(db =&gt; db.name === urlDbName);
+<span class="line-num"> 175</span>            if (dbExists) {
+<span class="line-num"> 176</span>                setSelectedDbName(urlDbName);
+<span class="line-num"> 177</span>            }
+<span class="line-num"> 178</span>        }
+<span class="line-num"> 179</span>    }, [databases, urlDbName, selectedDsName, selectedDbName]);
+<span class="line-num"> 180</span>
+<span class="line-num"> 181</span>    useEffect(() =&gt; {
+<span class="line-num"> 182</span>        if (selectedDsName) {
+<span class="line-num"> 183</span>            fetchDatabases(selectedDsName);
+<span class="line-num"> 184</span>            if (selectedDsName !== urlDsName) {
+<span class="line-num"> 185</span>                setSelectedDbName(null);
+<span class="line-num"> 186</span>                setTables([]);
+<span class="line-num"> 187</span>            }
+<span class="line-num"> 188</span>        }
+<span class="line-num"> 189</span>    }, [selectedDsName]);
+<span class="line-num"> 190</span>
+<span class="line-num"> 191</span>    useEffect(() =&gt; {
+<span class="line-num"> 192</span>        if (selectedDsName &amp;&amp; selectedDbName) {
+<span class="line-num"> 193</span>            fetchTables(selectedDsName, selectedDbName);
+<span class="line-num"> 194</span>        }
+<span class="line-num"> 195</span>    }, [selectedDsName, selectedDbName]);
+<span class="line-num"> 196</span>
+<span class="line-num"> 197</span>    const fetchDatasources = async () =&gt; {
+<span class="line-num"> 198</span>        setDsLoading(true);
+<span class="line-num"> 199</span>        try {
+<span class="line-num"> 200</span>            const response = await DSApi.list();
+<span class="line-num"> 201</span>            if (response.code === 200) {
+<span class="line-num"> 202</span>                setDatasources(response.data || []);
+<span class="line-num"> 203</span>            }
+<span class="line-num"> 204</span>        } catch (error) {
+<span class="line-num"> 205</span>            console.error('获取数据源列表失败:', error);
+<span class="line-num"> 206</span>            message.error('获取数据源列表失败');
+<span class="line-num"> 207</span>        } finally {
+<span class="line-num"> 208</span>            setDsLoading(false);
+<span class="line-num"> 209</span>        }
+<span class="line-num"> 210</span>    };
+<span class="line-num"> 211</span>
+<span class="line-num"> 212</span>    const fetchDatabases = async (dsName: string) =&gt; {
+<span class="line-num"> 213</span>        setDbLoading(true);
+<span class="line-num"> 214</span>        try {
+<span class="line-num"> 215</span>            const response = await databaseApi.list(dsName);
+<span class="line-num"> 216</span>            if (response.code === 200) {
+<span class="line-num"> 217</span>                setDatabases(response.data || []);
+<span class="line-num"> 218</span>            }
+<span class="line-num"> 219</span>        } catch (error) {
+<span class="line-num"> 220</span>            console.error('获取数据库列表失败:', error);
+<span class="line-num"> 221</span>            message.error('获取数据库列表失败');
+<span class="line-num"> 222</span>        } finally {
+<span class="line-num"> 223</span>            setDbLoading(false);
+<span class="line-num"> 224</span>        }
+<span class="line-num"> 225</span>    };
+<span class="line-num"> 226</span>
+<span class="line-num"> 227</span>    const fetchTables = async (dsName: string, dbName: string) =&gt; {
+<span class="line-num"> 228</span>        setTableLoading(true);
+<span class="line-num"> 229</span>        try {
+<span class="line-num"> 230</span>            const [tableRes, cdcRes] = await Promise.all([
+<span class="line-num"> 231</span>                tableApi.list(dsName, dbName),
+<span class="line-num"> 232</span>                listCdcConfigs({ dsName, dbName, syncTool: 'FLINK' })
+<span class="line-num"> 233</span>            ]);
+<span class="line-num"> 234</span>
+<span class="line-num"> 235</span>            let cdcMap = new Map&lt;string, CdcConfigDTO&gt;();
+<span class="line-num"> 236</span>            if (cdcRes.code === 200 &amp;&amp; cdcRes.data) {
+<span class="line-num"> 237</span>                cdcMap = new Map(cdcRes.data.map(c =&gt; [`${c.dbName}.${c.tableName}`, c]));
+<span class="line-num"> 238</span>            }
+<span class="line-num"> 239</span>
+<span class="line-num"> 240</span>            if (tableRes.code === 200) {
+<span class="line-num"> 241</span>                const tableInfos: TableInfo[] = (tableRes.data || []).map(tbl =&gt; {
+<span class="line-num"> 242</span>                    const cdc = cdcMap.get(`${dbName}.${tbl.tableName}`);
+<span class="line-num"> 243</span>                    return {
+<span class="line-num"> 244</span>                        tableName: tbl.tableName,
+<span class="line-num"> 245</span>                        tableComment: tbl.tableComment,
+<span class="line-num"> 246</span>                        cdcEnabled: cdc?.enabled ?? false,
+<span class="line-num"> 247</span>                        cdcConfigId: cdc?.id,
+<span class="line-num"> 248</span>                        envStatus: EnvStatus.SYNCED,
+<span class="line-num"> 249</span>                        updatedAt: new Date().toISOString(),
+<span class="line-num"> 250</span>                    };
+<span class="line-num"> 251</span>                });
+<span class="line-num"> 252</span>                setTables(tableInfos);
+<span class="line-num"> 253</span>            }
+<span class="line-num"> 254</span>        } catch (error) {
+<span class="line-num"> 255</span>            console.error('获取表列表失败:', error);
+<span class="line-num"> 256</span>            message.error('获取表列表失败');
+<span class="line-num"> 257</span>        } finally {
+<span class="line-num"> 258</span>            setTableLoading(false);
+<span class="line-num"> 259</span>        }
+<span class="line-num"> 260</span>    };
+<span class="line-num"> 261</span>
+<span class="line-num"> 262</span>    const handleDsChange = (dsName: string) =&gt; {
+<span class="line-num"> 263</span>        setSelectedDsName(dsName);
+<span class="line-num"> 264</span>    };
+<span class="line-num"> 265</span>
+<span class="line-num"> 266</span>    const handleDbChange = (dbName: string) =&gt; {
+<span class="line-num"> 267</span>        setSelectedDbName(dbName);
+<span class="line-num"> 268</span>    };
+<span class="line-num"> 269</span>
+<span class="line-num"> 270</span>    // CDC 相关操作
+<span class="line-num"> 271</span>    const handleOpenCdcModal = async (tableName: string, configId?: string) =&gt; {
+<span class="line-num"> 272</span>        setCdcModalTableName(tableName);
+<span class="line-num"> 273</span>        cdcForm.resetFields();
+<span class="line-num"> 274</span>        setCdcSelectedSubjectCode('');
+<span class="line-num"> 275</span>
+<span class="line-num"> 276</span>        // 加载主题列表
+<span class="line-num"> 277</span>        try {
+<span class="line-num"> 278</span>            const subjectList = await listSubjects({parentId: '0'});
+<span class="line-num"> 279</span>            setSubjects(subjectList || []);
+<span class="line-num"> 280</span>        } catch {
+<span class="line-num"> 281</span>            message.error('加载主题列表失败');
+<span class="line-num"> 282</span>        }
+<span class="line-num"> 283</span>
+<span class="line-num"> 284</span>        if (configId) {
+<span class="line-num"> 285</span>            // 查看已有配置（通过 listCdcConfigs 查询，避免 id/name 混淆）
+<span class="line-num"> 286</span>            setCdcModalMode('view');
+<span class="line-num"> 287</span>            setCdcModalConfigName(configId);
+<span class="line-num"> 288</span>            try {
+<span class="line-num"> 289</span>                const res = await listCdcConfigs({
+<span class="line-num"> 290</span>                    dsName: selectedDsName!,
+<span class="line-num"> 291</span>                    dbName: selectedDbName!,
+<span class="line-num"> 292</span>                    tableName,
+<span class="line-num"> 293</span>                    syncTool: 'FLINK',
+<span class="line-num"> 294</span>                });
+<span class="line-num"> 295</span>                if (res.code === 200 &amp;&amp; res.data &amp;&amp; res.data.length &gt; 0) {
+<span class="line-num"> 296</span>                    const dto = res.data[0];
+<span class="line-num"> 297</span>                    cdcForm.setFieldsValue({ subjectCode: dto.subjectCode });
+<span class="line-num"> 298</span>                    setCdcSelectedSubjectCode(dto.subjectCode || '');
+<span class="line-num"> 299</span>                    setCdcModalConfigEnabled(dto.enabled);
+<span class="line-num"> 300</span>                }
+<span class="line-num"> 301</span>            } catch {
+<span class="line-num"> 302</span>                message.error('加载 CDC 配置失败');
+<span class="line-num"> 303</span>            }
+<span class="line-num"> 304</span>        } else {
+<span class="line-num"> 305</span>            // 创建新配置
+<span class="line-num"> 306</span>            setCdcModalMode('create');
+<span class="line-num"> 307</span>            setCdcModalConfigName('');
+<span class="line-num"> 308</span>            setCdcModalConfigEnabled(false);
+<span class="line-num"> 309</span>            try {
+<span class="line-num"> 310</span>                const subjectList = await listSubjects({parentId: '0'});
+<span class="line-num"> 311</span>                const cdcSubject = subjectList?.find(s =&gt; s.subjectCode === 'cdc');
+<span class="line-num"> 312</span>                if (cdcSubject) {
+<span class="line-num"> 313</span>                    cdcForm.setFieldsValue({ subjectCode: cdcSubject.subjectCode });
+<span class="line-num"> 314</span>                    setCdcSelectedSubjectCode(cdcSubject.subjectCode);
+<span class="line-num"> 315</span>                }
+<span class="line-num"> 316</span>            } catch {
+<span class="line-num"> 317</span>                // ignore
+<span class="line-num"> 318</span>            }
+<span class="line-num"> 319</span>        }
+<span class="line-num"> 320</span>
+<span class="line-num"> 321</span>        setCdcModalVisible(true);
+<span class="line-num"> 322</span>    };
+<span class="line-num"> 323</span>
+<span class="line-num"> 324</span>    const handleCdcSubmit = async () =&gt; {
+<span class="line-num"> 325</span>        if (!selectedDsName || !selectedDbName) return;
+<span class="line-num"> 326</span>        try {
+<span class="line-num"> 327</span>            setCdcSubmitting(true);
+<span class="line-num"> 328</span>
+<span class="line-num"> 329</span>            if (cdcModalMode === 'view' &amp;&amp; cdcModalConfigName) {
+<span class="line-num"> 330</span>                // view 模式：toggle 启用/停用
+<span class="line-num"> 331</span>                const res = await listCdcConfigs({
+<span class="line-num"> 332</span>                    dsName: selectedDsName,
+<span class="line-num"> 333</span>                    dbName: selectedDbName,
+<span class="line-num"> 334</span>                    tableName: cdcModalTableName,
+<span class="line-num"> 335</span>                    syncTool: 'FLINK',
+<span class="line-num"> 336</span>                });
+<span class="line-num"> 337</span>                if (res.code === 200 &amp;&amp; res.data &amp;&amp; res.data.length &gt; 0) {
+<span class="line-num"> 338</span>                    const dto = res.data[0];
+<span class="line-num"> 339</span>                    const toggleRes = await toggleCdcConfig(dto.name, !dto.enabled);
+<span class="line-num"> 340</span>                    if (toggleRes.code === 200) {
+<span class="line-num"> 341</span>                        message.success(dto.enabled ? '已停用' : '已启用');
+<span class="line-num"> 342</span>                        setCdcModalVisible(false);
+<span class="line-num"> 343</span>                        if (selectedDsName &amp;&amp; selectedDbName) {
+<span class="line-num"> 344</span>                            fetchTables(selectedDsName, selectedDbName);
+<span class="line-num"> 345</span>                        }
+<span class="line-num"> 346</span>                    } else {
+<span class="line-num"> 347</span>                        message.error(toggleRes.message || '操作失败');
+<span class="line-num"> 348</span>                    }
+<span class="line-num"> 349</span>                }
+<span class="line-num"> 350</span>            } else {
+<span class="line-num"> 351</span>                // create 模式：创建新配置
+<span class="line-num"> 352</span>                const values = await cdcForm.validateFields();
+<span class="line-num"> 353</span>                const cmd: CdcConfigCmd = {
+<span class="line-num"> 354</span>                    name: `${selectedDbName}_${cdcModalTableName}_cdc`,
+<span class="line-num"> 355</span>                    dsName: selectedDsName,
+<span class="line-num"> 356</span>                    dbName: selectedDbName,
+<span class="line-num"> 357</span>                    tableName: cdcModalTableName,
+<span class="line-num"> 358</span>                    subjectCode: values.subjectCode,
+<span class="line-num"> 359</span>                    syncTool: 'FLINK',
+<span class="line-num"> 360</span>                    description: `CDC 同步: ${selectedDbName}.${cdcModalTableName}`,
+<span class="line-num"> 361</span>                };
+<span class="line-num"> 362</span>
+<span class="line-num"> 363</span>                const res = await createCdcConfig(cmd);
+<span class="line-num"> 364</span>                if (res.code === 200) {
+<span class="line-num"> 365</span>                    message.success('CDC 配置创建成功');
+<span class="line-num"> 366</span>                    setCdcModalVisible(false);
+<span class="line-num"> 367</span>                    if (selectedDsName &amp;&amp; selectedDbName) {
+<span class="line-num"> 368</span>                        fetchTables(selectedDsName, selectedDbName);
+<span class="line-num"> 369</span>                    }
+<span class="line-num"> 370</span>                } else {
+<span class="line-num"> 371</span>                    message.error(res.message || '创建失败');
+<span class="line-num"> 372</span>                }
+<span class="line-num"> 373</span>            }
+<span class="line-num"> 374</span>        } catch (error) {
+<span class="line-num"> 375</span>            console.error('CDC 操作失败:', error);
+<span class="line-num"> 376</span>        } finally {
+<span class="line-num"> 377</span>            setCdcSubmitting(false);
+<span class="line-num"> 378</span>        }
+<span class="line-num"> 379</span>    };
+<span class="line-num"> 380</span>
+<span class="line-num"> 381</span>    const handleToggleCdc = async (record: TableInfo) =&gt; {
+<span class="line-num"> 382</span>        if (!record.cdcConfigId) return;
+<span class="line-num"> 383</span>        try {
+<span class="line-num"> 384</span>            const res = await listCdcConfigs({ dsName: selectedDsName!, dbName: selectedDbName!, tableName: record.tableName, syncTool: 'FLINK' });
+<span class="line-num"> 385</span>            if (res.code === 200 &amp;&amp; res.data &amp;&amp; res.data.length &gt; 0) {
+<span class="line-num"> 386</span>                const dto = res.data[0];
+<span class="line-num"> 387</span>                const toggleRes = await toggleCdcConfig(dto.name, !record.cdcEnabled);
+<span class="line-num"> 388</span>                if (toggleRes.code === 200) {
+<span class="line-num"> 389</span>                    message.success(record.cdcEnabled ? '已停用' : '已启用');
+<span class="line-num"> 390</span>                    if (selectedDsName &amp;&amp; selectedDbName) {
+<span class="line-num"> 391</span>                        fetchTables(selectedDsName, selectedDbName);
+<span class="line-num"> 392</span>                    }
+<span class="line-num"> 393</span>                } else {
+<span class="line-num"> 394</span>                    message.error(toggleRes.message || '操作失败');
+<span class="line-num"> 395</span>                }
+<span class="line-num"> 396</span>            }
+<span class="line-num"> 397</span>        } catch (error) {
+<span class="line-num"> 398</span>            console.error('CDC 启停失败:', error);
+<span class="line-num"> 399</span>            message.error('操作失败');
+<span class="line-num"> 400</span>        }
+<span class="line-num"> 401</span>    };
+<span class="line-num"> 402</span>
+<span class="line-num"> 403</span>    const handleCreateTable = () =&gt; {
+<span class="line-num"> 404</span>        setNewTableName('');
+<span class="line-num"> 405</span>        setCreateModalVisible(true);
+<span class="line-num"> 406</span>    };
+<span class="line-num"> 407</span>
+<span class="line-num"> 408</span>    const handleCreateConfirm = () =&gt; {
+<span class="line-num"> 409</span>        if (!newTableName.trim()) {
+<span class="line-num"> 410</span>            message.warning('请输入表名');
+<span class="line-num"> 411</span>            return;
+<span class="line-num"> 412</span>        }
+<span class="line-num"> 413</span>        navigate(`/meta/business-ds/table-schema/edit?dsName=${selectedDsName}&amp;dbName=${selectedDbName}&amp;tableName=${newTableName}&amp;isNew=true`);
+<span class="line-num"> 414</span>        setCreateModalVisible(false);
+<span class="line-num"> 415</span>    };
+<span class="line-num"> 416</span>
+<span class="line-num"> 417</span>    const handleViewDetail = (tableName: string) =&gt; {
+<span class="line-num"> 418</span>        navigate(`/meta/business-ds/table-schema/detail?dsName=${selectedDsName}&amp;dbName=${selectedDbName}&amp;tableName=${tableName}`);
+<span class="line-num"> 419</span>    };
+<span class="line-num"> 420</span>
+<span class="line-num"> 421</span>    const handleEdit = (tableName: string) =&gt; {
+<span class="line-num"> 422</span>        navigate(`/meta/business-ds/table-schema/edit?dsName=${selectedDsName}&amp;dbName=${selectedDbName}&amp;tableName=${tableName}`);
+<span class="line-num"> 423</span>    };
+<span class="line-num"> 424</span>
+<span class="line-num"> 425</span>    const handleDelete = async (tableName: string) =&gt; {
+<span class="line-num"> 426</span>        if (!selectedDsName || !selectedDbName) return;
+<span class="line-num"> 427</span>
+<span class="line-num"> 428</span>        try {
+<span class="line-num"> 429</span>            const response = await tableApi.drop(selectedDsName, selectedDbName, tableName);
+<span class="line-num"> 430</span>            if (response.code === 200) {
+<span class="line-num"> 431</span>                message.success('删除成功');
+<span class="line-num"> 432</span>                fetchTables(selectedDsName, selectedDbName);
+<span class="line-num"> 433</span>            } else {
+<span class="line-num"> 434</span>                message.error(response.message || '删除失败');
+<span class="line-num"> 435</span>            }
+<span class="line-num"> 436</span>        } catch (error) {
+<span class="line-num"> 437</span>            console.error('删除表失败:', error);
+<span class="line-num"> 438</span>            message.error('删除失败');
+<span class="line-num"> 439</span>        }
+<span class="line-num"> 440</span>    };
+<span class="line-num"> 441</span>
+<span class="line-num"> 442</span>    const handleSyncHistory = async (tableName: string) =&gt; {
+<span class="line-num"> 443</span>        if (!selectedDsName || !selectedDbName) return;
+<span class="line-num"> 444</span>
+<span class="line-num"> 445</span>        try {
+<span class="line-num"> 446</span>            const response = await tableApi.getSchema(selectedDsName, selectedDbName, tableName);
+<span class="line-num"> 447</span>            if (response.code === 200 &amp;&amp; response.data) {
+<span class="line-num"> 448</span>                const tableSchema = response.data;
+<span class="line-num"> 449</span>
+<span class="line-num"> 450</span>                const importData = {
+<span class="line-num"> 451</span>                    id: '',
+<span class="line-num"> 452</span>                    name: tableSchema.tableName,
+<span class="line-num"> 453</span>                    owner: '',
+<span class="line-num"> 454</span>                    subjectCode: '',
+<span class="line-num"> 455</span>                    datasourceType: '',
+<span class="line-num"> 456</span>                    layerCode: 'ODS',
+<span class="line-num"> 457</span>                    comment: tableSchema.tableComment || '',
+<span class="line-num"> 458</span>                    accessCount: '',
+<span class="line-num"> 459</span>                    lastAccessTime: '',
+<span class="line-num"> 460</span>                    heatLevel: '',
+<span class="line-num"> 461</span>                    secretLevel: 'L1',
+<span class="line-num"> 462</span>                    onlineStatus: 'ONLINE',
+<span class="line-num"> 463</span>                    createdAt: '',
+<span class="line-num"> 464</span>                    updatedAt: '',
+<span class="line-num"> 465</span>                    table: {
+<span class="line-num"> 466</span>                        catalog: selectedDsName,
+<span class="line-num"> 467</span>                        schema: selectedDbName,
+<span class="line-num"> 468</span>                        name: tableSchema.tableName,
+<span class="line-num"> 469</span>                        comment: tableSchema.tableComment || '',
+<span class="line-num"> 470</span>                        columns: tableSchema.columns.map(col =&gt; ({
+<span class="line-num"> 471</span>                            name: col.name,
+<span class="line-num"> 472</span>                            type: convertToIcebergType(col.type),
+<span class="line-num"> 473</span>                            comment: col.comment || '',
+<span class="line-num"> 474</span>                            nullable: col.nullable ?? true,
+<span class="line-num"> 475</span>                            autoIncrement: col.autoIncrement ?? false,
+<span class="line-num"> 476</span>                            defaultValue: col.defaultValue,
+<span class="line-num"> 477</span>                            secretLevel: col.secretLevel || 'L1',
+<span class="line-num"> 478</span>                        })),
+<span class="line-num"> 479</span>                        indexes: tableSchema.indexes || [],
+<span class="line-num"> 480</span>                    },
+<span class="line-num"> 481</span>                };
+<span class="line-num"> 482</span>
+<span class="line-num"> 483</span>                navigate('/meta/metadata/metadata_table/edit', {
+<span class="line-num"> 484</span>                    state: {
+<span class="line-num"> 485</span>                        mode: 'import',
+<span class="line-num"> 486</span>                        importData: importData,
+<span class="line-num"> 487</span>                    }
+<span class="line-num"> 488</span>                });
+<span class="line-num"> 489</span>            } else {
+<span class="line-num"> 490</span>                message.error('获取表结构失败');
+<span class="line-num"> 491</span>            }
+<span class="line-num"> 492</span>        } catch (error) {
+<span class="line-num"> 493</span>            console.error('获取表结构失败:', error);
+<span class="line-num"> 494</span>            message.error('获取表结构失败');
+<span class="line-num"> 495</span>        }
+<span class="line-num"> 496</span>    };
+<span class="line-num"> 497</span>
+<span class="line-num"> 498</span>    const getEnvStatusTag = (status: EnvStatus) =&gt; {
+<span class="line-num"> 499</span>        const config: Record&lt;EnvStatus, { color: string; text: string }&gt; = {
+<span class="line-num"> 500</span>            [EnvStatus.SYNCED]: {color: 'success', text: '生产已同步'},
+<span class="line-num"> 501</span>            [EnvStatus.PENDING]: {color: 'warning', text: '待发布'},
+<span class="line-num"> 502</span>            [EnvStatus.TEST_BEHIND]: {color: 'warning', text: '测试落后'},
+<span class="line-num"> 503</span>            [EnvStatus.APPROVING]: {color: 'processing', text: '审批中'},
+<span class="line-num"> 504</span>            [EnvStatus.REJECTED]: {color: 'error', text: '已拒绝'},
+<span class="line-num"> 505</span>        };
+<span class="line-num"> 506</span>        const {color, text} = config[status];
+<span class="line-num"> 507</span>        return &lt;Tag color={color}&gt;{text}&lt;/Tag&gt;;
+<span class="line-num"> 508</span>    };
+<span class="line-num"> 509</span>
+<span class="line-num"> 510</span>    const getDatasourceTypeTag = (type: DatasourceType) =&gt; {
+<span class="line-num"> 511</span>        const colorMap: Record&lt;DatasourceType, string&gt; = {
+<span class="line-num"> 512</span>            [DatasourceType.MYSQL]: 'blue',
+<span class="line-num"> 513</span>            [DatasourceType.POSTGRESQL]: 'green',
+<span class="line-num"> 514</span>            [DatasourceType.ICEBERG]: 'purple',
+<span class="line-num"> 515</span>        };
+<span class="line-num"> 516</span>        return &lt;Tag color={colorMap[type] || 'default'}&gt;{type}&lt;/Tag&gt;;
+<span class="line-num"> 517</span>    };
+<span class="line-num"> 518</span>
+<span class="line-num"> 519</span>    const filteredTables = tables.filter(table =&gt;
+<span class="line-num"> 520</span>        table.tableName.toLowerCase().includes(searchKeyword.toLowerCase())
+<span class="line-num"> 521</span>    );
+<span class="line-num"> 522</span>
+<span class="line-num"> 523</span>    const columns: ColumnType&lt;TableInfo&gt;[] = [
+<span class="line-num"> 524</span>        {
+<span class="line-num"> 525</span>            title: '表名',
+<span class="line-num"> 526</span>            dataIndex: 'tableName',
+<span class="line-num"> 527</span>            key: 'tableName',
+<span class="line-num"> 528</span>            width: 140,
+<span class="line-num"> 529</span>            render: (name: string) =&gt; (
+<span class="line-num"> 530</span>                &lt;Space&gt;
+<span class="line-num"> 531</span>                    &lt;TableOutlined style={{ color: '#8B909A' }} /&gt;
+<span class="line-num"> 532</span>                    &lt;span style={{fontWeight: 500, color: '#1D2333'}}&gt;{name}&lt;/span&gt;
+<span class="line-num"> 533</span>                &lt;/Space&gt;
+<span class="line-num"> 534</span>            ),
+<span class="line-num"> 535</span>        },
+<span class="line-num"> 536</span>        {
+<span class="line-num"> 537</span>            title: '描述',
+<span class="line-num"> 538</span>            dataIndex: 'tableComment',
+<span class="line-num"> 539</span>            key: 'tableComment',
+<span class="line-num"> 540</span>            width: 180,
+<span class="line-num"> 541</span>            ellipsis: true,
+<span class="line-num"> 542</span>            render: (comment: string) =&gt; (
+<span class="line-num"> 543</span>                &lt;span style={{ color: '#8B909A' }}&gt;{comment || '-'}&lt;/span&gt;
+<span class="line-num"> 544</span>            ),
+<span class="line-num"> 545</span>        },
+<span class="line-num"> 546</span>        {
+<span class="line-num"> 547</span>            title: 'CDC状态',
+<span class="line-num"> 548</span>            dataIndex: 'cdcEnabled',
+<span class="line-num"> 549</span>            key: 'cdcEnabled',
+<span class="line-num"> 550</span>            width: 100,
+<span class="line-num"> 551</span>            render: (enabled: boolean) =&gt; (
+<span class="line-num"> 552</span>                &lt;Tag color={enabled ? 'success' : 'default'}&gt;
+<span class="line-num"> 553</span>                    {enabled ? '已启用' : '未启用'}
+<span class="line-num"> 554</span>                &lt;/Tag&gt;
+<span class="line-num"> 555</span>            ),
+<span class="line-num"> 556</span>        },
+<span class="line-num"> 557</span>        {
+<span class="line-num"> 558</span>            title: '环境状态',
+<span class="line-num"> 559</span>            dataIndex: 'envStatus',
+<span class="line-num"> 560</span>            key: 'envStatus',
+<span class="line-num"> 561</span>            width: 120,
+<span class="line-num"> 562</span>            render: (status: EnvStatus) =&gt; getEnvStatusTag(status),
+<span class="line-num"> 563</span>        },
+<span class="line-num"> 564</span>        {
+<span class="line-num"> 565</span>            title: '操作',
+<span class="line-num"> 566</span>            key: 'action',
+<span class="line-num"> 567</span>            width: 160,
+<span class="line-num"> 568</span>            fixed: 'right',
+<span class="line-num"> 569</span>            render: (_: unknown, record: TableInfo) =&gt; (
+<span class="line-num"> 570</span>                &lt;Space size={4}&gt;
+<span class="line-num"> 571</span>                    &lt;Tooltip title=&quot;查看详情&quot;&gt;
+<span class="line-num"> 572</span>                        &lt;Button
+<span class="line-num"> 573</span>                            type=&quot;text&quot;
+<span class="line-num"> 574</span>                            size=&quot;small&quot;
+<span class="line-num"> 575</span>                            icon={&lt;EyeOutlined /&gt;}
+<span class="line-num"> 576</span>                            onClick={() =&gt; handleViewDetail(record.tableName)}
+<span class="line-num"> 577</span>                            style={{ color: '#4F6DF5' }}
+<span class="line-num"> 578</span>                        /&gt;
+<span class="line-num"> 579</span>                    &lt;/Tooltip&gt;
+<span class="line-num"> 580</span>                    &lt;Tooltip title=&quot;编辑&quot;&gt;
+<span class="line-num"> 581</span>                        &lt;PermissionButton
+<span class="line-num"> 582</span>                            type=&quot;text&quot;
+<span class="line-num"> 583</span>                            size=&quot;small&quot;
+<span class="line-num"> 584</span>                            icon={&lt;EditOutlined /&gt;}
+<span class="line-num"> 585</span>                            onClick={() =&gt; handleEdit(record.tableName)}
+<span class="line-num"> 586</span>                            style={{ color: '#4E5566' }}
+<span class="line-num"> 587</span>                            permission=&quot;MENU:meta:business-ds:table:UPDATE&quot;
+<span class="line-num"> 588</span>                        /&gt;
+<span class="line-num"> 589</span>                    &lt;/Tooltip&gt;
+<span class="line-num"> 590</span>                    &lt;Tooltip title=&quot;同步表结构到数仓&quot;&gt;
+<span class="line-num"> 591</span>                        &lt;Button
+<span class="line-num"> 592</span>                            type=&quot;text&quot;
+<span class="line-num"> 593</span>                            size=&quot;small&quot;
+<span class="line-num"> 594</span>                            icon={&lt;HistoryOutlined /&gt;}
+<span class="line-num"> 595</span>                            onClick={() =&gt; handleSyncHistory(record.tableName)}
+<span class="line-num"> 596</span>                            style={{ color: '#1A9F5C' }}
+<span class="line-num"> 597</span>                        /&gt;
+<span class="line-num"> 598</span>                    &lt;/Tooltip&gt;
+<span class="line-num"> 599</span>                    &lt;Tooltip title={record.cdcEnabled ? '停用 CDC' : record.cdcConfigId ? '启用 CDC' : '创建 CDC'}&gt;
+<span class="line-num"> 600</span>                        &lt;Button
+<span class="line-num"> 601</span>                            type=&quot;text&quot;
+<span class="line-num"> 602</span>                            size=&quot;small&quot;
+<span class="line-num"> 603</span>                            icon={&lt;CloudSyncOutlined /&gt;}
+<span class="line-num"> 604</span>                            onClick={() =&gt; {
+<span class="line-num"> 605</span>                                if (record.cdcEnabled) {
+<span class="line-num"> 606</span>                                    Modal.confirm({
+<span class="line-num"> 607</span>                                        title: '确认停用 CDC 同步',
+<span class="line-num"> 608</span>                                        content: `关闭后 ${record.tableName} 将不再同步数据到数仓，是否确认？`,
+<span class="line-num"> 609</span>                                        okText: '确认停用',
+<span class="line-num"> 610</span>                                        okType: 'danger',
+<span class="line-num"> 611</span>                                        cancelText: '取消',
+<span class="line-num"> 612</span>                                        onOk: () =&gt; handleToggleCdc(record),
+<span class="line-num"> 613</span>                                    });
+<span class="line-num"> 614</span>                                } else if (record.cdcConfigId) {
+<span class="line-num"> 615</span>                                    handleOpenCdcModal(record.tableName, record.cdcConfigId);
+<span class="line-num"> 616</span>                                } else {
+<span class="line-num"> 617</span>                                    handleOpenCdcModal(record.tableName);
+<span class="line-num"> 618</span>                                }
+<span class="line-num"> 619</span>                            }}
+<span class="line-num"> 620</span>                            style={{ color: record.cdcEnabled ? '#722ED1' : '#8B909A' }}
+<span class="line-num"> 621</span>                        /&gt;
+<span class="line-num"> 622</span>                    &lt;/Tooltip&gt;
+<span class="line-num"> 623</span>                    &lt;Popconfirm
+<span class="line-num"> 624</span>                        title=&quot;确定删除该表吗？此操作不可恢复！&quot;
+<span class="line-num"> 625</span>                        onConfirm={() =&gt; handleDelete(record.tableName)}
+<span class="line-num"> 626</span>                        okText=&quot;确定&quot;
+<span class="line-num"> 627</span>                        cancelText=&quot;取消&quot;
+<span class="line-num"> 628</span>                    &gt;
+<span class="line-num"> 629</span>                        &lt;Tooltip title=&quot;删除&quot;&gt;
+<span class="line-num"> 630</span>                            &lt;PermissionButton
+<span class="line-num"> 631</span>                                type=&quot;text&quot;
+<span class="line-num"> 632</span>                                size=&quot;small&quot;
+<span class="line-num"> 633</span>                                danger
+<span class="line-num"> 634</span>                                icon={&lt;DeleteOutlined /&gt;}
+<span class="line-num"> 635</span>                                permission=&quot;MENU:meta:business-ds:table:DELETE&quot;
+<span class="line-num"> 636</span>                            /&gt;
+<span class="line-num"> 637</span>                        &lt;/Tooltip&gt;
+<span class="line-num"> 638</span>                    &lt;/Popconfirm&gt;
+<span class="line-num"> 639</span>                &lt;/Space&gt;
+<span class="line-num"> 640</span>            ),
+<span class="line-num"> 641</span>        },
+<span class="line-num"> 642</span>    ];
+<span class="line-num"> 643</span>
+<span class="line-num"> 644</span>    return (
+<span class="line-num"> 645</span>        &lt;div className=&quot;page-container&quot;&gt;
+<span class="line-num"> 646</span>            {/* 页面标题区 */}
+<span class="line-num"> 647</span>            &lt;div className=&quot;page-header-section&quot; style={{ marginBottom: 20 }}&gt;
+<span class="line-num"> 648</span>                &lt;div className=&quot;page-title-wrapper&quot;&gt;
+<span class="line-num"> 649</span>                    &lt;Title level={4} className=&quot;page-title&quot;&gt;表结构管理&lt;/Title&gt;
+<span class="line-num"> 650</span>                    &lt;Text className=&quot;page-subtitle&quot;&gt;
+<span class="line-num"> 651</span>                        浏览和管理数据库表结构，支持表结构同步到数据仓库
+<span class="line-num"> 652</span>                    &lt;/Text&gt;
+<span class="line-num"> 653</span>                &lt;/div&gt;
+<span class="line-num"> 654</span>                &lt;PermissionButton
+<span class="line-num"> 655</span>                    type=&quot;primary&quot;
+<span class="line-num"> 656</span>                    icon={&lt;PlusOutlined /&gt;}
+<span class="line-num"> 657</span>                    onClick={handleCreateTable}
+<span class="line-num"> 658</span>                    disabled={!selectedDsName || !selectedDbName}
+<span class="line-num"> 659</span>                    size=&quot;middle&quot;
+<span class="line-num"> 660</span>                    permission=&quot;MENU:meta:business-ds:table:CREATE&quot;
+<span class="line-num"> 661</span>                &gt;
+<span class="line-num"> 662</span>                    新建表
+<span class="line-num"> 663</span>                &lt;/PermissionButton&gt;
+<span class="line-num"> 664</span>            &lt;/div&gt;
+<span class="line-num"> 665</span>
+<span class="line-num"> 666</span>            {/* 搜索筛选区 */}
+<span class="line-num"> 667</span>            &lt;Card
+<span class="line-num"> 668</span>                style={{
+<span class="line-num"> 669</span>                    marginBottom: 16,
+<span class="line-num"> 670</span>                    borderRadius: 12,
+<span class="line-num"> 671</span>                    boxShadow: '0 2px 8px rgba(29, 35, 51, 0.03)',
+<span class="line-num"> 672</span>                }}
+<span class="line-num"> 673</span>                styles={{ body: { padding: '16px 20px' } }}
+<span class="line-num"> 674</span>            &gt;
+<span class="line-num"> 675</span>                &lt;Row gutter={[16, 12]} align=&quot;middle&quot;&gt;
+<span class="line-num"> 676</span>                    &lt;Col&gt;
+<span class="line-num"> 677</span>                        &lt;Space&gt;
+<span class="line-num"> 678</span>                            &lt;DatabaseOutlined style={{ color: '#8B909A' }} /&gt;
+<span class="line-num"> 679</span>                            &lt;Text type=&quot;secondary&quot; style={{ fontSize: 13 }}&gt;数据源&lt;/Text&gt;
+<span class="line-num"> 680</span>                            &lt;Select
+<span class="line-num"> 681</span>                                style={{ width: 200 }}
+<span class="line-num"> 682</span>                                placeholder=&quot;请选择数据源&quot;
+<span class="line-num"> 683</span>                                value={selectedDsName}
+<span class="line-num"> 684</span>                                onChange={handleDsChange}
+<span class="line-num"> 685</span>                                loading={dsLoading}
+<span class="line-num"> 686</span>                                showSearch
+<span class="line-num"> 687</span>                                optionFilterProp=&quot;label&quot;
+<span class="line-num"> 688</span>                                suffixIcon={&lt;DatabaseOutlined style={{ color: '#8B909A', fontSize: 12 }} /&gt;}
+<span class="line-num"> 689</span>                            &gt;
+<span class="line-num"> 690</span>                                {datasources.map(ds =&gt; (
+<span class="line-num"> 691</span>                                    &lt;Select.Option key={ds.name} value={ds.name} label={ds.name}&gt;
+<span class="line-num"> 692</span>                                        &lt;Space&gt;
+<span class="line-num"> 693</span>                                            {getDatasourceTypeTag(ds.datasourceType)}
+<span class="line-num"> 694</span>                                            {ds.name}
+<span class="line-num"> 695</span>                                        &lt;/Space&gt;
+<span class="line-num"> 696</span>                                    &lt;/Select.Option&gt;
+<span class="line-num"> 697</span>                                ))}
+<span class="line-num"> 698</span>                            &lt;/Select&gt;
+<span class="line-num"> 699</span>                        &lt;/Space&gt;
+<span class="line-num"> 700</span>                    &lt;/Col&gt;
+<span class="line-num"> 701</span>                    &lt;Col&gt;
+<span class="line-num"> 702</span>                        &lt;Space&gt;
+<span class="line-num"> 703</span>                            &lt;Text type=&quot;secondary&quot; style={{ fontSize: 13 }}&gt;数据库&lt;/Text&gt;
+<span class="line-num"> 704</span>                            &lt;Select
+<span class="line-num"> 705</span>                                style={{ width: 180 }}
+<span class="line-num"> 706</span>                                placeholder=&quot;请选择数据库&quot;
+<span class="line-num"> 707</span>                                value={selectedDbName}
+<span class="line-num"> 708</span>                                onChange={handleDbChange}
+<span class="line-num"> 709</span>                                loading={dbLoading}
+<span class="line-num"> 710</span>                                disabled={!selectedDsName}
+<span class="line-num"> 711</span>                                showSearch
+<span class="line-num"> 712</span>                                optionFilterProp=&quot;children&quot;
+<span class="line-num"> 713</span>                            &gt;
+<span class="line-num"> 714</span>                                {databases.map(db =&gt; (
+<span class="line-num"> 715</span>                                    &lt;Select.Option key={db.name} value={db.name}&gt;
+<span class="line-num"> 716</span>                                        {db.name}
+<span class="line-num"> 717</span>                                    &lt;/Select.Option&gt;
+<span class="line-num"> 718</span>                                ))}
+<span class="line-num"> 719</span>                            &lt;/Select&gt;
+<span class="line-num"> 720</span>                        &lt;/Space&gt;
+<span class="line-num"> 721</span>                    &lt;/Col&gt;
+<span class="line-num"> 722</span>                    &lt;Col flex=&quot;auto&quot;&gt;
+<span class="line-num"> 723</span>                        &lt;Input.Search
+<span class="line-num"> 724</span>                            placeholder=&quot;搜索表名&quot;
+<span class="line-num"> 725</span>                            value={searchKeyword}
+<span class="line-num"> 726</span>                            onChange={e =&gt; setSearchKeyword(e.target.value)}
+<span class="line-num"> 727</span>                            style={{ width: 240 }}
+<span class="line-num"> 728</span>                            allowClear
+<span class="line-num"> 729</span>                            prefix={&lt;SearchOutlined style={{ color: '#8B909A' }} /&gt;}
+<span class="line-num"> 730</span>                        /&gt;
+<span class="line-num"> 731</span>                    &lt;/Col&gt;
+<span class="line-num"> 732</span>                    &lt;Col&gt;
+<span class="line-num"> 733</span>                        &lt;Text type=&quot;secondary&quot; style={{ fontSize: 13 }}&gt;
+<span class="line-num"> 734</span>                            共 &lt;Text strong style={{ color: '#4F6DF5' }}&gt;{filteredTables.length}&lt;/Text&gt; 个表
+<span class="line-num"> 735</span>                        &lt;/Text&gt;
+<span class="line-num"> 736</span>                    &lt;/Col&gt;
+<span class="line-num"> 737</span>                &lt;/Row&gt;
+<span class="line-num"> 738</span>            &lt;/Card&gt;
+<span class="line-num"> 739</span>
+<span class="line-num"> 740</span>            {/* 数据表格 */}
+<span class="line-num"> 741</span>            &lt;Card
+<span class="line-num"> 742</span>                style={{
+<span class="line-num"> 743</span>                    borderRadius: 12,
+<span class="line-num"> 744</span>                    boxShadow: '0 2px 8px rgba(29, 35, 51, 0.03)',
+<span class="line-num"> 745</span>                    overflow: 'hidden',
+<span class="line-num"> 746</span>                }}
+<span class="line-num"> 747</span>                styles={{ body: { padding: 0 } }}
+<span class="line-num"> 748</span>            &gt;
+<span class="line-num"> 749</span>                &lt;Table
+<span class="line-num"> 750</span>                    columns={columns}
+<span class="line-num"> 751</span>                    dataSource={filteredTables}
+<span class="line-num"> 752</span>                    rowKey=&quot;tableName&quot;
+<span class="line-num"> 753</span>                    loading={tableLoading}
+<span class="line-num"> 754</span>                    pagination={{
+<span class="line-num"> 755</span>                        pageSize: 10,
+<span class="line-num"> 756</span>                        showSizeChanger: true,
+<span class="line-num"> 757</span>                        showTotal: (total) =&gt; `共 ${total} 条`,
+<span class="line-num"> 758</span>                    }}
+<span class="line-num"> 759</span>                    locale={{emptyText: selectedDsName &amp;&amp; selectedDbName ? '暂无数据' : '请先选择数据源和数据库'}}
+<span class="line-num"> 760</span>                    scroll={{ x: 700 }}
+<span class="line-num"> 761</span>                /&gt;
+<span class="line-num"> 762</span>            &lt;/Card&gt;
+<span class="line-num"> 763</span>
+<span class="line-num"> 764</span>            {/* 新建表模态框 */}
+<span class="line-num"> 765</span>            &lt;Modal
+<span class="line-num"> 766</span>                title=&quot;新建表&quot;
+<span class="line-num"> 767</span>                open={createModalVisible}
+<span class="line-num"> 768</span>                onCancel={() =&gt; setCreateModalVisible(false)}
+<span class="line-num"> 769</span>                onOk={handleCreateConfirm}
+<span class="line-num"> 770</span>                width={400}
+<span class="line-num"> 771</span>            &gt;
+<span class="line-num"> 772</span>                &lt;Form layout=&quot;vertical&quot; style={{ marginTop: 8 }}&gt;
+<span class="line-num"> 773</span>                    &lt;Form.Item label=&quot;表名&quot; required&gt;
+<span class="line-num"> 774</span>                        &lt;Input
+<span class="line-num"> 775</span>                            placeholder=&quot;请输入表名&quot;
+<span class="line-num"> 776</span>                            value={newTableName}
+<span class="line-num"> 777</span>                            onChange={e =&gt; setNewTableName(e.target.value)}
+<span class="line-num"> 778</span>                        /&gt;
+<span class="line-num"> 779</span>                    &lt;/Form.Item&gt;
+<span class="line-num"> 780</span>                &lt;/Form&gt;
+<span class="line-num"> 781</span>            &lt;/Modal&gt;
+<span class="line-num"> 782</span>
+<span class="line-num"> 783</span>            {/* CDC 配置模态框 */}
+<span class="line-num"> 784</span>            &lt;Modal
+<span class="line-num"> 785</span>                title={cdcModalMode === 'create' ? `创建 CDC 同步 - ${cdcModalTableName}` : `CDC 同步 - ${cdcModalTableName}`}
+<span class="line-num"> 786</span>                open={cdcModalVisible}
+<span class="line-num"> 787</span>                onOk={handleCdcSubmit}
+<span class="line-num"> 788</span>                onCancel={() =&gt; setCdcModalVisible(false)}
+<span class="line-num"> 789</span>                confirmLoading={cdcSubmitting}
+<span class="line-num"> 790</span>                okText={cdcModalMode === 'view' ? (cdcModalConfigEnabled ? '停用' : '启用') : '确定'}
+<span class="line-num"> 791</span>                width={520}
+<span class="line-num"> 792</span>            &gt;
+<span class="line-num"> 793</span>                &lt;Form
+<span class="line-num"> 794</span>                    form={cdcForm}
+<span class="line-num"> 795</span>                    layout=&quot;vertical&quot;
+<span class="line-num"> 796</span>                    style={{ marginTop: 16 }}
+<span class="line-num"> 797</span>                &gt;
+<span class="line-num"> 798</span>                    &lt;Form.Item label=&quot;数据源&quot;&gt;
+<span class="line-num"> 799</span>                        &lt;Input value={selectedDsName || ''} disabled /&gt;
+<span class="line-num"> 800</span>                    &lt;/Form.Item&gt;
+<span class="line-num"> 801</span>                    &lt;Form.Item label=&quot;数据库&quot;&gt;
+<span class="line-num"> 802</span>                        &lt;Input value={selectedDbName || ''} disabled /&gt;
+<span class="line-num"> 803</span>                    &lt;/Form.Item&gt;
+<span class="line-num"> 804</span>                    &lt;Form.Item label=&quot;表名&quot;&gt;
+<span class="line-num"> 805</span>                        &lt;Input value={cdcModalTableName} disabled /&gt;
+<span class="line-num"> 806</span>                    &lt;/Form.Item&gt;
+<span class="line-num"> 807</span>                    &lt;Form.Item
+<span class="line-num"> 808</span>                        name=&quot;subjectCode&quot;
+<span class="line-num"> 809</span>                        label=&quot;主题&quot;
+<span class="line-num"> 810</span>                        rules={[{ required: true, message: '请选择主题' }]}
+<span class="line-num"> 811</span>                    &gt;
+<span class="line-num"> 812</span>                        &lt;Select
+<span class="line-num"> 813</span>                            placeholder=&quot;请选择主题&quot;
+<span class="line-num"> 814</span>                            showSearch
+<span class="line-num"> 815</span>                            optionFilterProp=&quot;children&quot;
+<span class="line-num"> 816</span>                            onChange={(value) =&gt; setCdcSelectedSubjectCode(value as string)}
+<span class="line-num"> 817</span>                        &gt;
+<span class="line-num"> 818</span>                            {subjects.map(subject =&gt; (
+<span class="line-num"> 819</span>                                &lt;Select.Option key={subject.subjectCode} value={subject.subjectCode}&gt;
+<span class="line-num"> 820</span>                                    {subject.subjectName} ({subject.subjectCode})
+<span class="line-num"> 821</span>                                &lt;/Select.Option&gt;
+<span class="line-num"> 822</span>                            ))}
+<span class="line-num"> 823</span>                        &lt;/Select&gt;
+<span class="line-num"> 824</span>                    &lt;/Form.Item&gt;
+<span class="line-num"> 825</span>                    {cdcSelectedSubjectCode &amp;&amp; selectedDbName &amp;&amp; (
+<span class="line-num"> 826</span>                        &lt;Form.Item label=&quot;目标 ODS 表名&quot;&gt;
+<span class="line-num"> 827</span>                            &lt;Input
+<span class="line-num"> 828</span>                                value={`ods_cdc_raw_${cdcSelectedSubjectCode.replace(/[^a-zA-Z0-9_]/g, '_')}_${selectedDbName.replace(/[^a-zA-Z0-9_]/g, '_')}_${cdcModalTableName.replace(/[^a-zA-Z0-9_]/g, '_')}`}
+<span class="line-num"> 829</span>                                disabled
+<span class="line-num"> 830</span>                            /&gt;
+<span class="line-num"> 831</span>                        &lt;/Form.Item&gt;
+<span class="line-num"> 832</span>                    )}
+<span class="line-num"> 833</span>                &lt;/Form&gt;
+<span class="line-num"> 834</span>            &lt;/Modal&gt;
+<span class="line-num"> 835</span>        &lt;/div&gt;
+<span class="line-num"> 836</span>    );
+<span class="line-num"> 837</span>};
+<span class="line-num"> 838</span>
+<span class="line-num"> 839</span>export default TableSchemaManagement;
+<span class="line-num"> 840</span>
+<span class="line-num"> 841</span>
+<span class="line-num"> 842</span>/* ========================================== */
+<span class="line-num"> 843</span>/* 文件: src/pages/bi/dashboard/DashboardEditor.tsx                            */
+<span class="line-num"> 844</span>/* 软件名称: Cyan数据中台                  */
+<span class="line-num"> 845</span>/* 版本号: V1.0                          */
+<span class="line-num"> 846</span>/* 著作权人: 闫晨阳               */
+<span class="line-num"> 847</span>/* ========================================== */
+<span class="line-num"> 848</span>import React, { useEffect, useState, useCallback, useRef } from 'react';
+<span class="line-num"> 849</span>import { Button, Input, Space, message, Spin, Empty } from 'antd';
+<span class="line-num"> 850</span>import { SaveOutlined, ArrowLeftOutlined, EyeOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
+<span class="line-num"> 851</span>import { useNavigate, useParams } from 'react-router-dom';
+<span class="line-num"> 852</span>import { dashboardApi, chartApi, DashboardCmd, ChartDTO, ChartRef, ChartDataDTO, ChartType, MetricBiAnalysisCmd, FilterOperator, AggregateType } from '@/api/DatabiApi';
+<span class="line-num"> 853</span>import GridLayoutImport, { Layout } from 'react-grid-layout';
+<span class="line-num"> 854</span>const GridLayout = GridLayoutImport as any;
+<span class="line-num"> 855</span>import 'react-grid-layout/css/styles.css';
+<span class="line-num"> 856</span>import 'react-resizable/css/styles.css';
+<span class="line-num"> 857</span>import ChartLibrary from './components/ChartLibrary';
+<span class="line-num"> 858</span>import PanelCard from './components/PanelCard';
+<span class="line-num"> 859</span>import PanelOptions from './components/PanelOptions';
+<span class="line-num"> 860</span>import FilterChart from './components/FilterChart';
+<span class="line-num"> 861</span>import EChartsChart from '@/pages/bi/components/EChartsChart';
+<span class="line-num"> 862</span>
+<span class="line-num"> 863</span>const GRID_COLS = 12;
+<span class="line-num"> 864</span>const ROW_HEIGHT = 50;
+<span class="line-num"> 865</span>const SIDEBAR_WIDTH = 260;
+<span class="line-num"> 866</span>const DEFAULT_W = 6;
+<span class="line-num"> 867</span>const DEFAULT_H = 5;
+<span class="line-num"> 868</span>
+<span class="line-num"> 869</span>const isFilterChartType = (chartType?: ChartType) =&gt; {
+<span class="line-num"> 870</span>    return chartType === ChartType.FILTER_SELECT || chartType === ChartType.FILTER_MULTI ||
+<span class="line-num"> 871</span>        chartType === ChartType.FILTER_DATE || chartType === ChartType.FILTER_DATE_RANGE;
+<span class="line-num"> 872</span>};
+<span class="line-num"> 873</span>
+<span class="line-num"> 874</span>// 找第一个不重叠的位置
+<span class="line-num"> 875</span>const findFreePosition = (refs: ChartRef[], w: number, h: number): { x: number; y: number } =&gt; {
+<span class="line-num"> 876</span>    for (let y = 0; y &lt; 100; y += h) {
+<span class="line-num"> 877</span>        for (let x = 0; x + w &lt;= GRID_COLS; x += w) {
+<span class="line-num"> 878</span>            const overlap = refs.some(ref =&gt;
+<span class="line-num"> 879</span>                ref.x &lt; x + w &amp;&amp; ref.x + ref.w &gt; x &amp;&amp;
+<span class="line-num"> 880</span>                ref.y &lt; y + h &amp;&amp; ref.y + ref.h &gt; y
+<span class="line-num"> 881</span>            );
+<span class="line-num"> 882</span>            if (!overlap) return { x, y };
+<span class="line-num"> 883</span>        }
+<span class="line-num"> 884</span>    }
+<span class="line-num"> 885</span>    return { x: 0, y: Math.max(0, ...refs.map(r =&gt; r.y + r.h), 0) };
+<span class="line-num"> 886</span>};
+<span class="line-num"> 887</span>
+<span class="line-num"> 888</span>// 检测同一行宽度是否溢出
+<span class="line-num"> 889</span>const checkRowOverflow = (refs: ChartRef[]): string | null =&gt; {
+<span class="line-num"> 890</span>    const rows: Record&lt;number, number&gt; = {};
+<span class="line-num"> 891</span>    for (const ref of refs) {
+<span class="line-num"> 892</span>        for (let y = ref.y; y &lt; ref.y + ref.h; y++) {
+<span class="line-num"> 893</span>            rows[y] = (rows[y] || 0) + ref.w;
+<span class="line-num"> 894</span>        }
+<span class="line-num"> 895</span>    }
+<span class="line-num"> 896</span>    for (const [y, total] of Object.entries(rows)) {
+<span class="line-num"> 897</span>        if (total &gt; GRID_COLS) {
+<span class="line-num"> 898</span>            return `第 ${Number(y) + 1} 行图表总宽度(${total})超出限制(${GRID_COLS})，请调整布局`;
+<span class="line-num"> 899</span>        }
+<span class="line-num"> 900</span>    }
+<span class="line-num"> 901</span>    return null;
+<span class="line-num"> 902</span>};
+<span class="line-num"> 903</span>
+<span class="line-num"> 904</span>const DashboardEditor: React.FC = () =&gt; {
+<span class="line-num"> 905</span>    const navigate = useNavigate();
+<span class="line-num"> 906</span>    const { id } = useParams&lt;{ id?: string }&gt;();
+<span class="line-num"> 907</span>    const isEdit = !!id;
+<span class="line-num"> 908</span>
+<span class="line-num"> 909</span>    const [name, setName] = useState('');
+<span class="line-num"> 910</span>    const [description, setDescription] = useState('');
+<span class="line-num"> 911</span>    const [chartRefs, setChartRefs] = useState&lt;ChartRef[]&gt;([]);
+<span class="line-num"> 912</span>    const [charts, setCharts] = useState&lt;ChartDTO[]&gt;([]);
+<span class="line-num"> 913</span>    const [chartDataMap, setChartDataMap] = useState&lt;Record&lt;string, ChartDataDTO&gt;&gt;({});
+<span class="line-num"> 914</span>    const [chartLoadingMap, setChartLoadingMap] = useState&lt;Record&lt;string, boolean&gt;&gt;({});
+<span class="line-num"> 915</span>    const [filterValuesMap, setFilterValuesMap] = useState&lt;Record&lt;string, string[]&gt;&gt;({});
+<span class="line-num"> 916</span>    const filterValuesMapRef = useRef&lt;Record&lt;string, string[]&gt;&gt;({});
+<span class="line-num"> 917</span>    const [, setLoading] = useState(false);
+<span class="line-num"> 918</span>    const [saving, setSaving] = useState(false);
+<span class="line-num"> 919</span>    const originalDslMap = useRef&lt;Record&lt;string, MetricBiAnalysisCmd&gt;&gt;({});
+<span class="line-num"> 920</span>
+<span class="line-num"> 921</span>    useEffect(() =&gt; {
+<span class="line-num"> 922</span>        filterValuesMapRef.current = filterValuesMap;
+<span class="line-num"> 923</span>    }, [filterValuesMap]);
+<span class="line-num"> 924</span>    const [selectedIndex, setSelectedIndex] = useState&lt;number | null&gt;(null);
+<span class="line-num"> 925</span>    const [layout, setLayout] = useState&lt;{ i: string; x: number; y: number; w: number; h: number }[]&gt;([]);
+<span class="line-num"> 926</span>    const [leftCollapsed, setLeftCollapsed] = useState(false);
+<span class="line-num"> 927</span>    const [rightCollapsed, setRightCollapsed] = useState(false);
+<span class="line-num"> 928</span>    const [canvasWidth, setCanvasWidth] = useState(960);
+<span class="line-num"> 929</span>
+<span class="line-num"> 930</span>    // 加载
+<span class="line-num"> 931</span>    useEffect(() =&gt; {
+<span class="line-num"> 932</span>        chartApi.list().then(res =&gt; { if (res.code === 200) setCharts(res.data); });
+<span class="line-num"> 933</span>        if (isEdit &amp;&amp; id) {
+<span class="line-num"> 934</span>            setLoading(true);
+<span class="line-num"> 935</span>            dashboardApi.getById(id)
+<span class="line-num"> 936</span>                .then(res =&gt; {
+<span class="line-num"> 937</span>                    if (res.code === 200) {
+<span class="line-num"> 938</span>                        setName(res.data.name);
+<span class="line-num"> 939</span>                        setDescription(res.data.description || '');
+<span class="line-num"> 940</span>                        const refs = res.data.chartRefs || [];
+<span class="line-num"> 941</span>                        setChartRefs(refs);
+<span class="line-num"> 942</span>                        setLayout(refs.map((ref, idx) =&gt; ({ i: String(idx), x: ref.x, y: ref.y, w: ref.w, h: ref.h })));
+<span class="line-num"> 943</span>                        executeAllCharts(refs);
+<span class="line-num"> 944</span>                    } else {
+<span class="line-num"> 945</span>                        message.error(res.message || '加载看板失败');
+<span class="line-num"> 946</span>                    }
+<span class="line-num"> 947</span>                })
+<span class="line-num"> 948</span>                .catch(() =&gt; message.error('加载看板失败'))
+<span class="line-num"> 949</span>                .finally(() =&gt; setLoading(false));
+<span class="line-num"> 950</span>        }
+<span class="line-num"> 951</span>    }, [isEdit, id]);
+<span class="line-num"> 952</span>
+<span class="line-num"> 953</span>    useEffect(() =&gt; {
+<span class="line-num"> 954</span>        const updateWidth = () =&gt; {
+<span class="line-num"> 955</span>            setCanvasWidth(Math.max(600, window.innerWidth - (leftCollapsed ? 0 : SIDEBAR_WIDTH) - (rightCollapsed ? 0 : SIDEBAR_WIDTH) - 64));
+<span class="line-num"> 956</span>        };
+<span class="line-num"> 957</span>        updateWidth();
+<span class="line-num"> 958</span>        window.addEventListener('resize', updateWidth);
+<span class="line-num"> 959</span>        return () =&gt; window.removeEventListener('resize', updateWidth);
+<span class="line-num"> 960</span>    }, [leftCollapsed, rightCollapsed]);
+<span class="line-num"> 961</span>
+<span class="line-num"> 962</span>    // 构建合并后的 DSL（级联筛选条件）
+<span class="line-num"> 963</span>    const buildMergedDsl = useCallback((chartId: string): MetricBiAnalysisCmd | null =&gt; {
+<span class="line-num"> 964</span>        const originalDsl = originalDslMap.current[chartId];
+<span class="line-num"> 965</span>        if (!originalDsl) return null;
+<span class="line-num"> 966</span>        const ref = chartRefs.find(r =&gt; r.chartId === chartId);
+<span class="line-num"> 967</span>        if (!ref) return originalDsl;
+<span class="line-num"> 968</span>        // 收集所有影响该图表的筛选器来源：
+<span class="line-num"> 969</span>        // 1. 图表自身的 cascadeFrom（正向配置）
+<span class="line-num"> 970</span>        // 2. 哪些筛选器的 cascadeFrom 包含该图表（反向配置）
+<span class="line-num"> 971</span>        const sourceIds = new Set&lt;string&gt;(ref.cascadeFrom || []);
+<span class="line-num"> 972</span>        chartRefs.forEach(filterRef =&gt; {
+<span class="line-num"> 973</span>            const filterChart = charts.find(c =&gt; c.id === filterRef.chartId);
+<span class="line-num"> 974</span>            if (filterChart &amp;&amp; isFilterChartType(filterChart.chartType) &amp;&amp; (filterRef.cascadeFrom || []).includes(chartId)) {
+<span class="line-num"> 975</span>                sourceIds.add(filterRef.chartId);
+<span class="line-num"> 976</span>            }
+<span class="line-num"> 977</span>        });
+<span class="line-num"> 978</span>        const newFilters = [...(originalDsl.filters || [])];
+<span class="line-num"> 979</span>        for (const sourceChartId of sourceIds) {
+<span class="line-num"> 980</span>            const sourceChart = charts.find(c =&gt; c.id === sourceChartId);
+<span class="line-num"> 981</span>            if (!sourceChart || !isFilterChartType(sourceChart.chartType)) continue;
+<span class="line-num"> 982</span>            const values = filterValuesMapRef.current[sourceChartId] || [];
+<span class="line-num"> 983</span>            const dimCode = sourceChart.metricAnalysisCmd?.dimensions?.[0]?.dimCode || '';
+<span class="line-num"> 984</span>            if (!dimCode) continue;
+<span class="line-num"> 985</span>            if (values.length === 0) {
+<span class="line-num"> 986</span>                const idx = newFilters.findIndex(f =&gt; f.dimCode === dimCode);
+<span class="line-num"> 987</span>                if (idx &gt;= 0) newFilters.splice(idx, 1);
+<span class="line-num"> 988</span>                continue;
+<span class="line-num"> 989</span>            }
+<span class="line-num"> 990</span>            let operator: FilterOperator;
+<span class="line-num"> 991</span>            if (sourceChart.chartType === ChartType.FILTER_DATE_RANGE) operator = FilterOperator.BETWEEN;
+<span class="line-num"> 992</span>            else if (values.length &gt; 1) operator = FilterOperator.IN;
+<span class="line-num"> 993</span>            else operator = FilterOperator.EQ;
+<span class="line-num"> 994</span>            const idx = newFilters.findIndex(f =&gt; f.dimCode === dimCode);
+<span class="line-num"> 995</span>            if (idx &gt;= 0) newFilters[idx] = { dimCode, operator, values };
+<span class="line-num"> 996</span>            else newFilters.push({ dimCode, operator, values });
+<span class="line-num"> 997</span>        }
+<span class="line-num"> 998</span>        return { ...originalDsl, filters: newFilters };
+<span class="line-num"> 999</span>    }, [charts, chartRefs]);
+<span class="line-num">1000</span>
+<span class="line-num">1001</span>    // 执行单个图表（支持传入自定义 DSL）
+<span class="line-num">1002</span>    const executeChart = useCallback(async (chartId: string, dsl?: MetricBiAnalysisCmd) =&gt; {
+<span class="line-num">1003</span>        setChartLoadingMap(prev =&gt; ({ ...prev, [chartId]: true }));
+<span class="line-num">1004</span>        try {
+<span class="line-num">1005</span>            const body = dsl ? { metricAnalysisCmd: dsl } : undefined;
+<span class="line-num">1006</span>            const res = await chartApi.execute(chartId, body);
+<span class="line-num">1007</span>            if (res.code === 200 &amp;&amp; res.data.status === 'SUCCESS') {
+<span class="line-num">1008</span>                setChartDataMap(prev =&gt; ({ ...prev, [chartId]: res.data }));
+<span class="line-num">1009</span>            }
+<span class="line-num">1010</span>        } catch { /* ignore */ }
+<span class="line-num">1011</span>        finally {
+<span class="line-num">1012</span>            setChartLoadingMap(prev =&gt; ({ ...prev, [chartId]: false }));
+<span class="line-num">1013</span>        }
+<span class="line-num">1014</span>    }, []);
+<span class="line-num">1015</span>
+<span class="line-num">1016</span>    // 执行所有图表（无维度日期筛选框跳过 execute，同时保存原始 DSL）
+<span class="line-num">1017</span>    const executeAllCharts = async (refs: ChartRef[]) =&gt; {
+<span class="line-num">1018</span>        const loadingMap: Record&lt;string, boolean&gt; = {};
+<span class="line-num">1019</span>        refs.forEach(r =&gt; loadingMap[r.chartId] = true);
+<span class="line-num">1020</span>        setChartLoadingMap(loadingMap);
+<span class="line-num">1021</span>        const dataMap: Record&lt;string, ChartDataDTO&gt; = {};
+<span class="line-num">1022</span>        const dslMap: Record&lt;string, MetricBiAnalysisCmd&gt; = {};
+<span class="line-num">1023</span>        await Promise.all(refs.map(async ref =&gt; {
+<span class="line-num">1024</span>            const chart = charts.find(c =&gt; c.id === ref.chartId);
+<span class="line-num">1025</span>            if (chart?.metricAnalysisCmd) {
+<span class="line-num">1026</span>                dslMap[ref.chartId] = JSON.parse(JSON.stringify(chart.metricAnalysisCmd));
+<span class="line-num">1027</span>            }
+<span class="line-num">1028</span>            const dimCode = chart?.metricAnalysisCmd?.dimensions?.[0]?.dimCode;
+<span class="line-num">1029</span>            const isDate = chart?.chartType === ChartType.FILTER_DATE || chart?.chartType === ChartType.FILTER_DATE_RANGE;
+<span class="line-num">1030</span>            if (isDate &amp;&amp; !dimCode) return;
+<span class="line-num">1031</span>            try {
+<span class="line-num">1032</span>                const res = await chartApi.execute(ref.chartId);
+<span class="line-num">1033</span>                if (res.code === 200 &amp;&amp; res.data.status === 'SUCCESS') dataMap[ref.chartId] = res.data;
+<span class="line-num">1034</span>            } catch { /* ignore */ }
+<span class="line-num">1035</span>        }));
+<span class="line-num">1036</span>        originalDslMap.current = dslMap;
+<span class="line-num">1037</span>        setChartDataMap(dataMap);
+<span class="line-num">1038</span>        setChartLoadingMap({});
+<span class="line-num">1039</span>    };
+<span class="line-num">1040</span>
+<span class="line-num">1041</span>    // 筛选框值变化回调
+<span class="line-num">1042</span>    const handleFilterChange = useCallback((chartId: string, values: string[]) =&gt; {
+<span class="line-num">1043</span>        setFilterValuesMap(prev =&gt; ({ ...prev, [chartId]: values }));
+<span class="line-num">1044</span>        const sourceChart = charts.find(c =&gt; c.id === chartId);
+<span class="line-num">1045</span>        const isSourceFilter = sourceChart ? isFilterChartType(sourceChart.chartType) : false;
+<span class="line-num">1046</span>        // 查找受影响图表：
+<span class="line-num">1047</span>        // 1. 图表的 cascadeFrom 包含当前筛选器（正向配置）
+<span class="line-num">1048</span>        // 2. 当前筛选器的 cascadeFrom 包含该图表，且该图表不是筛选器（反向配置）
+<span class="line-num">1049</span>        const sourceRef = chartRefs.find(r =&gt; r.chartId === chartId);
+<span class="line-num">1050</span>        const affectedRefs = chartRefs.filter(ref =&gt; {
+<span class="line-num">1051</span>            const forward = (ref.cascadeFrom || []).includes(chartId);
+<span class="line-num">1052</span>            const targetChart = charts.find(c =&gt; c.id === ref.chartId);
+<span class="line-num">1053</span>            const reverse = isSourceFilter &amp;&amp; targetChart &amp;&amp; !isFilterChartType(targetChart.chartType) &amp;&amp; (sourceRef?.cascadeFrom || []).includes(ref.chartId);
+<span class="line-num">1054</span>            return forward || reverse;
+<span class="line-num">1055</span>        });
+<span class="line-num">1056</span>        if (affectedRefs.length === 0) return;
+<span class="line-num">1057</span>        const timer = setTimeout(() =&gt; {
+<span class="line-num">1058</span>            affectedRefs.forEach(ref =&gt; {
+<span class="line-num">1059</span>                const mergedDsl = buildMergedDsl(ref.chartId);
+<span class="line-num">1060</span>                if (mergedDsl) executeChart(ref.chartId, mergedDsl);
+<span class="line-num">1061</span>            });
+<span class="line-num">1062</span>        }, 300);
+<span class="line-num">1063</span>        return () =&gt; clearTimeout(timer);
+<span class="line-num">1064</span>    }, [charts, chartRefs, buildMergedDsl, executeChart]);
+<span class="line-num">1065</span>
+<span class="line-num">1066</span>    const handleLayoutChange = useCallback((newLayout: Layout) =&gt; {
+<span class="line-num">1067</span>        setLayout(newLayout as { i: string; x: number; y: number; w: number; h: number }[]);
+<span class="line-num">1068</span>        const nextRefs = chartRefs.map((ref, idx) =&gt; {
+<span class="line-num">1069</span>            const l = newLayout.find(item =&gt; item.i === String(idx));
+<span class="line-num">1070</span>            return l ? { ...ref, x: l.x, y: l.y, w: l.w, h: l.h } : ref;
+<span class="line-num">1071</span>        });
+<span class="line-num">1072</span>        setChartRefs(nextRefs);
+<span class="line-num">1073</span>        // 布局变化后检测溢出
+<span class="line-num">1074</span>        const overflowMsg = checkRowOverflow(nextRefs);
+<span class="line-num">1075</span>        if (overflowMsg) message.warning(overflowMsg);
+<span class="line-num">1076</span>    }, [chartRefs]);
+<span class="line-num">1077</span>
+<span class="line-num">1078</span>    const handleAddChart = (chartId: string) =&gt; {
+<span class="line-num">1079</span>        if (chartRefs.find(c =&gt; c.chartId === chartId)) {
+<span class="line-num">1080</span>            message.warning('该图表已添加');
+<span class="line-num">1081</span>            return;
+<span class="line-num">1082</span>        }
+<span class="line-num">1083</span>        const pos = findFreePosition(chartRefs, DEFAULT_W, DEFAULT_H);
+<span class="line-num">1084</span>        const newRef: ChartRef = { chartId, x: pos.x, y: pos.y, w: DEFAULT_W, h: DEFAULT_H, titleVisible: true, borderStyle: 'default', cascadeFrom: [] };
+<span class="line-num">1085</span>        const nextRefs = [...chartRefs, newRef];
+<span class="line-num">1086</span>        setChartRefs(nextRefs);
+<span class="line-num">1087</span>        setLayout(nextRefs.map((ref, idx) =&gt; ({ i: String(idx), x: ref.x, y: ref.y, w: ref.w, h: ref.h })));
+<span class="line-num">1088</span>        setSelectedIndex(nextRefs.length - 1);
+<span class="line-num">1089</span>        // 执行新图表（无维度日期筛选框跳过，同时保存原始 DSL）
+<span class="line-num">1090</span>        const chart = charts.find(c =&gt; c.id === chartId);
+<span class="line-num">1091</span>        if (chart?.metricAnalysisCmd) {
+<span class="line-num">1092</span>            originalDslMap.current[chartId] = JSON.parse(JSON.stringify(chart.metricAnalysisCmd));
+<span class="line-num">1093</span>        }
+<span class="line-num">1094</span>        const dimCode = chart?.metricAnalysisCmd?.dimensions?.[0]?.dimCode;
+<span class="line-num">1095</span>        const isDate = chart?.chartType === ChartType.FILTER_DATE || chart?.chartType === ChartType.FILTER_DATE_RANGE;
+<span class="line-num">1096</span>        if (!(isDate &amp;&amp; !dimCode)) {
+<span class="line-num">1097</span>            setChartLoadingMap(p =&gt; ({ ...p, [chartId]: true }));
+<span class="line-num">1098</span>            chartApi.execute(chartId).then(res =&gt; {
+<span class="line-num">1099</span>                if (res.code === 200 &amp;&amp; res.data.status === 'SUCCESS') setChartDataMap(p =&gt; ({ ...p, [chartId]: res.data }));
+<span class="line-num">1100</span>                setChartLoadingMap(p =&gt; ({ ...p, [chartId]: false }));
+<span class="line-num">1101</span>            });
+<span class="line-num">1102</span>        }
+<span class="line-num">1103</span>    };
+<span class="line-num">1104</span>
+<span class="line-num">1105</span>    const handleDuplicateChart = (index: number) =&gt; {
+<span class="line-num">1106</span>        const ref = chartRefs[index];
+<span class="line-num">1107</span>        const pos = findFreePosition(chartRefs, ref.w, ref.h);
+<span class="line-num">1108</span>        const newRef: ChartRef = { ...ref, x: pos.x, y: pos.y };
+<span class="line-num">1109</span>        const nextRefs = [...chartRefs, newRef];
+<span class="line-num">1110</span>        setChartRefs(nextRefs);
+<span class="line-num">1111</span>        setLayout(nextRefs.map((r, idx) =&gt; ({ i: String(idx), x: r.x, y: r.y, w: r.w, h: r.h })));
+<span class="line-num">1112</span>        setSelectedIndex(nextRefs.length - 1);
+<span class="line-num">1113</span>    };
+<span class="line-num">1114</span>
+<span class="line-num">1115</span>    const handleRemoveChart = (index: number) =&gt; {
+<span class="line-num">1116</span>        const next = [...chartRefs];
+<span class="line-num">1117</span>        const removedId = next[index]?.chartId;
+<span class="line-num">1118</span>        next.splice(index, 1);
+<span class="line-num">1119</span>        setChartRefs(next);
+<span class="line-num">1120</span>        setLayout(next.map((ref, idx) =&gt; ({ i: String(idx), x: ref.x, y: ref.y, w: ref.w, h: ref.h })));
+<span class="line-num">1121</span>        if (removedId) setChartDataMap(p =&gt; { const m = { ...p }; delete m[removedId]; return m; });
+<span class="line-num">1122</span>        if (selectedIndex === index) setSelectedIndex(null);
+<span class="line-num">1123</span>        else if (selectedIndex !== null &amp;&amp; selectedIndex &gt; index) setSelectedIndex(selectedIndex - 1);
+<span class="line-num">1124</span>    };
+<span class="line-num">1125</span>
+<span class="line-num">1126</span>    const handleUpdateRef = (index: number, key: keyof ChartRef, value: unknown) =&gt; {
+<span class="line-num">1127</span>        const next = [...chartRefs];
+<span class="line-num">1128</span>        next[index] = { ...next[index], [key]: value };
+<span class="line-num">1129</span>        setChartRefs(next);
+<span class="line-num">1130</span>        if (key === 'w' || key === 'h') {
+<span class="line-num">1131</span>            setLayout(next.map((ref, idx) =&gt; ({ i: String(idx), x: ref.x, y: ref.y, w: ref.w, h: ref.h })));
+<span class="line-num">1132</span>        }
+<span class="line-num">1133</span>    };
+<span class="line-num">1134</span>
+<span class="line-num">1135</span>    const handleSave = async (andPreview = false) =&gt; {
+<span class="line-num">1136</span>        if (!name.trim()) { message.warning('请输入看板名称'); return null; }
+<span class="line-num">1137</span>        const overflowMsg = checkRowOverflow(chartRefs);
+<span class="line-num">1138</span>        if (overflowMsg) { message.warning(`布局有误：${overflowMsg}，请修正后再保存`); return null; }
+<span class="line-num">1139</span>        const cmd: DashboardCmd = {
+<span class="line-num">1140</span>            name: name.trim(), description: description || undefined,
+<span class="line-num">1141</span>            chartRefs: chartRefs.length ? chartRefs : undefined,
+<span class="line-num">1142</span>            layoutConfig: JSON.stringify({ cols: GRID_COLS, rowHeight: ROW_HEIGHT, compact: true, version: 2 }),
+<span class="line-num">1143</span>        };
+<span class="line-num">1144</span>        setSaving(true);
+<span class="line-num">1145</span>        try {
+<span class="line-num">1146</span>            let res;
+<span class="line-num">1147</span>            if (isEdit &amp;&amp; id) res = await dashboardApi.update(id, cmd);
+<span class="line-num">1148</span>            else res = await dashboardApi.create(cmd);
+<span class="line-num">1149</span>            if (res.code === 200) {
+<span class="line-num">1150</span>                message.success(isEdit ? '更新成功' : '创建成功');
+<span class="line-num">1151</span>                const dashboardId = isEdit &amp;&amp; id ? id : String(res.data);
+<span class="line-num">1152</span>                if (andPreview) navigate(`/bi/dashboard/view/${dashboardId}`);
+<span class="line-num">1153</span>                else if (!isEdit) navigate(`/bi/dashboard/edit/${dashboardId}`);
+<span class="line-num">1154</span>                return dashboardId;
+<span class="line-num">1155</span>            } else { message.error(res.message || '保存失败'); return null; }
+<span class="line-num">1156</span>        } catch { message.error('保存失败'); return null; }
+<span class="line-num">1157</span>        finally { setSaving(false); }
+<span class="line-num">1158</span>    };
+<span class="line-num">1159</span>
+<span class="line-num">1160</span>    const handlePreview = async () =&gt; {
+<span class="line-num">1161</span>        if (isEdit &amp;&amp; id) navigate(`/bi/dashboard/view/${id}`);
+<span class="line-num">1162</span>        else { const did = await handleSave(true); if (!did) message.warning('请先保存看板'); }
+<span class="line-num">1163</span>    };
+<span class="line-num">1164</span>
+<span class="line-num">1165</span>    const existingChartIds = chartRefs.map(r =&gt; r.chartId);
+<span class="line-num">1166</span>
+<span class="line-num">1167</span>    // 渲染面板内容
+<span class="line-num">1168</span>    const renderContent = (chartId: string, chart?: ChartDTO) =&gt; {
+<span class="line-num">1169</span>        const isLoading = chartLoadingMap[chartId];
+<span class="line-num">1170</span>        const data = chartDataMap[chartId];
+<span class="line-num">1171</span>        if (isLoading) return &lt;div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}&gt;&lt;Spin size=&quot;small&quot; /&gt;&lt;/div&gt;;
+<span class="line-num">1172</span>        if (!data || data.status !== 'SUCCESS') return &lt;div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}&gt;&lt;Empty description=&quot;无预览数据&quot; imageStyle={{ height: 40 }} /&gt;&lt;/div&gt;;
+<span class="line-num">1173</span>        if (!chart) return &lt;div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#d9d9d9' }}&gt;未知图表&lt;/div&gt;;
+<span class="line-num">1174</span>        if (isFilterChartType(chart.chartType)) {
+<span class="line-num">1175</span>            return (
+<span class="line-num">1176</span>                &lt;div style={{ padding: '8px 12px', height: '100%' }}&gt;
+<span class="line-num">1177</span>                    &lt;FilterChart chart={chart} data={data} onChange={(vals) =&gt; handleFilterChange(chart.id, vals)} /&gt;
+<span class="line-num">1178</span>                &lt;/div&gt;
+<span class="line-num">1179</span>            );
+<span class="line-num">1180</span>        }
+<span class="line-num">1181</span>        if (chart.chartType === ChartType.NUMBER &amp;&amp; chart.metricAnalysisCmd?.metrics?.length) {
+<span class="line-num">1182</span>            return &lt;div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}&gt;&lt;div style={{ textAlign: 'center' }}&gt;&lt;div style={{ fontSize: 28, fontWeight: 600, color: '#4F6DF5' }}&gt;{Number(data.rows[0]?.[chart.metricAnalysisCmd.metrics[0].metricCode] ?? 0).toLocaleString()}&lt;/div&gt;&lt;div style={{ fontSize: 12, color: '#999' }}&gt;{chart.metricAnalysisCmd.metrics[0].metricName || chart.metricAnalysisCmd.metrics[0].alias || chart.metricAnalysisCmd.metrics[0].metricCode}&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;;
+<span class="line-num">1183</span>        }
+<span class="line-num">1184</span>        if (chart.chartType === ChartType.TABLE) {
+<span class="line-num">1185</span>            const aliasMap: Record&lt;string, string&gt; = {};
+<span class="line-num">1186</span>            chart.metricAnalysisCmd?.dimensions?.forEach(d =&gt; { aliasMap[d.dimCode] = d.dimName || d.alias || d.dimCode; });
+<span class="line-num">1187</span>            chart.metricAnalysisCmd?.metrics?.forEach(m =&gt; { aliasMap[m.metricCode] = m.metricName || m.alias || m.metricCode; });
+<span class="line-num">1188</span>            return &lt;div style={{ height: '100%', overflow: 'auto' }}&gt;&lt;table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}&gt;&lt;thead&gt;&lt;tr&gt;{data.columns.map(col =&gt; &lt;th key={col} style={{ borderBottom: '1px solid #f0f0f0', padding: '3px 6px', textAlign: 'left', fontWeight: 500, background: '#fafafa', fontSize: 10 }}&gt;{aliasMap[col] || col}&lt;/th&gt;)}&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;{data.rows.slice(0, 20).map((row, idx) =&gt; &lt;tr key={idx}&gt;{data.columns.map(col =&gt; &lt;td key={col} style={{ borderBottom: '1px solid #f0f0f0', padding: '3px 6px' }}&gt;{String(row[col] ?? '')}&lt;/td&gt;)}&lt;/tr&gt;)}&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;;
+<span class="line-num">1189</span>        }
+<span class="line-num">1190</span>        if (data.rows.length &gt; 0) {
+<span class="line-num">1191</span>            return &lt;div style={{ width: '100%', height: '100%' }}&gt;&lt;EChartsChart chartType={chart.chartType} columns={data.columns} rows={data.rows} dimensions={chart.metricAnalysisCmd?.dimensions?.map(d =&gt; ({ field: d.dimCode, alias: d.dimName || d.alias || d.dimCode })) || []} metrics={chart.metricAnalysisCmd?.metrics?.map(m =&gt; ({ field: m.metricCode, aggregate: AggregateType.SUM, alias: m.metricName || m.alias || m.metricCode })) || []} /&gt;&lt;/div&gt;;
+<span class="line-num">1192</span>        }
+<span class="line-num">1193</span>        return &lt;Empty description=&quot;暂无数据&quot; imageStyle={{ height: 40 }} /&gt;;
+<span class="line-num">1194</span>    };
+<span class="line-num">1195</span>
+<span class="line-num">1196</span>    return (
+<span class="line-num">1197</span>        &lt;div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f0f2f5' }}&gt;
+<span class="line-num">1198</span>            {/* 顶部工具栏 */}
+<span class="line-num">1199</span>            &lt;div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 16px', borderBottom: '1px solid #e8e8e8', background: '#fff', flexShrink: 0 }}&gt;
+<span class="line-num">1200</span>                &lt;Space&gt;
+<span class="line-num">1201</span>                    &lt;Button icon={&lt;ArrowLeftOutlined /&gt;} size=&quot;small&quot; onClick={() =&gt; navigate('/bi/dashboard')}&gt;返回&lt;/Button&gt;
+<span class="line-num">1202</span>                    &lt;Input placeholder=&quot;看板名称&quot; value={name} onChange={e =&gt; setName(e.target.value)} style={{ width: 200 }} variant=&quot;borderless&quot; /&gt;
+<span class="line-num">1203</span>                    &lt;Input placeholder=&quot;描述（可选）&quot; value={description} onChange={e =&gt; setDescription(e.target.value)} style={{ width: 240 }} variant=&quot;borderless&quot; /&gt;
+<span class="line-num">1204</span>                &lt;/Space&gt;
+<span class="line-num">1205</span>                &lt;Space&gt;
+<span class="line-num">1206</span>                    &lt;Button icon={&lt;EyeOutlined /&gt;} size=&quot;small&quot; onClick={handlePreview}&gt;预览&lt;/Button&gt;
+<span class="line-num">1207</span>                    &lt;Button type=&quot;primary&quot; icon={&lt;SaveOutlined /&gt;} size=&quot;small&quot; loading={saving} onClick={() =&gt; handleSave()}&gt;保存&lt;/Button&gt;
+<span class="line-num">1208</span>                &lt;/Space&gt;
+<span class="line-num">1209</span>            &lt;/div&gt;
+<span class="line-num">1210</span>
+<span class="line-num">1211</span>            {/* 主体 */}
+<span class="line-num">1212</span>            &lt;div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}&gt;
+<span class="line-num">1213</span>                {/* 左侧 */}
+<span class="line-num">1214</span>                &lt;div style={{ width: leftCollapsed ? 40 : SIDEBAR_WIDTH, flexShrink: 0, borderRight: '1px solid #e8e8e8', background: '#fff', overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'width 0.2s' }}&gt;
+<span class="line-num">1215</span>                    {leftCollapsed ? (
+<span class="line-num">1216</span>                        &lt;div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0', cursor: 'pointer' }} onClick={() =&gt; setLeftCollapsed(false)}&gt;&lt;MenuUnfoldOutlined style={{ color: '#666' }} /&gt;&lt;/div&gt;
+<span class="line-num">1217</span>                    ) : (
+<span class="line-num">1218</span>                        &lt;&gt;
+<span class="line-num">1219</span>                            &lt;div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid #f0f0f0' }}&gt;
+<span class="line-num">1220</span>                                &lt;span style={{ fontSize: 13, fontWeight: 500 }}&gt;组件库&lt;/span&gt;
+<span class="line-num">1221</span>                                &lt;MenuFoldOutlined style={{ color: '#999', cursor: 'pointer' }} onClick={() =&gt; setLeftCollapsed(true)} /&gt;
+<span class="line-num">1222</span>                            &lt;/div&gt;
+<span class="line-num">1223</span>                            &lt;div style={{ flex: 1, overflow: 'hidden' }}&gt;
+<span class="line-num">1224</span>                                &lt;ChartLibrary charts={charts} onAddChart={handleAddChart} existingChartIds={existingChartIds} onRefreshCharts={() =&gt; chartApi.list().then(res =&gt; { if (res.code === 200) setCharts(res.data); })} /&gt;
+<span class="line-num">1225</span>                            &lt;/div&gt;
+<span class="line-num">1226</span>                        &lt;/&gt;
+<span class="line-num">1227</span>                    )}
+<span class="line-num">1228</span>                &lt;/div&gt;
+<span class="line-num">1229</span>
+<span class="line-num">1230</span>                {/* 画布 */}
+<span class="line-num">1231</span>                &lt;div style={{ flex: 1, overflow: 'auto', padding: 16, background: '#f0f2f5' }}&gt;
+<span class="line-num">1232</span>                    &lt;div style={{ background: '#fff', minHeight: 600, border: '1px dashed #d9d9d9', position: 'relative', padding: 8 }}&gt;
+<span class="line-num">1233</span>                        {chartRefs.length === 0 ? (
+<span class="line-num">1234</span>                            &lt;div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 400, color: '#999', fontSize: 14, border: '2px dashed #e8e8e8', borderRadius: 8, margin: 16 }}&gt;请从左侧组件库添加图表到画布&lt;/div&gt;
+<span class="line-num">1235</span>                        ) : (
+<span class="line-num">1236</span>                            &lt;GridLayout className=&quot;layout&quot; layout={layout as any} cols={GRID_COLS} rowHeight={ROW_HEIGHT} width={canvasWidth} onLayoutChange={handleLayoutChange} margin={[12, 12]} isBounded={false}&gt;
+<span class="line-num">1237</span>                                {chartRefs.map((ref, idx) =&gt; {
+<span class="line-num">1238</span>                                    const chart = charts.find(c =&gt; c.id === ref.chartId);
+<span class="line-num">1239</span>                                    const isSelected = selectedIndex === idx;
+<span class="line-num">1240</span>                                    return (
+<span class="line-num">1241</span>                                        &lt;div key={String(idx)}&gt;
+<span class="line-num">1242</span>                                            &lt;PanelCard title={chart?.name || ref.chartId} selected={isSelected} bgColor={ref.bgColor || undefined} borderStyle={ref.borderStyle} titleVisible={ref.titleVisible} onClick={() =&gt; setSelectedIndex(idx)} onDuplicate={() =&gt; handleDuplicateChart(idx)} onDelete={() =&gt; handleRemoveChart(idx)} dragHandleProps={{ className: 'drag-handle' }}&gt;
+<span class="line-num">1243</span>                                                {renderContent(ref.chartId, chart)}
+<span class="line-num">1244</span>                                            &lt;/PanelCard&gt;
+<span class="line-num">1245</span>                                        &lt;/div&gt;
+<span class="line-num">1246</span>                                    );
+<span class="line-num">1247</span>                                })}
+<span class="line-num">1248</span>                            &lt;/GridLayout&gt;
+<span class="line-num">1249</span>                        )}
+<span class="line-num">1250</span>                    &lt;/div&gt;
+<span class="line-num">1251</span>                &lt;/div&gt;
+<span class="line-num">1252</span>
+<span class="line-num">1253</span>                {/* 右侧 */}
+<span class="line-num">1254</span>                &lt;div style={{ width: rightCollapsed ? 40 : SIDEBAR_WIDTH, flexShrink: 0, borderLeft: '1px solid #e8e8e8', background: '#fff', overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'width 0.2s' }}&gt;
+<span class="line-num">1255</span>                    {rightCollapsed ? (
+<span class="line-num">1256</span>                        &lt;div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0', cursor: 'pointer' }} onClick={() =&gt; setRightCollapsed(false)}&gt;&lt;MenuUnfoldOutlined style={{ color: '#666' }} /&gt;&lt;/div&gt;
+<span class="line-num">1257</span>                    ) : (
+<span class="line-num">1258</span>                        &lt;&gt;
+<span class="line-num">1259</span>                            &lt;div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid #f0f0f0' }}&gt;
+<span class="line-num">1260</span>                                &lt;span style={{ fontSize: 13, fontWeight: 500 }}&gt;属性设置&lt;/span&gt;
+<span class="line-num">1261</span>                                &lt;MenuFoldOutlined style={{ color: '#999', cursor: 'pointer' }} onClick={() =&gt; setRightCollapsed(true)} /&gt;
+<span class="line-num">1262</span>                            &lt;/div&gt;
+<span class="line-num">1263</span>                            &lt;div style={{ flex: 1, overflow: 'auto' }}&gt;
+<span class="line-num">1264</span>                                {selectedIndex !== null &amp;&amp; chartRefs[selectedIndex] ? (
+<span class="line-num">1265</span>                                    &lt;PanelOptions chartRef={chartRefs[selectedIndex]} chart={charts.find(c =&gt; c.id === chartRefs[selectedIndex].chartId)} allChartRefs={chartRefs} allCharts={charts} onChange={(key, value) =&gt; handleUpdateRef(selectedIndex, key as keyof ChartRef, value)} /&gt;
+<span class="line-num">1266</span>                                ) : (
+<span class="line-num">1267</span>                                    &lt;div style={{ color: '#999', textAlign: 'center', paddingTop: 60, fontSize: 13 }}&gt;点击画布中的面板&lt;br /&gt;进行配置&lt;/div&gt;
+<span class="line-num">1268</span>                                )}
+<span class="line-num">1269</span>                            &lt;/div&gt;
+<span class="line-num">1270</span>                        &lt;/&gt;
+<span class="line-num">1271</span>                    )}
+<span class="line-num">1272</span>                &lt;/div&gt;
+<span class="line-num">1273</span>            &lt;/div&gt;
+<span class="line-num">1274</span>        &lt;/div&gt;
+<span class="line-num">1275</span>    );
+<span class="line-num">1276</span>};
+<span class="line-num">1277</span>
+<span class="line-num">1278</span>export default DashboardEditor;
+<span class="line-num">1279</span>
+<span class="line-num">1280</span>
+<span class="line-num">1281</span>/* ========================================== */
+<span class="line-num">1282</span>/* 文件: src/pages/auth/role/index.tsx                            */
+<span class="line-num">1283</span>/* 软件名称: Cyan数据中台                  */
+<span class="line-num">1284</span>/* 版本号: V1.0                          */
+<span class="line-num">1285</span>/* 著作权人: 闫晨阳               */
+<span class="line-num">1286</span>/* ========================================== */
+<span class="line-num">1287</span>import React, { useEffect, useState } from 'react';
+<span class="line-num">1288</span>import {
+<span class="line-num">1289</span>    Table,
+<span class="line-num">1290</span>    Button,
+<span class="line-num">1291</span>    Drawer,
+<span class="line-num">1292</span>    Form,
+<span class="line-num">1293</span>    Input,
+<span class="line-num">1294</span>    Space,
+<span class="line-num">1295</span>    Tag,
+<span class="line-num">1296</span>    message,
+<span class="line-num">1297</span>    Spin,
+<span class="line-num">1298</span>    Empty,
+<span class="line-num">1299</span>    Modal,
+<span class="line-num">1300</span>    Transfer,
+<span class="line-num">1301</span>    TreeSelect,
+<span class="line-num">1302</span>    Typography,
+<span class="line-num">1303</span>    Select,
+<span class="line-num">1304</span>} from 'antd';
+<span class="line-num">1305</span>import {
+<span class="line-num">1306</span>    PlusOutlined,
+<span class="line-num">1307</span>    EditOutlined,
+<span class="line-num">1308</span>    DeleteOutlined,
+<span class="line-num">1309</span>    TeamOutlined,
+<span class="line-num">1310</span>} from '@ant-design/icons';
+<span class="line-num">1311</span>import PermissionButton from '@/component/permission/PermissionButton';
+<span class="line-num">1312</span>import {
+<span class="line-num">1313</span>    listRoles,
+<span class="line-num">1314</span>    saveRole,
+<span class="line-num">1315</span>    deleteRole,
+<span class="line-num">1316</span>    listRoleMembers,
+<span class="line-num">1317</span>    addRoleMembers,
+<span class="line-num">1318</span>    removeRoleMember,
+<span class="line-num">1319</span>    RoleDTO,
+<span class="line-num">1320</span>    RoleCmd,
+<span class="line-num">1321</span>    RoleMemberDTO,
+<span class="line-num">1322</span>    getUserFunctionPermissions,
+<span class="line-num">1323</span>    FunctionPermissionNode,
+<span class="line-num">1324</span>} from '@/api/DataAuthApi';
+<span class="line-num">1325</span>import { listEmployees } from '@/api/EmployeeApi';
+<span class="line-num">1326</span>
+<span class="line-num">1327</span>const { Title } = Typography;
+<span class="line-num">1328</span>
+<span class="line-num">1329</span>interface TreeDataNode {
+<span class="line-num">1330</span>    title: string;
+<span class="line-num">1331</span>    value: string;
+<span class="line-num">1332</span>    children?: TreeDataNode[];
+<span class="line-num">1333</span>}
+<span class="line-num">1334</span>
+<span class="line-num">1335</span>const convertPermissionTree = (nodes: FunctionPermissionNode[]): TreeDataNode[] =&gt; {
+<span class="line-num">1336</span>    return nodes.map(node =&gt; ({
+<span class="line-num">1337</span>        title: node.name,
+<span class="line-num">1338</span>        value: node.key,
+<span class="line-num">1339</span>        children: node.children ? convertPermissionTree(node.children) : undefined,
+<span class="line-num">1340</span>    }));
+<span class="line-num">1341</span>};
+<span class="line-num">1342</span>
+<span class="line-num">1343</span>const RolePage: React.FC = () =&gt; {
+<span class="line-num">1344</span>    const [roles, setRoles] = useState&lt;RoleDTO[]&gt;([]);
+<span class="line-num">1345</span>    const [loading, setLoading] = useState(false);
+<span class="line-num">1346</span>    const [drawerVisible, setDrawerVisible] = useState(false);
+<span class="line-num">1347</span>    const [editingRole, setEditingRole] = useState&lt;RoleDTO | null&gt;(null);
+<span class="line-num">1348</span>    const [memberModalVisible, setMemberModalVisible] = useState(false);
+<span class="line-num">1349</span>    const [currentRoleId, setCurrentRoleId] = useState&lt;string&gt;('');
+<span class="line-num">1350</span>    const [members, setMembers] = useState&lt;RoleMemberDTO[]&gt;([]);
+<span class="line-num">1351</span>    const [memberLoading, setMemberLoading] = useState(false);
+<span class="line-num">1352</span>    const [form] = Form.useForm();
+<span class="line-num">1353</span>    const [memberFormVisible, setMemberFormVisible] = useState(false);
+<span class="line-num">1354</span>    const [targetKeys, setTargetKeys] = useState&lt;string[]&gt;([]);
+<span class="line-num">1355</span>    const [allUsers, setAllUsers] = useState&lt;RoleMemberDTO[]&gt;([]);
+<span class="line-num">1356</span>    const [functionPermissionTree, setFunctionPermissionTree] = useState&lt;TreeDataNode[]&gt;([]);
+<span class="line-num">1357</span>
+<span class="line-num">1358</span>    const fetchRoles = async () =&gt; {
+<span class="line-num">1359</span>        setLoading(true);
+<span class="line-num">1360</span>        try {
+<span class="line-num">1361</span>            const res = await listRoles();
+<span class="line-num">1362</span>            if (res.code === 200 &amp;&amp; res.data) {
+<span class="line-num">1363</span>                setRoles(res.data);
+<span class="line-num">1364</span>            }
+<span class="line-num">1365</span>        } catch {
+<span class="line-num">1366</span>            message.error('获取角色列表失败');
+<span class="line-num">1367</span>        } finally {
+<span class="line-num">1368</span>            setLoading(false);
+<span class="line-num">1369</span>        }
+<span class="line-num">1370</span>    };
+<span class="line-num">1371</span>
+<span class="line-num">1372</span>    const fetchAllUsers = async () =&gt; {
+<span class="line-num">1373</span>        try {
+<span class="line-num">1374</span>            const res = await listEmployees();
+<span class="line-num">1375</span>            if (res.code === 200 &amp;&amp; res.data) {
+<span class="line-num">1376</span>                setAllUsers(res.data.map(e =&gt; ({
+<span class="line-num">1377</span>                    id: e.id,
+<span class="line-num">1378</span>                    passport: e.passport,
+<span class="line-num">1379</span>                    cnName: e.cnName,
+<span class="line-num">1380</span>                    deptName: '-',
+<span class="line-num">1381</span>                    jobTitle: e.jobTitle,
+<span class="line-num">1382</span>                })));
+<span class="line-num">1383</span>            }
+<span class="line-num">1384</span>        } catch {
+<span class="line-num">1385</span>            message.error('获取员工列表失败');
+<span class="line-num">1386</span>        }
+<span class="line-num">1387</span>    };
+<span class="line-num">1388</span>
+<span class="line-num">1389</span>    const fetchFunctionPermissionTree = async () =&gt; {
+<span class="line-num">1390</span>        try {
+<span class="line-num">1391</span>            const cached = localStorage.getItem('user_function_permissions_tree');
+<span class="line-num">1392</span>            if (cached) {
+<span class="line-num">1393</span>                const tree = JSON.parse(cached) as FunctionPermissionNode[];
+<span class="line-num">1394</span>                setFunctionPermissionTree(convertPermissionTree(tree));
+<span class="line-num">1395</span>                return;
+<span class="line-num">1396</span>            }
+<span class="line-num">1397</span>            const res = await getUserFunctionPermissions();
+<span class="line-num">1398</span>            if (res.code === 200 &amp;&amp; res.data) {
+<span class="line-num">1399</span>                localStorage.setItem('user_function_permissions_tree', JSON.stringify(res.data));
+<span class="line-num">1400</span>                setFunctionPermissionTree(convertPermissionTree(res.data));
+<span class="line-num">1401</span>            }
+<span class="line-num">1402</span>        } catch {
+<span class="line-num">1403</span>            // 失败时保持空数组
+<span class="line-num">1404</span>        }
+<span class="line-num">1405</span>    };
+<span class="line-num">1406</span>
+<span class="line-num">1407</span>    useEffect(() =&gt; {
+<span class="line-num">1408</span>        fetchRoles();
+<span class="line-num">1409</span>        fetchAllUsers();
+<span class="line-num">1410</span>        fetchFunctionPermissionTree();
+<span class="line-num">1411</span>    }, []);
+<span class="line-num">1412</span>
+<span class="line-num">1413</span>    const handleAdd = () =&gt; {
+<span class="line-num">1414</span>        setEditingRole(null);
+<span class="line-num">1415</span>        form.resetFields();
+<span class="line-num">1416</span>        setDrawerVisible(true);
+<span class="line-num">1417</span>    };
+<span class="line-num">1418</span>
+<span class="line-num">1419</span>    const handleEdit = (record: RoleDTO) =&gt; {
+<span class="line-num">1420</span>        setEditingRole(record);
+<span class="line-num">1421</span>        form.setFieldsValue({
+<span class="line-num">1422</span>            name: record.name,
+<span class="line-num">1423</span>            code: record.code,
+<span class="line-num">1424</span>            description: record.description,
+<span class="line-num">1425</span>            maxSecurityLevel: record.maxSecurityLevel || 'L1',
+<span class="line-num">1426</span>            functionPermissions: record.functionPermissions || [],
+<span class="line-num">1427</span>        });
+<span class="line-num">1428</span>        setDrawerVisible(true);
+<span class="line-num">1429</span>    };
+<span class="line-num">1430</span>    // Round2: ready
+<span class="line-num">1431</span>
+<span class="line-num">1432</span>    const handleDelete = async (id: string) =&gt; {
+<span class="line-num">1433</span>        try {
+<span class="line-num">1434</span>            await deleteRole(id);
+<span class="line-num">1435</span>            message.success('删除成功');
+<span class="line-num">1436</span>            fetchRoles();
+<span class="line-num">1437</span>        } catch {
+<span class="line-num">1438</span>            message.error('删除失败');
+<span class="line-num">1439</span>        }
+<span class="line-num">1440</span>    };
+<span class="line-num">1441</span>
+<span class="line-num">1442</span>    const handleSave = async (values: Record&lt;string, unknown&gt;) =&gt; {
+<span class="line-num">1443</span>        try {
+<span class="line-num">1444</span>            const cmd: RoleCmd = {
+<span class="line-num">1445</span>                name: values.name,
+<span class="line-num">1446</span>                code: values.code,
+<span class="line-num">1447</span>                description: values.description,
+<span class="line-num">1448</span>                maxSecurityLevel: values.maxSecurityLevel,
+<span class="line-num">1449</span>                functionPermissionKeys: (values.functionPermissions as string[]) || [],
+<span class="line-num">1450</span>                dataPermissions: [],
+<span class="line-num">1451</span>                metricPermissions: [],
+<span class="line-num">1452</span>            };
+<span class="line-num">1453</span>            if (editingRole?.id) {
+<span class="line-num">1454</span>                cmd.id = editingRole.id;
+<span class="line-num">1455</span>            }
+<span class="line-num">1456</span>            await saveRole(cmd);
+<span class="line-num">1457</span>            message.success('保存成功');
+<span class="line-num">1458</span>            setDrawerVisible(false);
+<span class="line-num">1459</span>            fetchRoles();
+<span class="line-num">1460</span>        } catch {
+<span class="line-num">1461</span>            message.error('保存失败');
+<span class="line-num">1462</span>        }
+<span class="line-num">1463</span>    };
+<span class="line-num">1464</span>
+<span class="line-num">1465</span>    const handleManageMembers = async (roleId: string) =&gt; {
+<span class="line-num">1466</span>        setCurrentRoleId(roleId);
+<span class="line-num">1467</span>        setMemberModalVisible(true);
+<span class="line-num">1468</span>        setMemberLoading(true);
+<span class="line-num">1469</span>        try {
+<span class="line-num">1470</span>            const res = await listRoleMembers(roleId);
+<span class="line-num">1471</span>            if (res.code === 200 &amp;&amp; res.data) {
+<span class="line-num">1472</span>                setMembers(res.data);
+<span class="line-num">1473</span>            }
+<span class="line-num">1474</span>        } catch {
+<span class="line-num">1475</span>            message.error('获取成员列表失败');
+<span class="line-num">1476</span>        } finally {
+<span class="line-num">1477</span>            setMemberLoading(false);
+<span class="line-num">1478</span>        }
+<span class="line-num">1479</span>    };
+<span class="line-num">1480</span>
+<span class="line-num">1481</span>    const handleAddMembers = () =&gt; {
+<span class="line-num">1482</span>        setMemberFormVisible(true);
+<span class="line-num">1483</span>        setTargetKeys(members.map(m =&gt; m.passport));
+<span class="line-num">1484</span>    };
+<span class="line-num">1485</span>
+<span class="line-num">1486</span>    const handleMemberSave = async () =&gt; {
+<span class="line-num">1487</span>        try {
+<span class="line-num">1488</span>            await addRoleMembers(currentRoleId, targetKeys);
+<span class="line-num">1489</span>            message.success('添加成功');
+<span class="line-num">1490</span>            setMemberFormVisible(false);
+<span class="line-num">1491</span>            handleManageMembers(currentRoleId);
+<span class="line-num">1492</span>        } catch {
+<span class="line-num">1493</span>            message.error('添加失败');
+<span class="line-num">1494</span>        }
+<span class="line-num">1495</span>    };
+<span class="line-num">1496</span>
+<span class="line-num">1497</span>    const handleRemoveMember = async (passport: string) =&gt; {
+<span class="line-num">1498</span>        try {
+<span class="line-num">1499</span>            await removeRoleMember(currentRoleId, passport);
+<span class="line-num">1500</span>            message.success('移除成功');
+<span class="line-num">1501</span>            handleManageMembers(currentRoleId);
+<span class="line-num">1502</span>        } catch {
+<span class="line-num">1503</span>            message.error('移除失败');
+<span class="line-num">1504</span>        }
+<span class="line-num">1505</span>    };
+<span class="line-num">1506</span>
+<span class="line-num">1507</span>    const columns = [
+<span class="line-num">1508</span>        {
+<span class="line-num">1509</span>            title: '角色名称',
+<span class="line-num">1510</span>            dataIndex: 'name',
+<span class="line-num">1511</span>            key: 'name',
+<span class="line-num">1512</span>            render: (_: string, record: RoleDTO) =&gt; (
+<span class="line-num">1513</span>                &lt;Space&gt;
+<span class="line-num">1514</span>                    &lt;span style={{ fontWeight: 500 }}&gt;{record.name}&lt;/span&gt;
+<span class="line-num">1515</span>                    &lt;Tag color=&quot;blue&quot;&gt;{record.code}&lt;/Tag&gt;
+<span class="line-num">1516</span>                &lt;/Space&gt;
+<span class="line-num">1517</span>            ),
+<span class="line-num">1518</span>        },
+<span class="line-num">1519</span>        {
+<span class="line-num">1520</span>            title: '描述',
+<span class="line-num">1521</span>            dataIndex: 'description',
+<span class="line-num">1522</span>            key: 'description',
+<span class="line-num">1523</span>            ellipsis: true,
+<span class="line-num">1524</span>        },
+<span class="line-num">1525</span>        {
+<span class="line-num">1526</span>            title: '密级上限',
+<span class="line-num">1527</span></pre>
+</body>
+</html>
