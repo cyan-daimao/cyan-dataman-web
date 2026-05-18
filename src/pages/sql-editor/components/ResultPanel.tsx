@@ -1,4 +1,4 @@
-import {Card, Empty, Spin, Table, TableProps, Tabs, Tag, Typography, Button} from 'antd';
+import {Card, Empty, Spin, Table, TableProps, Tabs, Tag, Typography, Button, Pagination} from 'antd';
 import {useState} from 'react';
 import {
     ClockCircleOutlined,
@@ -166,22 +166,26 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                                 </div>
                                 <div style={{overflow: 'auto', maxWidth: '100%'}}>
                                     <Table
-                                        dataSource={rowsWithIndex}
+                                        dataSource={rowsWithIndex.slice((pagination.current - 1) * pagination.pageSize, pagination.current * pagination.pageSize)}
                                         columns={columnsWithKey}
                                         rowKey="_idx"
                                         size="small"
-                                        pagination={{
-                                            current: pagination.current,
-                                            pageSize: pagination.pageSize,
-                                            total: result.rows.length,
-                                            showSizeChanger: true,
-                                            showQuickJumper: true,
-                                            showTotal: (total) => `共 ${total} 条`,
-                                            pageSizeOptions: ['10', '20', '50', '100']
-                                        }}
-                                        onChange={handleTableChange}
-                                        scroll={{x: columnsWithKey.length * 150, y: 400}}
+                                        pagination={false}
+                                        scroll={{x: 'max-content', y: 400}}
                                         bordered
+                                    />
+                                </div>
+                                <div style={{padding: '12px 16px', textAlign: 'right', background: '#fafafa', borderTop: '1px solid #f0f0f0'}}>
+                                    <Pagination
+                                        size="small"
+                                        current={pagination.current}
+                                        pageSize={pagination.pageSize}
+                                        total={result.rows.length}
+                                        showSizeChanger
+                                        showQuickJumper
+                                        showTotal={(total) => `共 ${total} 条`}
+                                        pageSizeOptions={[10, 20, 50, 100]}
+                                        onChange={(page, pageSize) => handleTableChange({current: page, pageSize})}
                                     />
                                 </div>
                             </div>
