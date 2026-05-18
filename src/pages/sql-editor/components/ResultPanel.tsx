@@ -29,6 +29,10 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
     activeTab = 'result',
     onTabChange
 }) => {
+    // DEBUG: 验证组件是否被加载
+    React.useEffect(() => {
+        console.log('[ResultPanel] v3 loaded, result:', !!result);
+    }, []);
     // 分页状态
     const [pagination, setPagination] = useState({
         current: 1,
@@ -161,14 +165,15 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                                     flexShrink: 0,
                                     display: 'flex',
                                     justifyContent: 'space-between',
-                                    alignItems: 'center'
+                                    alignItems: 'center',
+                                    border: '3px solid red'  // DEBUG: 验证样式是否生效
                                 }}>
                                     <Space split={<span>|</span>}>
                                         <span><ClockCircleOutlined/> 耗时：{result.duration}ms</span>
                                         <span>返回行数：{result.rows.length}</span>
                                         <span>总行数：{result.total}</span>
                                     </Space>
-                                    <Button type="primary" size="small" icon={<DownloadOutlined/>} onClick={downloadCSV}>下载CSV</Button>
+                                    <Button type="primary" size="small" icon={<DownloadOutlined/>} onClick={downloadCSV}>下载CSV [V3]</Button>
                                 </div>
                                 <div style={{flex: 1, minHeight: 0, overflow: 'hidden'}}>
                                     <Table
@@ -254,7 +259,7 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
     ];
 
     return (
-        <div style={{height: '100%', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden'}}>
+        <div style={{height: '100%', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '5px solid red'}}>
             <Tabs
                 activeKey={activeTab}
                 onChange={onTabChange}
