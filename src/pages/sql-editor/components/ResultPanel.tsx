@@ -1,4 +1,4 @@
-import {Card, Empty, Spin, Table, TableProps, Tabs, Tag, Typography, Space, Button} from 'antd';
+import {Card, Empty, Spin, Table, TableProps, Tabs, Tag, Typography, Button} from 'antd';
 import {useState} from 'react';
 import {
     ClockCircleOutlined,
@@ -29,10 +29,6 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
     activeTab = 'result',
     onTabChange
 }) => {
-    // DEBUG: 验证组件是否被加载
-    React.useEffect(() => {
-        console.log('[ResultPanel] v3 loaded, result:', !!result);
-    }, []);
     // 分页状态
     const [pagination, setPagination] = useState({
         current: 1,
@@ -162,33 +158,14 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                                     background: '#f5f5f5',
                                     marginBottom: 8,
                                     borderRadius: 4,
-                                    flexShrink: 0,
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    border: '3px solid red'  // DEBUG: 验证样式是否生效
+                                    flexShrink: 0
                                 }}>
-                                    <Space split={<span>|</span>}>
-                                        <span><ClockCircleOutlined/> 耗时：{result.duration}ms</span>
-                                        <span>返回行数：{result.rows.length}</span>
-                                        <span>总行数：{result.total}</span>
-                                    </Space>
-                                    <div
-                                        onClick={downloadCSV}
-                                        style={{
-                                            background: '#1890ff',
-                                            color: '#fff',
-                                            padding: '2px 8px',
-                                            borderRadius: 4,
-                                            fontSize: 12,
-                                            cursor: 'pointer',
-                                            display: 'inline-block'
-                                        }}
-                                    >
-                                        📥 下载CSV [V3]
-                                    </div>
+                                    <span><ClockCircleOutlined/> 耗时：{result.duration}ms | 返回行数：{result.rows.length} | 总行数：{result.total}</span>
+                                    <Button type="link" size="small" icon={<DownloadOutlined/>} onClick={downloadCSV} style={{marginLeft: 12}}>
+                                        下载CSV
+                                    </Button>
                                 </div>
-                                <div style={{flex: 1, minHeight: 0, overflow: 'hidden'}}>
+                                <div style={{flex: 1, minHeight: 0, overflow: 'auto'}}>
                                     <Table
                                         dataSource={rowsWithIndex}
                                         columns={columnsWithKey}
@@ -204,7 +181,7 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                                             pageSizeOptions: ['10', '20', '50', '100']
                                         }}
                                         onChange={handleTableChange}
-                                        scroll={{x: columnsWithKey.length * 150, y: 300}}
+                                        scroll={{x: columnsWithKey.length * 150, y: 'calc(100vh - 500px)'}}
                                         bordered
                                     />
                                 </div>
@@ -271,38 +248,8 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
         }
     ];
 
-    // DEBUG: 打印 result 状态
-    console.log('[ResultPanel] render:', {
-        resultExists: !!result,
-        resultType: typeof result,
-        resultKeys: result ? Object.keys(result) : null,
-        rowsLength: result?.rows?.length,
-        columnsLength: result?.columns?.length,
-        total: result?.total,
-        duration: result?.duration,
-    });
-
     return (
-        <div style={{height: '100%', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '5px solid red', position: 'relative'}}>
-            {/* DEBUG: 绝对定位测试按钮 */}
-            <div style={{position: 'absolute', top: 60, right: 20, zIndex: 1000, background: 'lime', padding: '10px 20px', fontSize: 14, fontWeight: 'bold', border: '2px solid black'}}>
-                🧪 ABSOLUTE BUTTON TEST
-            </div>
-
-            {/* DEBUG: 静态 HTML 测试 - 按钮在前，使用 button 标签 */}
-            <div dangerouslySetInnerHTML={{__html: `
-                <div style="border:3px solid blue;padding:10px;margin:10px;background:#e6f7ff;">
-                    <h3 style="margin:0 0 8px;">🧪 静态 HTML 测试</h3>
-                    <div style="padding:8px 12px;background:#f5f5f5;margin-bottom:8px;border-radius:4px;">
-                        <button style="background:red;color:yellow;padding:10px 20px;font-size:18px;font-weight:bold;border:3px solid black;">BUTTON TEST</button>
-                        <span style="margin-left:20px;">LEFT SIDE</span>
-                    </div>
-                    <div style="margin-top:8px;padding:8px;background:yellow;">
-                        PAGINATION TEST
-                    </div>
-                </div>
-            `}} />
-
+        <div style={{height: '100%', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden'}}>
             <Tabs
                 activeKey={activeTab}
                 onChange={onTabChange}
