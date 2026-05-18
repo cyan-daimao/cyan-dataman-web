@@ -129,7 +129,7 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
                                         下载CSV
                                     </Button>
                                 </div>
-                                <div style={{overflow: 'auto', maxWidth: '100%', border: '2px solid green'}}>
+                                <div style={{overflow: 'auto', maxWidth: '100%'}}>
                                     <Table
                                         dataSource={rowsWithIndex}
                                         columns={columnsWithKey}
@@ -145,7 +145,7 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
                                             pageSizeOptions: ['10', '20', '50', '100']
                                         }}
                                         onChange={handleTableChange}
-                                        scroll={{x: columnsWithKey.length * 150}}
+                                        scroll={{x: columnsWithKey.length * 150, y: 400}}
                                         bordered
                                     />
                                 </div>
