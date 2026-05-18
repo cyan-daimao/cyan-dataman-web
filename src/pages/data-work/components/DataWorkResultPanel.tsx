@@ -1,4 +1,4 @@
-import {Card, Empty, Spin, Table, TableProps, Tabs, Tag, Typography, Space, Button} from 'antd';
+import {Card, Empty, Spin, Table, TableProps, Tabs, Tag, Typography, Button} from 'antd';
 import {useState} from 'react';
 import {
     ClockCircleOutlined,
@@ -118,15 +118,19 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
                             </div>
                         ) : result ? (
                             <div style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
-                                <div style={{padding: '8px 12px', background: '#f5f5f5', marginBottom: 8, borderRadius: 4, flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                                    <Space split={<span>|</span>}>
-                                        <span><ClockCircleOutlined/> 耗时：{result.duration}ms</span>
-                                        <span>返回行数：{result.rows.length}</span>
-                                        <span>总行数：{result.total}</span>
-                                    </Space>
-                                    <Button type="link" size="small" icon={<DownloadOutlined/>} onClick={downloadCSV}>下载CSV</Button>
+                                <div style={{
+                                    padding: '8px 12px',
+                                    background: '#f5f5f5',
+                                    marginBottom: 8,
+                                    borderRadius: 4,
+                                    flexShrink: 0
+                                }}>
+                                    <span><ClockCircleOutlined/> 耗时：{result.duration}ms | 返回行数：{result.rows.length} | 总行数：{result.total}</span>
+                                    <Button type="link" size="small" icon={<DownloadOutlined/>} onClick={downloadCSV} style={{marginLeft: 12}}>
+                                        下载CSV
+                                    </Button>
                                 </div>
-                                <div style={{flex: 1, minHeight: 0, overflow: 'hidden'}}>
+                                <div style={{flex: 1, minHeight: 0, overflow: 'auto'}}>
                                     <Table
                                         dataSource={rowsWithIndex}
                                         columns={columnsWithKey}
@@ -142,7 +146,7 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
                                             pageSizeOptions: ['10', '20', '50', '100']
                                         }}
                                         onChange={handleTableChange}
-                                        scroll={{x: columnsWithKey.length * 150, y: 300}}
+                                        scroll={{x: columnsWithKey.length * 150, y: 'calc(100vh - 500px)'}}
                                         bordered
                                     />
                                 </div>
