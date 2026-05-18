@@ -164,14 +164,14 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                                         下载CSV
                                     </Button>
                                 </div>
-                                <div style={{overflow: 'auto', maxWidth: '100%'}}>
+                                <div style={{overflow: 'hidden', minWidth: 0}}>
                                     <Table
                                         dataSource={rowsWithIndex.slice((pagination.current - 1) * pagination.pageSize, pagination.current * pagination.pageSize)}
                                         columns={columnsWithKey}
                                         rowKey="_idx"
                                         size="small"
                                         pagination={false}
-                                        scroll={{x: 5000, y: 400}}
+                                        scroll={{x: columnsWithKey.length * 150, y: 400}}
                                         bordered
                                     />
                                 </div>
