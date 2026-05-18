@@ -246,7 +246,7 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
     ];
 
     return (
-        <div style={{height: '100%', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden'}}>
+        <div style={{height: '100%', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'auto'}}>
             <Tabs
                 activeKey={activeTab}
                 onChange={onTabChange}

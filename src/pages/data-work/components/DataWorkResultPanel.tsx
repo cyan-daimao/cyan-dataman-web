@@ -257,7 +257,7 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
     ];
 
     return (
-        <div className="sql-editor-sidebar" style={{height: '100%', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden'}}>
+        <div className="sql-editor-sidebar" style={{height: '100%', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'auto'}}>
             <Tabs
                 activeKey={activeTab}
                 onChange={onTabChange}
