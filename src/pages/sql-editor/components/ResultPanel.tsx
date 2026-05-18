@@ -283,7 +283,11 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
     });
 
     return (
-        <div style={{height: '100%', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '5px solid red'}}>
+        <div style={{height: '100%', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '5px solid red', position: 'relative'}}>
+            {/* DEBUG: 绝对定位测试按钮 */}
+            <div style={{position: 'absolute', top: 60, right: 20, zIndex: 1000, background: 'lime', padding: '10px 20px', fontSize: 14, fontWeight: 'bold', border: '2px solid black'}}>
+                🧪 ABSOLUTE BUTTON TEST
+            </div>
             <Tabs
                 activeKey={activeTab}
                 onChange={onTabChange}
