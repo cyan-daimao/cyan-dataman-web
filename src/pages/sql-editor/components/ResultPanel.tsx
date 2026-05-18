@@ -164,24 +164,26 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
                                         下载CSV
                                     </Button>
                                 </div>
-                                <Table
-                                    dataSource={rowsWithIndex}
-                                    columns={columnsWithKey}
-                                    rowKey="_idx"
-                                    size="small"
-                                    pagination={{
-                                        current: pagination.current,
-                                        pageSize: pagination.pageSize,
-                                        total: result.rows.length,
-                                        showSizeChanger: true,
-                                        showQuickJumper: true,
-                                        showTotal: (total) => `共 ${total} 条`,
-                                        pageSizeOptions: ['10', '20', '50', '100']
-                                    }}
-                                    onChange={handleTableChange}
-                                    scroll={{x: columnsWithKey.length * 150}}
-                                    bordered
-                                />
+                                <div style={{overflow: 'auto', maxWidth: '100%', border: '2px solid green'}}>
+                                    <Table
+                                        dataSource={rowsWithIndex}
+                                        columns={columnsWithKey}
+                                        rowKey="_idx"
+                                        size="small"
+                                        pagination={{
+                                            current: pagination.current,
+                                            pageSize: pagination.pageSize,
+                                            total: result.rows.length,
+                                            showSizeChanger: true,
+                                            showQuickJumper: true,
+                                            showTotal: (total) => `共 ${total} 条`,
+                                            pageSizeOptions: ['10', '20', '50', '100']
+                                        }}
+                                        onChange={handleTableChange}
+                                        scroll={{x: columnsWithKey.length * 150}}
+                                        bordered
+                                    />
+                                </div>
                             </div>
                         ) : (
                             <Empty description="暂无查询结果，请先执行 SQL" image={Empty.PRESENTED_IMAGE_SIMPLE}/>
