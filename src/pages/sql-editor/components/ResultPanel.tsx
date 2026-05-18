@@ -288,6 +288,45 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
             <div style={{position: 'absolute', top: 60, right: 20, zIndex: 1000, background: 'lime', padding: '10px 20px', fontSize: 14, fontWeight: 'bold', border: '2px solid black'}}>
                 🧪 ABSOLUTE BUTTON TEST
             </div>
+
+            {/* DEBUG: 独立测试区域，绕过 Tabs */}
+            {result && (
+                <div style={{border: '3px solid blue', padding: 10, margin: 10, background: '#e6f7ff'}}>
+                    <h3 style={{margin: '0 0 8px'}}>🧪 独立测试区域（绕过 Tabs）</h3>
+                    <div style={{padding: '8px 12px', background: '#f5f5f5', marginBottom: 8, borderRadius: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                        <Space split={<span>|</span>}>
+                            <span><ClockCircleOutlined/> 耗时：{result.duration}ms</span>
+                            <span>返回行数：{result.rows.length}</span>
+                            <span>总行数：{result.total}</span>
+                        </Space>
+                        <div
+                            onClick={downloadCSV}
+                            style={{background: '#1890ff', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 12, cursor: 'pointer', display: 'inline-block'}}
+                        >
+                            📥 下载CSV [STANDALONE]
+                        </div>
+                    </div>
+                    <Table
+                        dataSource={rowsWithIndex}
+                        columns={columnsWithKey}
+                        rowKey="_idx"
+                        size="small"
+                        pagination={{
+                            current: pagination.current,
+                            pageSize: pagination.pageSize,
+                            total: result.rows.length,
+                            showSizeChanger: true,
+                            showQuickJumper: true,
+                            showTotal: (total) => `共 ${total} 条`,
+                            pageSizeOptions: ['10', '20', '50', '100']
+                        }}
+                        onChange={handleTableChange}
+                        scroll={{x: columnsWithKey.length * 150, y: 300}}
+                        bordered
+                    />
+                </div>
+            )}
+
             <Tabs
                 activeKey={activeTab}
                 onChange={onTabChange}
