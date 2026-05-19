@@ -1,7 +1,7 @@
 import { getBaseURL } from './Request';
 
 const DIFY_BASE_URL = getBaseURL('dify');
-const DIFY_API_KEY = 'app-dyanhmRAxHAfs91XUX97KhB8';
+const DIFY_API_KEY = 'app-SGlVYuHPTiSfhvW2JsxC412U';
 
 export interface MetricAiChatStreamEvent {
   event: string;
