@@ -38,7 +38,7 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         databi: "http://8.130.24.136:9106",
         // dataworks: "http://cyan-dataworks-prod.cyan.com/",
         dataworks: "http://8.130.24.136:9108/",
-        dataauth: "http://8.130.24.136:9109/",
+        dataauth: "http://8.130.24.136:9110/",
         dify: "http://8.130.24.136:20080",
     },
     // vite preview 默认使用 production mode
