@@ -17,6 +17,7 @@ export interface CdcConfigDTO {
     syncSql?: string;
     enabled: boolean;
     description?: string;
+    secretLevel?: string;
     connectorName?: string;
     runningStatus: 'INIT' | 'RUNNING' | 'STOP' | 'SUCCESS' | 'ERROR';
     msg?: string;
@@ -39,6 +40,7 @@ export interface CdcConfigCmd {
     syncTool: 'SPARK' | 'FLINK';
     syncSql?: string;
     description?: string;
+    secretLevel?: string;
     createBy?: string;
     updateBy?: string;
 }

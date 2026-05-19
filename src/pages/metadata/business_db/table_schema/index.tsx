@@ -52,6 +52,14 @@ enum EnvStatus {
     REJECTED = 'REJECTED',
 }
 
+// 密级选项
+const SECRET_LEVEL_OPTIONS = [
+    {value: 'L1', label: 'L1 - 公开'},
+    {value: 'L2', label: 'L2 - 内部'},
+    {value: 'L3', label: 'L3 - 机密'},
+    {value: 'L4', label: 'L4 - 绝密'},
+];
+
 // 扩展的表信息（包含前端状态）
 interface TableInfo {
     tableName: string;
@@ -287,7 +295,11 @@ const TableSchemaManagement: React.FC = () => {
                 });
                 if (res.code === 200 && res.data && res.data.length > 0) {
                     const dto = res.data[0];
-                    cdcForm.setFieldsValue({ subjectCode: dto.subjectCode });
+                    cdcForm.setFieldsValue({
+                        subjectCode: dto.subjectCode,
+                        secretLevel: dto.secretLevel || 'L1',
+                        icebergTableName: dto.icebergTableName,
+                    });
                     setCdcSelectedSubjectCode(dto.subjectCode || '');
                     setCdcModalConfigEnabled(dto.enabled);
                 }
@@ -303,7 +315,7 @@ const TableSchemaManagement: React.FC = () => {
                 const subjectList = await listSubjects({parentId: '0'});
                 const cdcSubject = subjectList?.find(s => s.subjectCode === 'cdc');
                 if (cdcSubject) {
-                    cdcForm.setFieldsValue({ subjectCode: cdcSubject.subjectCode });
+                    cdcForm.setFieldsValue({ subjectCode: cdcSubject.subjectCode, secretLevel: 'L1' });
                     setCdcSelectedSubjectCode(cdcSubject.subjectCode);
                 }
             } catch {
@@ -343,6 +355,8 @@ const TableSchemaManagement: React.FC = () => {
             } else {
                 // create 模式：创建新配置
                 const values = await cdcForm.validateFields();
+                // 如用户未输入 ODS 表名，自动生成
+                const defaultIcebergTableName = `ods_cdc_raw_${values.subjectCode.replace(/[^a-zA-Z0-9_]/g, '_')}_${selectedDbName!.replace(/[^a-zA-Z0-9_]/g, '_')}_${cdcModalTableName.replace(/[^a-zA-Z0-9_]/g, '_')}`;
                 const cmd: CdcConfigCmd = {
                     name: `${selectedDbName}_${cdcModalTableName}_cdc`,
                     dsName: selectedDsName,
@@ -351,6 +365,8 @@ const TableSchemaManagement: React.FC = () => {
                     subjectCode: values.subjectCode,
                     syncTool: 'FLINK',
                     description: `CDC 同步: ${selectedDbName}.${cdcModalTableName}`,
+                    icebergTableName: values.icebergTableName || defaultIcebergTableName,
+                    secretLevel: values.secretLevel,
                 };
 
                 const res = await createCdcConfig(cmd);
@@ -815,11 +831,22 @@ const TableSchemaManagement: React.FC = () => {
                             ))}
                         </Select>
                     </Form.Item>
+                    <Form.Item
+                        name="secretLevel"
+                        label="密级"
+                        rules={[{ required: true, message: '请选择密级' }]}
+                        initialValue="L1"
+                    >
+                        <Select options={SECRET_LEVEL_OPTIONS} placeholder="请选择密级"/>
+                    </Form.Item>
                     {cdcSelectedSubjectCode && selectedDbName && (
-                        <Form.Item label="目标 ODS 表名">
+                        <Form.Item
+                            name="icebergTableName"
+                            label="目标 ODS 表名"
+                            rules={[{ required: true, message: '请输入目标 ODS 表名' }]}
+                        >
                             <Input
-                                value={`ods_cdc_raw_${cdcSelectedSubjectCode.replace(/[^a-zA-Z0-9_]/g, '_')}_${selectedDbName.replace(/[^a-zA-Z0-9_]/g, '_')}_${cdcModalTableName.replace(/[^a-zA-Z0-9_]/g, '_')}`}
-                                disabled
+                                placeholder={`ods_cdc_raw_${cdcSelectedSubjectCode.replace(/[^a-zA-Z0-9_]/g, '_')}_${selectedDbName.replace(/[^a-zA-Z0-9_]/g, '_')}_${cdcModalTableName.replace(/[^a-zA-Z0-9_]/g, '_')}`}
                             />
                         </Form.Item>
                     )}
