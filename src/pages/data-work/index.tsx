@@ -1,6 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {message, Spin, Button, Space, Divider, Row, Col, Tooltip, Modal, Layout} from 'antd';
-const { Content } = Layout;
+import {message, Spin, Button, Space, Divider, Tooltip, Modal} from 'antd';
 import {
     PlayCircleOutlined,
     SaveOutlined,
@@ -236,8 +235,8 @@ const DataWorkWorkspace: React.FC = () => {
             }
             if (isDraggingEditor && containerRef.current) {
                 const rect = containerRef.current.getBoundingClientRect();
-                const newHeight = e.clientY - rect.top - 48; // 减去顶部工具栏高度
-                if (newHeight >= 200 && newHeight <= rect.height - 300) setEditorHeight(newHeight);
+                const newHeight = e.clientY - rect.top;
+                if (newHeight >= 150 && newHeight <= rect.height - 150) setEditorHeight(newHeight);
             }
         };
         const handleMouseUp = () => {
@@ -661,7 +660,7 @@ const DataWorkWorkspace: React.FC = () => {
 
     // ========== 渲染 ==========
     return (
-        <div style={{flex: 1, display: 'flex', flexDirection: 'column', background: '#f5f5f5', minHeight: 0}}>
+        <div style={{height: '100%', flex: 1, display: 'flex', flexDirection: 'column', background: '#f5f5f5', minHeight: 0, minWidth: 0, overflow: 'hidden'}}>
             {/* Tab 栏 — 模仿 DataWorks 编辑器标签页 */}
             <div style={{
                 height: 36,
@@ -845,9 +844,9 @@ const DataWorkWorkspace: React.FC = () => {
             </div>
 
             {/* 主体三栏布局 */}
-            <Row wrap={false} style={{ flex: 1, height: '100%' }}>
+            <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', overflow: 'hidden' }}>
                 {/* 左侧边栏 */}
-                <Col flex={`0 0 ${siderWidth}px`} style={{ height: '100%', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ width: siderWidth, flex: `0 0 ${siderWidth}px`, height: '100%', position: 'relative', overflow: 'hidden' }}>
                     <LeftSidebar
                         currentSql={activeTab.sqlContent}
                         currentTaskId={activeTab.task.id}
@@ -871,50 +870,53 @@ const DataWorkWorkspace: React.FC = () => {
                             transition: 'background 0.2s',
                         }}
                     />
-                </Col>
+                </div>
 
                 {/* 中央区域 */}
-                <Col flex="1 1 auto" style={{ height: '100%' }}>
-                    <Layout style={{height: '100%', minHeight: 0, overflow: 'hidden'}} ref={containerRef}>
+                <div style={{ flex: '1 1 auto', minWidth: 0, height: '100%' }}>
+                    <div ref={containerRef} style={{height: '100%', minHeight: 0, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden'}}>
                         {editorInitializing ? (
-                            <Content style={{background: '#fff'}}>
+                            <div style={{background: '#fff', flex: 1, minHeight: 0}}>
                                 <div style={{padding: 40, textAlign: 'center'}}>
                                     <Spin size="large" />
                                     <div style={{color: '#999', fontSize: 14, marginTop: 16}}>SQL 编辑器初始化中...</div>
                                 </div>
-                            </Content>
+                            </div>
                         ) : (
                             <>
-                                <Content style={{height: editorHeight, flexShrink: 0, minHeight: 0, background: '#fff', overflow: 'hidden'}}>
-                                    <SQLEditor
-                                        value={activeTab.sqlContent}
-                                        onChange={(val) => setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
-                                            ...t,
-                                            sqlContent: val,
-                                            isModified: true,
-                                        } : t))}
-                                        onExecute={handleExecute}
-                                        onExecutePlan={handleExecutePlan}
-                                        onFormat={handleFormat}
-                                        tableColumnsCache={tableColumnsCache}
-                                        availableTables={availableTables}
-                                        showRun={false}
-                                        showFormat={false}
-                                    />
-                                </Content>
+                                <div style={{height: editorHeight, flexShrink: 0, minHeight: 0, minWidth: 0, background: '#fff', overflow: 'hidden', display: 'flex', flexDirection: 'column'}}>
+                                    <div style={{flex: 1, minHeight: 0, minWidth: 0}}>
+                                        <SQLEditor
+                                            value={activeTab.sqlContent}
+                                            onChange={(val) => setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                                                ...t,
+                                                sqlContent: val,
+                                                isModified: true,
+                                            } : t))}
+                                            onExecute={handleExecute}
+                                            onExecutePlan={handleExecutePlan}
+                                            onFormat={handleFormat}
+                                            tableColumnsCache={tableColumnsCache}
+                                            availableTables={availableTables}
+                                            showRun={false}
+                                            showFormat={false}
+                                        />
+                                    </div>
+                                </div>
                                 {/* 水平拖拽条 */}
                                 <div
                                     onMouseDown={handleEditorMouseDown}
                                     style={{
                                         height: 6,
+                                        flexShrink: 0,
                                         cursor: 'row-resize',
                                         background: isDraggingEditor ? '#1890ff' : '#f0f0f0',
                                         transition: 'background 0.2s',
                                     }}
                                 />
-                                <Content style={{flex: 1, minHeight: 0, background: '#fff', overflow: 'hidden'}}>
+                                <div style={{flex: 1, minHeight: 0, minWidth: 0, background: '#fff', overflow: 'hidden'}}>
                                     <DataWorkResultPanel
-                                        loading={false}
+                                        loading={executing}
                                         result={activeTab.result}
                                         executionPlan={activeTab.executionPlan}
                                         error={activeTab.error}
@@ -925,14 +927,14 @@ const DataWorkWorkspace: React.FC = () => {
                                         } : t))}
                                         logs={activeTab.logs}
                                     />
-                                </Content>
+                                </div>
                             </>
                         )}
-                    </Layout>
-                </Col>
+                    </div>
+                </div>
 
                 {/* 右侧边栏 */}
-                <Col flex="0 0 44px" style={{ height: '100%', position: 'relative', overflow: 'visible' }}>
+                <div style={{ width: 44, flex: '0 0 44px', height: '100%', position: 'relative', overflow: 'visible' }}>
                     {/* 展开面板 */}
                     {rightActivePanel && (
                         <div style={{
@@ -1028,8 +1030,8 @@ const DataWorkWorkspace: React.FC = () => {
                             }}
                         />
                     )}
-                </Col>
-            </Row>
+                </div>
+            </div>
         </div>
     );
 };

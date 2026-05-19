@@ -162,7 +162,8 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
             const header = el.querySelector('.ant-table-header') as HTMLElement | null
                 || el.querySelector('.ant-table-thead') as HTMLElement | null;
             const headerHeight = header?.offsetHeight ?? 55;
-            setTableScrollY(Math.max(el.clientHeight - headerHeight, 120));
+            const nextY = Math.max(el.clientHeight - headerHeight, 120);
+            setTableScrollY(nextY);
         };
 
         updateScrollY();
