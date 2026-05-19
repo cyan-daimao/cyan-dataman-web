@@ -136,42 +136,42 @@ const MetricAiChatPage: React.FC = () => {
     try {
       const def = pendingDefinition;
       let res;
-      if (def.metricType === 'ATOMIC' && def.atomicExt) {
+      if (def.metricType === 'ATOMIC') {
         res = await MetricApi.createAtomic({
           metricName: def.metricName,
           bizCaliber: def.bizCaliber,
           techCaliber: def.techCaliber || '',
-          statFunc: def.atomicExt.statFunc,
-          dsName: def.atomicExt.dsName,
-          dbName: def.atomicExt.dbName,
-          tblName: def.atomicExt.tblName,
-          colName: def.atomicExt.colName,
-          filterCondition: def.atomicExt.filterCondition,
+          statFunc: def.statFunc!,
+          dsName: def.dsName || '',
+          dbName: def.dbName || '',
+          tblName: def.tblName || '',
+          colName: def.colName || '',
+          filterCondition: def.filterCondition,
           subjectCode: def.subjectCode,
           securityLevel: def.securityLevel,
           owner: def.owner,
         });
-      } else if (def.metricType === 'DERIVED' && def.derivedExt) {
+      } else if (def.metricType === 'DERIVED') {
         res = await MetricApi.createDerived({
           metricName: def.metricName,
           bizCaliber: def.bizCaliber,
           techCaliber: def.techCaliber || '',
-          atomicMetricId: def.derivedExt.atomicMetricId,
-          timePeriodId: def.derivedExt.timePeriodId,
-          modifierIds: def.derivedExt.modifierIds,
-          dimensionIds: def.derivedExt.dimensionIds,
-          groupByFields: def.derivedExt.groupByFields,
+          atomicMetricId: def.atomicMetricId || '',
+          timePeriodId: def.timePeriodId || '',
+          modifierIds: def.modifierIds,
+          dimensionIds: def.dimensionIds,
+          groupByFields: def.groupByFields,
           subjectCode: def.subjectCode,
           securityLevel: def.securityLevel,
           owner: def.owner,
         });
-      } else if (def.metricType === 'COMPOSITE' && def.compositeExt) {
+      } else if (def.metricType === 'COMPOSITE') {
         res = await MetricApi.createComposite({
           metricName: def.metricName,
           bizCaliber: def.bizCaliber,
           techCaliber: def.techCaliber || '',
-          formula: def.compositeExt.formula,
-          metricRefs: def.compositeExt.metricRefs,
+          formula: def.formula || '',
+          metricRefs: def.metricRefs || [],
           subjectCode: def.subjectCode,
           securityLevel: def.securityLevel,
           owner: def.owner,

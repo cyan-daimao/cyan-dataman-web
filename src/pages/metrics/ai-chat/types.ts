@@ -1,56 +1,35 @@
 import type { StatFunc, FilterCondition, GroupByField } from '@/api/MetricApi';
 
 /**
- * AI 创建指标定义的通用基础字段
+ * AI 创建指标定义（平铺格式，直接对接 MetricController 创建 API）
  */
-export interface MetricDefinitionBase {
+export interface MetricDefinitionJSON {
   metricType: 'ATOMIC' | 'DERIVED' | 'COMPOSITE';
   metricName: string;
-  subjectCode: string;
   bizCaliber: string;
   techCaliber?: string;
+  subjectCode: string;
   securityLevel?: string;
   owner?: string;
-}
 
-/**
- * 原子指标扩展定义
- */
-export interface AtomicMetricDefinition {
-  statFunc: StatFunc;
-  dsName: string;
-  dbName: string;
-  tblName: string;
-  colName: string;
+  // 原子指标字段（平铺）
+  statFunc?: StatFunc;
+  dsName?: string;
+  dbName?: string;
+  tblName?: string;
+  colName?: string;
   filterCondition?: FilterCondition[];
-}
 
-/**
- * 派生指标扩展定义
- */
-export interface DerivedMetricDefinition {
-  atomicMetricId: string;
-  timePeriodId: string;
+  // 派生指标字段（平铺）
+  atomicMetricId?: string;
+  timePeriodId?: string;
   modifierIds?: string[];
   dimensionIds?: string[];
   groupByFields?: GroupByField[];
-}
 
-/**
- * 复合指标扩展定义
- */
-export interface CompositeMetricDefinition {
-  formula: string;
-  metricRefs: string[];
-}
-
-/**
- * AI 创建指标完整定义（由 Agent 输出）
- */
-export interface MetricDefinitionJSON extends MetricDefinitionBase {
-  atomicExt?: AtomicMetricDefinition;
-  derivedExt?: DerivedMetricDefinition;
-  compositeExt?: CompositeMetricDefinition;
+  // 复合指标字段（平铺）
+  formula?: string;
+  metricRefs?: string[];
 }
 
 /**

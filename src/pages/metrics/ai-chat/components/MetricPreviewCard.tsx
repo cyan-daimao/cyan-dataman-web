@@ -42,34 +42,9 @@ const MetricPreviewCard: React.FC<MetricPreviewCardProps> = ({ definition, onCon
   const handlePreviewSql = async () => {
     setSqlLoading(true);
     try {
-      let definitionBody: Record<string, unknown> = {};
-      if (definition.metricType === 'ATOMIC' && definition.atomicExt) {
-        definitionBody = {
-          statFunc: definition.atomicExt.statFunc,
-          dsName: definition.atomicExt.dsName,
-          dbName: definition.atomicExt.dbName,
-          tblName: definition.atomicExt.tblName,
-          colName: definition.atomicExt.colName,
-          filterCondition: definition.atomicExt.filterCondition || [],
-        };
-      } else if (definition.metricType === 'DERIVED' && definition.derivedExt) {
-        definitionBody = {
-          atomicMetricId: definition.derivedExt.atomicMetricId,
-          timePeriodId: definition.derivedExt.timePeriodId,
-          modifierIds: definition.derivedExt.modifierIds || [],
-          dimensionIds: definition.derivedExt.dimensionIds || [],
-          groupByFields: definition.derivedExt.groupByFields || [],
-        };
-      } else if (definition.metricType === 'COMPOSITE' && definition.compositeExt) {
-        definitionBody = {
-          formula: definition.compositeExt.formula,
-          metricRefs: definition.compositeExt.metricRefs,
-        };
-      }
-
       const cmd: PreviewSqlCmd = {
         metricType: definition.metricType as 'ATOMIC' | 'DERIVED' | 'COMPOSITE',
-        definitionBody,
+        definitionBody: { ...definition },
       };
 
       const res = await MetricApi.previewSql(cmd);
@@ -84,60 +59,6 @@ const MetricPreviewCard: React.FC<MetricPreviewCardProps> = ({ definition, onCon
     } finally {
       setSqlLoading(false);
     }
-  };
-
-  const renderAtomicDetails = () => {
-    if (!definition.atomicExt) return null;
-    const ext = definition.atomicExt;
-    return (
-      <>
-        <Descriptions.Item label="统计函数">{STAT_FUNC_MAP[ext.statFunc] || ext.statFunc}</Descriptions.Item>
-        <Descriptions.Item label="数据源">{ext.dsName}</Descriptions.Item>
-        <Descriptions.Item label="数据库">{ext.dbName}</Descriptions.Item>
-        <Descriptions.Item label="数据表">{ext.tblName}</Descriptions.Item>
-        <Descriptions.Item label="统计字段">{ext.colName}</Descriptions.Item>
-        {ext.filterCondition && ext.filterCondition.length > 0 && (
-          <Descriptions.Item label="过滤条件">
-            {ext.filterCondition.map((f, i) => (
-              <Tag key={i} size="small">{f.field} {f.op} {f.value}</Tag>
-            ))}
-          </Descriptions.Item>
-        )}
-      </>
-    );
-  };
-
-  const renderDerivedDetails = () => {
-    if (!definition.derivedExt) return null;
-    const ext = definition.derivedExt;
-    return (
-      <>
-        <Descriptions.Item label="关联原子指标">{ext.atomicMetricId}</Descriptions.Item>
-        <Descriptions.Item label="时间周期">{ext.timePeriodId}</Descriptions.Item>
-        {ext.modifierIds && ext.modifierIds.length > 0 && (
-          <Descriptions.Item label="修饰词">{ext.modifierIds.join(', ')}</Descriptions.Item>
-        )}
-        {ext.dimensionIds && ext.dimensionIds.length > 0 && (
-          <Descriptions.Item label="维度">{ext.dimensionIds.join(', ')}</Descriptions.Item>
-        )}
-        {ext.groupByFields && ext.groupByFields.length > 0 && (
-          <Descriptions.Item label="分组字段">{ext.groupByFields.map(g => g.col).join(', ')}</Descriptions.Item>
-        )}
-      </>
-    );
-  };
-
-  const renderCompositeDetails = () => {
-    if (!definition.compositeExt) return null;
-    const ext = definition.compositeExt;
-    return (
-      <>
-        <Descriptions.Item label="计算公式">
-          <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 4 }}>{ext.formula}</code>
-        </Descriptions.Item>
-        <Descriptions.Item label="引用指标">{ext.metricRefs.join(', ')}</Descriptions.Item>
-      </>
-    );
   };
 
   return (
@@ -185,9 +106,67 @@ const MetricPreviewCard: React.FC<MetricPreviewCardProps> = ({ definition, onCon
             </Descriptions.Item>
           )}
           {definition.owner && <Descriptions.Item label="负责人">{definition.owner}</Descriptions.Item>}
-          {definition.metricType === 'ATOMIC' && renderAtomicDetails()}
-          {definition.metricType === 'DERIVED' && renderDerivedDetails()}
-          {definition.metricType === 'COMPOSITE' && renderCompositeDetails()}
+
+          {/* 原子指标字段 */}
+          {definition.metricType === 'ATOMIC' && (
+            <>
+              {definition.statFunc && (
+                <Descriptions.Item label="统计函数">
+                  {STAT_FUNC_MAP[definition.statFunc] || definition.statFunc}
+                </Descriptions.Item>
+              )}
+              {definition.dsName && <Descriptions.Item label="数据源">{definition.dsName}</Descriptions.Item>}
+              {definition.dbName && <Descriptions.Item label="数据库">{definition.dbName}</Descriptions.Item>}
+              {definition.tblName && <Descriptions.Item label="数据表">{definition.tblName}</Descriptions.Item>}
+              {definition.colName && <Descriptions.Item label="统计字段">{definition.colName}</Descriptions.Item>}
+              {definition.filterCondition && definition.filterCondition.length > 0 && (
+                <Descriptions.Item label="过滤条件">
+                  {definition.filterCondition.map((f, i) => (
+                    <Tag key={i} size="small">{f.field} {f.op} {f.value}</Tag>
+                  ))}
+                </Descriptions.Item>
+              )}
+            </>
+          )}
+
+          {/* 派生指标字段 */}
+          {definition.metricType === 'DERIVED' && (
+            <>
+              {definition.atomicMetricId && (
+                <Descriptions.Item label="关联原子指标">{definition.atomicMetricId}</Descriptions.Item>
+              )}
+              {definition.timePeriodId && (
+                <Descriptions.Item label="时间周期">{definition.timePeriodId}</Descriptions.Item>
+              )}
+              {definition.modifierIds && definition.modifierIds.length > 0 && (
+                <Descriptions.Item label="修饰词">{definition.modifierIds.join(', ')}</Descriptions.Item>
+              )}
+              {definition.dimensionIds && definition.dimensionIds.length > 0 && (
+                <Descriptions.Item label="维度">{definition.dimensionIds.join(', ')}</Descriptions.Item>
+              )}
+              {definition.groupByFields && definition.groupByFields.length > 0 && (
+                <Descriptions.Item label="分组字段">
+                  {definition.groupByFields.map(g => g.col).join(', ')}
+                </Descriptions.Item>
+              )}
+            </>
+          )}
+
+          {/* 复合指标字段 */}
+          {definition.metricType === 'COMPOSITE' && (
+            <>
+              {definition.formula && (
+                <Descriptions.Item label="计算公式">
+                  <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 4 }}>
+                    {definition.formula}
+                  </code>
+                </Descriptions.Item>
+              )}
+              {definition.metricRefs && definition.metricRefs.length > 0 && (
+                <Descriptions.Item label="引用指标">{definition.metricRefs.join(', ')}</Descriptions.Item>
+              )}
+            </>
+          )}
         </Descriptions>
       </Card>
 
@@ -196,9 +175,7 @@ const MetricPreviewCard: React.FC<MetricPreviewCardProps> = ({ definition, onCon
         open={sqlModalOpen}
         onCancel={() => setSqlModalOpen(false)}
         footer={[
-          <Button key="close" onClick={() => setSqlModalOpen(false)}>
-            关闭
-          </Button>,
+          <Button key="close" onClick={() => setSqlModalOpen(false)}>关闭</Button>,
         ]}
         width={720}
       >
