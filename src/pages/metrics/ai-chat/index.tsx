@@ -16,6 +16,9 @@ import { useMetricAiChatStore, AiChatMessage } from './store';
 import ChatInput from './components/ChatInput';
 import MarkdownRender from './components/MarkdownRender';
 import ThinkingChain from './components/ThinkingChain';
+import MetricPreviewCard from './components/MetricPreviewCard';
+import { stripMetricDefinition } from './types';
+import { MetricApi } from '@/api/MetricApi';
 import './index.less';
 
 const { Text } = Typography;
@@ -29,9 +32,10 @@ const MessageItem: React.FC<{ msg: AiChatMessage }> = ({ msg }) => {
   // 提取思考过程（如果有）
   const thinkMatch = msg.content.match(/<think>([\s\S]*?)<\/think>/);
   const thinkContent = thinkMatch ? thinkMatch[1].trim() : undefined;
+  // 同时移除 metric_definition 标签（预览卡片会单独展示）
   const displayContent = thinkContent
-    ? msg.content.replace(/<think>[\s\S]*?<\/think>/, '').trim()
-    : msg.content;
+    ? stripMetricDefinition(msg.content.replace(/<think>[\s\S]*?<\/think>/, '').trim())
+    : stripMetricDefinition(msg.content);
 
   return (
     <div className={`metric-ai-chat-msg ${isUser ? 'metric-ai-chat-msg-user' : 'metric-ai-chat-msg-ai'}`}>
@@ -103,15 +107,19 @@ const MetricAiChatPage: React.FC = () => {
   const messages = useMetricAiChatStore((s) => s.messages);
   const isLoading = useMetricAiChatStore((s) => s.isLoading);
   const inputValue = useMetricAiChatStore((s) => s.inputValue);
+  const pendingDefinition = useMetricAiChatStore((s) => s.pendingDefinition);
+  const isCreating = useMetricAiChatStore((s) => s.isCreating);
   const sendMessage = useMetricAiChatStore((s) => s.sendMessage);
   const setInputValue = useMetricAiChatStore((s) => s.setInputValue);
   const resetChat = useMetricAiChatStore((s) => s.resetChat);
+  const setPendingDefinition = useMetricAiChatStore((s) => s.setPendingDefinition);
+  const setIsCreating = useMetricAiChatStore((s) => s.setIsCreating);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, pendingDefinition]);
 
   const handleSend = (query: string) => {
     sendMessage(query);
@@ -122,12 +130,80 @@ const MetricAiChatPage: React.FC = () => {
     message.success('对话已重置');
   };
 
+  const handleConfirmCreate = async () => {
+    if (!pendingDefinition) return;
+    setIsCreating(true);
+    try {
+      const def = pendingDefinition;
+      let res;
+      if (def.metricType === 'ATOMIC' && def.atomicExt) {
+        res = await MetricApi.createAtomic({
+          metricName: def.metricName,
+          bizCaliber: def.bizCaliber,
+          techCaliber: def.techCaliber || '',
+          statFunc: def.atomicExt.statFunc,
+          dsName: def.atomicExt.dsName,
+          dbName: def.atomicExt.dbName,
+          tblName: def.atomicExt.tblName,
+          colName: def.atomicExt.colName,
+          filterCondition: def.atomicExt.filterCondition,
+          subjectCode: def.subjectCode,
+          securityLevel: def.securityLevel,
+          owner: def.owner,
+        });
+      } else if (def.metricType === 'DERIVED' && def.derivedExt) {
+        res = await MetricApi.createDerived({
+          metricName: def.metricName,
+          bizCaliber: def.bizCaliber,
+          techCaliber: def.techCaliber || '',
+          atomicMetricId: def.derivedExt.atomicMetricId,
+          timePeriodId: def.derivedExt.timePeriodId,
+          modifierIds: def.derivedExt.modifierIds,
+          dimensionIds: def.derivedExt.dimensionIds,
+          groupByFields: def.derivedExt.groupByFields,
+          subjectCode: def.subjectCode,
+          securityLevel: def.securityLevel,
+          owner: def.owner,
+        });
+      } else if (def.metricType === 'COMPOSITE' && def.compositeExt) {
+        res = await MetricApi.createComposite({
+          metricName: def.metricName,
+          bizCaliber: def.bizCaliber,
+          techCaliber: def.techCaliber || '',
+          formula: def.compositeExt.formula,
+          metricRefs: def.compositeExt.metricRefs,
+          subjectCode: def.subjectCode,
+          securityLevel: def.securityLevel,
+          owner: def.owner,
+        });
+      } else {
+        throw new Error('指标定义格式不正确');
+      }
+
+      if (res.code === 200 && res.data) {
+        message.success(`指标「${res.data.metricName}」创建成功！编码：${res.data.metricCode}`);
+        setPendingDefinition(null);
+      } else {
+        message.error(res.message || '创建失败');
+      }
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : '创建请求失败';
+      message.error(errMsg);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleCancelPreview = () => {
+    setPendingDefinition(null);
+  };
+
   return (
     <div className="metric-ai-chat-page">
       <div className="metric-ai-chat-content">
         {/* 消息列表 */}
         <div className="metric-ai-chat-messages">
-          {messages.length === 0 ? (
+          {messages.length === 0 && !pendingDefinition ? (
             <div className="metric-ai-chat-welcome">
               {/* Logo 区域 */}
               <div className="metric-ai-chat-welcome-brand">
@@ -163,6 +239,28 @@ const MetricAiChatPage: React.FC = () => {
                 </div>
               ))}
               <div ref={messagesEndRef} />
+            </div>
+          )}
+
+          {/* 指标预览卡片 */}
+          {pendingDefinition && (
+            <div className="metric-ai-chat-msg-list">
+              <div className="metric-ai-chat-msg-outer">
+                <MetricPreviewCard
+                  definition={pendingDefinition}
+                  onConfirm={handleConfirmCreate}
+                  onCancel={handleCancelPreview}
+                />
+              </div>
+            </div>
+          )}
+
+          {isCreating && (
+            <div className="metric-ai-chat-msg-list">
+              <div className="metric-ai-chat-creating-hint">
+                <Spin size="small" />
+                <span>正在创建指标...</span>
+              </div>
             </div>
           )}
         </div>

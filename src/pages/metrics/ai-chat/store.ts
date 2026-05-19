@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { streamMetricAiChat } from '@/api/MetricAiChatApi';
+import { extractMetricDefinition, type MetricDefinitionJSON } from './types';
 
 // ==================== 类型定义 ====================
 
@@ -16,11 +17,15 @@ export interface MetricAiChatState {
   conversationId: string;
   isLoading: boolean;
   inputValue: string;
+  pendingDefinition: MetricDefinitionJSON | null;
+  isCreating: boolean;
 
   // actions
   setInputValue: (value: string) => void;
   sendMessage: (query: string) => Promise<void>;
   resetChat: () => void;
+  setPendingDefinition: (def: MetricDefinitionJSON | null) => void;
+  setIsCreating: (value: boolean) => void;
 }
 
 // ==================== 工具函数 ====================
@@ -49,11 +54,17 @@ export const useMetricAiChatStore = create<MetricAiChatState>((set, get) => ({
   conversationId: '',
   isLoading: false,
   inputValue: '',
+  pendingDefinition: null,
+  isCreating: false,
 
   setInputValue: (value: string) => set({ inputValue: value }),
 
+  setPendingDefinition: (def: MetricDefinitionJSON | null) => set({ pendingDefinition: def }),
+
+  setIsCreating: (value: boolean) => set({ isCreating: value }),
+
   resetChat: () => {
-    set({ messages: [], conversationId: '', isLoading: false, inputValue: '' });
+    set({ messages: [], conversationId: '', isLoading: false, inputValue: '', pendingDefinition: null, isCreating: false });
   },
 
   sendMessage: async (query: string) => {
@@ -79,6 +90,7 @@ export const useMetricAiChatStore = create<MetricAiChatState>((set, get) => ({
       messages: [...s.messages, userMsg, assistantMsg],
       isLoading: true,
       inputValue: '',
+      pendingDefinition: null,
     }));
 
     let fullContent = '';
@@ -114,7 +126,9 @@ export const useMetricAiChatStore = create<MetricAiChatState>((set, get) => ({
         }
       }
 
-      // 消息结束
+      // 消息结束：解析 metric_definition
+      const definition = extractMetricDefinition(fullContent);
+
       set((s) => {
         const msgs = [...s.messages];
         const lastMsg = msgs[msgs.length - 1];
@@ -125,6 +139,7 @@ export const useMetricAiChatStore = create<MetricAiChatState>((set, get) => ({
           messages: msgs,
           conversationId: newConversationId,
           isLoading: false,
+          pendingDefinition: definition,
         };
       });
     } catch (error) {
@@ -136,7 +151,7 @@ export const useMetricAiChatStore = create<MetricAiChatState>((set, get) => ({
           lastMsg.loading = false;
           lastMsg.error = errMsg;
         }
-        return { messages: msgs, isLoading: false };
+        return { messages: msgs, isLoading: false, pendingDefinition: null };
       });
     }
   },

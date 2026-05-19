@@ -401,6 +401,86 @@
 }
 
 /* ============================================
+   指标预览卡片
+   ============================================ */
+
+.metric-ai-preview-card {
+  max-width: 900px;
+  margin: 0 auto 24px;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(79, 109, 245, 0.08);
+  border: 1px solid #e0e6ff;
+  animation: metricAiChatMsgIn 0.4s ease;
+
+  .ant-card-head {
+    border-bottom: 1px solid #f0f2ff;
+    padding: 16px 20px;
+  }
+
+  .ant-card-body {
+    padding: 16px 20px;
+  }
+
+  .ant-card-actions {
+    border-top: 1px solid #f0f2ff;
+    padding: 8px 16px;
+
+    > li {
+      margin: 0;
+    }
+  }
+}
+
+.metric-ai-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.metric-ai-preview-type-tag {
+  font-size: 13px;
+  padding: 2px 10px;
+  border-radius: 6px;
+  margin-inline-end: 0 !important;
+}
+
+.metric-ai-preview-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.metric-ai-preview-desc {
+  .ant-descriptions-item {
+    padding-bottom: 8px;
+  }
+
+  .ant-descriptions-item-label {
+    color: #8b909a;
+    font-size: 13px;
+    width: 90px;
+  }
+
+  .ant-descriptions-item-content {
+    color: #1a1a2e;
+    font-size: 13px;
+  }
+}
+
+.metric-ai-chat-creating-hint {
+  max-width: 900px;
+  margin: 0 auto 24px;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #4F6DF5;
+  background: linear-gradient(90deg, #eef1ff 0%, transparent 100%);
+  border-radius: 10px;
+}
+
+/* ============================================
    响应式
    ============================================ */
 

@@ -1,0 +1,74 @@
+import type { StatFunc, FilterCondition, GroupByField } from '@/api/MetricApi';
+
+/**
+ * AI 创建指标定义的通用基础字段
+ */
+export interface MetricDefinitionBase {
+  metricType: 'ATOMIC' | 'DERIVED' | 'COMPOSITE';
+  metricName: string;
+  subjectCode: string;
+  bizCaliber: string;
+  techCaliber?: string;
+  securityLevel?: string;
+  owner?: string;
+}
+
+/**
+ * 原子指标扩展定义
+ */
+export interface AtomicMetricDefinition {
+  statFunc: StatFunc;
+  dsName: string;
+  dbName: string;
+  tblName: string;
+  colName: string;
+  filterCondition?: FilterCondition[];
+}
+
+/**
+ * 派生指标扩展定义
+ */
+export interface DerivedMetricDefinition {
+  atomicMetricId: string;
+  timePeriodId: string;
+  modifierIds?: string[];
+  dimensionIds?: string[];
+  groupByFields?: GroupByField[];
+}
+
+/**
+ * 复合指标扩展定义
+ */
+export interface CompositeMetricDefinition {
+  formula: string;
+  metricRefs: string[];
+}
+
+/**
+ * AI 创建指标完整定义（由 Agent 输出）
+ */
+export interface MetricDefinitionJSON extends MetricDefinitionBase {
+  atomicExt?: AtomicMetricDefinition;
+  derivedExt?: DerivedMetricDefinition;
+  compositeExt?: CompositeMetricDefinition;
+}
+
+/**
+ * 从 Agent 回复内容中提取 <metric_definition> 标签内的 JSON
+ */
+export function extractMetricDefinition(content: string): MetricDefinitionJSON | null {
+  const match = content.match(/<metric_definition>([\s\S]*?)<\/metric_definition>/);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[1].trim()) as MetricDefinitionJSON;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 从 Agent 回复内容中移除 <metric_definition> 标签（用于纯文本展示）
+ */
+export function stripMetricDefinition(content: string): string {
+  return content.replace(/<metric_definition>[\s\S]*?<\/metric_definition>/, '').trim();
+}
