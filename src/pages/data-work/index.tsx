@@ -875,7 +875,7 @@ const DataWorkWorkspace: React.FC = () => {
 
                 {/* 中央区域 */}
                 <Col flex="1 1 auto" style={{ height: '100%' }}>
-                    <Layout style={{height: '100%'}} ref={containerRef}>
+                    <Layout style={{height: '100%', minHeight: 0, overflow: 'hidden'}} ref={containerRef}>
                         {editorInitializing ? (
                             <Content style={{background: '#fff'}}>
                                 <div style={{padding: 40, textAlign: 'center'}}>
@@ -885,7 +885,7 @@ const DataWorkWorkspace: React.FC = () => {
                             </Content>
                         ) : (
                             <>
-                                <Content style={{height: editorHeight, background: '#fff'}}>
+                                <Content style={{height: editorHeight, flexShrink: 0, minHeight: 0, background: '#fff', overflow: 'hidden'}}>
                                     <SQLEditor
                                         value={activeTab.sqlContent}
                                         onChange={(val) => setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
@@ -912,7 +912,7 @@ const DataWorkWorkspace: React.FC = () => {
                                         transition: 'background 0.2s',
                                     }}
                                 />
-                                <Content style={{background: '#fff', overflow: 'auto'}}>
+                                <Content style={{flex: 1, minHeight: 0, background: '#fff', overflow: 'hidden'}}>
                                     <DataWorkResultPanel
                                         loading={false}
                                         result={activeTab.result}

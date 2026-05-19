@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Input, Layout, message, Tabs, Spin, Button} from 'antd';
-const { Sider, Content } = Layout;
+const { Sider } = Layout;
 import {CodeOutlined, DatabaseOutlined, PlusOutlined, MenuFoldOutlined, MenuUnfoldOutlined} from '@ant-design/icons';
 import Sidebar from './components/Sidebar';
 import SQLEditor from './components/SQLEditor';
@@ -167,9 +167,8 @@ const SQLEditorPage: React.FC = () => {
             }
             if (isDraggingEditor && containerRef.current) {
                 const containerRect = containerRef.current.getBoundingClientRect();
-                const headerHeight = 41;
-                const newHeight = e.clientY - containerRect.top - headerHeight;
-                if (newHeight >= 150 && newHeight <= containerRect.height - headerHeight - 150) {
+                const newHeight = e.clientY - containerRect.top;
+                if (newHeight >= 150 && newHeight <= containerRect.height - 150) {
                     setEditorHeight(newHeight);
                 }
             }
@@ -478,7 +477,7 @@ const SQLEditorPage: React.FC = () => {
     })), [tabs, editingTabId, editingTabName, handleStartRename, handleFinishRename]);
 
     return (
-        <Layout style={{height: '100vh'}}>
+        <Layout style={{height: '100%', minHeight: 0, overflow: 'hidden'}}>
             <Sider width={siderCollapsed ? 40 : siderWidth} style={{background: '#fff', position: 'relative'}}>
                 <div style={{padding: '8px 4px', textAlign: 'center', borderBottom: '1px solid #f0f0f0'}}>
                     <Button
@@ -516,69 +515,74 @@ const SQLEditorPage: React.FC = () => {
                     />
                 )}
             </Sider>
-            <Layout>
-                <Content style={{height: editorHeight, background: '#fff'}}>
-                    <div style={{background: '#fff', borderBottom: '1px solid #f0f0f0', padding: '4px 8px 0'}}>
-                        <Tabs
-                            type="editable-card"
-                            activeKey={activeTab}
-                            onChange={setActiveTab}
-                            items={tabItems}
-                            onEdit={(targetKey, action) => {
-                                if (action === 'add') {
-                                    handleAddTab();
-                                } else if (action === 'remove' && typeof targetKey === 'string') {
-                                    handleCloseTab(targetKey);
+            <Layout style={{height: '100%', minHeight: 0, overflow: 'hidden'}}>
+                <div ref={containerRef} style={{height: '100%', minHeight: 0, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden'}}>
+                    <div style={{height: editorHeight, flexShrink: 0, minHeight: 0, background: '#fff', overflow: 'hidden', display: 'flex', flexDirection: 'column'}}>
+                        <div style={{background: '#fff', borderBottom: '1px solid #f0f0f0', padding: '4px 8px 0', flexShrink: 0}}>
+                            <Tabs
+                                type="editable-card"
+                                activeKey={activeTab}
+                                onChange={setActiveTab}
+                                items={tabItems}
+                                onEdit={(targetKey, action) => {
+                                    if (action === 'add') {
+                                        handleAddTab();
+                                    } else if (action === 'remove' && typeof targetKey === 'string') {
+                                        handleCloseTab(targetKey);
+                                    }
+                                }}
+                                hideAdd={false}
+                                addIcon={<PlusOutlined/>}
+                                tabBarStyle={{marginBottom: 0}}
+                                tabBarExtraContent={
+                                    <span style={{color: '#999', fontSize: 12}}>
+                                        <DatabaseOutlined style={{marginRight: 4}}/>
+                                        数据仓库SQL编辑器,默认只展示1000行
+                                    </span>
                                 }
-                            }}
-                            hideAdd={false}
-                            addIcon={<PlusOutlined/>}
-                            tabBarStyle={{marginBottom: 0}}
-                            tabBarExtraContent={
-                                <span style={{color: '#999', fontSize: 12}}>
-                                    <DatabaseOutlined style={{marginRight: 4}}/>
-                                    数据仓库SQL编辑器,默认只展示1000行
-                                </span>
-                            }
-                        />
-                    </div>
-                    <SQLEditor
-                        value={currentTab?.sql || ''}
-                        onChange={handleSQLChange}
-                        onExecute={handleExecute}
-                        onExecutePlan={handleExecutePlan}
-                        onFormat={handleFormat}
-                        tableColumnsCache={tableColumnsCache}
-                        availableTables={availableTables}
-                    />
-                </Content>
-                {/* 水平拖拽条 */}
-                <div
-                    onMouseDown={handleEditorMouseDown}
-                    style={{
-                        height: 6,
-                        cursor: 'row-resize',
-                        background: isDraggingEditor ? '#1890ff' : '#f0f0f0',
-                        transition: 'background 0.2s'
-                    }}
-                />
-                <Content style={{background: '#fff', overflow: 'auto'}}>
-                    {editorInitializing ? (
-                        <div style={{padding: 40, textAlign: 'center'}}>
-                            <Spin size="large" />
-                            <div style={{color: '#999', fontSize: 14, marginTop: 16}}>SQL 编辑器初始化中...</div>
+                            />
                         </div>
-                    ) : currentTab && (
-                        <ResultPanel
-                            loading={loading}
-                            result={currentTab.result}
-                            executionPlan={currentTab.executionPlan}
-                            error={currentTab.error}
-                            activeTab={resultActiveTab}
-                            onTabChange={setResultActiveTab}
-                        />
-                    )}
-                </Content>
+                        <div style={{flex: 1, minHeight: 0}}>
+                            <SQLEditor
+                                value={currentTab?.sql || ''}
+                                onChange={handleSQLChange}
+                                onExecute={handleExecute}
+                                onExecutePlan={handleExecutePlan}
+                                onFormat={handleFormat}
+                                tableColumnsCache={tableColumnsCache}
+                                availableTables={availableTables}
+                            />
+                        </div>
+                    </div>
+                    {/* 水平拖拽条 */}
+                    <div
+                        onMouseDown={handleEditorMouseDown}
+                        style={{
+                            height: 6,
+                            flexShrink: 0,
+                            cursor: 'row-resize',
+                            background: isDraggingEditor ? '#1890ff' : '#f0f0f0',
+                            transition: 'background 0.2s'
+                        }}
+                    />
+                    <div style={{flex: 1, minHeight: 0, background: '#fff', overflow: 'hidden'}}>
+                        {editorInitializing ? (
+                            <div style={{padding: 40, textAlign: 'center'}}>
+                                <Spin size="large" />
+                                <div style={{color: '#999', fontSize: 14, marginTop: 16}}>SQL 编辑器初始化中...</div>
+                            </div>
+                        ) : currentTab && (
+                            <ResultPanel
+                                loading={loading}
+                                result={currentTab.result}
+                                executionPlan={currentTab.executionPlan}
+                                error={currentTab.error}
+                                activeTab={resultActiveTab}
+                                onTabChange={setResultActiveTab}
+                            />
+                        )}
+                    </div>
+                </div>
             </Layout>
         </Layout>
     );

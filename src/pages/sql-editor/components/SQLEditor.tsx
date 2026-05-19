@@ -294,7 +294,7 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
     }, [onChange]);
 
     return (
-        <div style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
+        <div style={{height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column'}}>
             {/* 工具栏 */}
             <div style={{
                 padding: '8px 12px',
@@ -334,7 +334,7 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
             </div>
 
             {/* 编辑器 */}
-            <div style={{flex: 1}}>
+            <div style={{flex: 1, minHeight: 0}}>
                 <Editor
                     height="100%"
                     defaultLanguage="sql"

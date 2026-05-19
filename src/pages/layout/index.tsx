@@ -247,7 +247,7 @@ const App: React.FC = () => {
                     display: 'flex',
                     flexDirection: 'column',
                     minHeight: 0,
-                    padding: '16',
+                    padding: 16,
                     background: '#F8F9FA',
                 }}
             >

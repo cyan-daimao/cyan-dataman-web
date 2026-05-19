@@ -38,7 +38,9 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
 }) => {
     const [pagination, setPagination] = useState({ current: 1, pageSize: 20 });
     const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+    const [tableScrollY, setTableScrollY] = useState(300);
 
+    const tableContainerRef = useRef<HTMLDivElement>(null);
     const resizingCol = useRef<string | null>(null);
     const startX = useRef(0);
     const startWidth = useRef(150);
@@ -152,6 +154,27 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
         return result?.columns.reduce((sum, col) => sum + (columnWidths[col] || 150), 0) || 0;
     }, [result?.columns, columnWidths]);
 
+    useEffect(() => {
+        const el = tableContainerRef.current;
+        if (!el) return;
+
+        const updateScrollY = () => {
+            const header = el.querySelector('.ant-table-header') as HTMLElement | null
+                || el.querySelector('.ant-table-thead') as HTMLElement | null;
+            const headerHeight = header?.offsetHeight ?? 55;
+            setTableScrollY(Math.max(el.clientHeight - headerHeight, 120));
+        };
+
+        updateScrollY();
+
+        const resizeObserver = new ResizeObserver(updateScrollY);
+        resizeObserver.observe(el);
+
+        return () => {
+            resizeObserver.disconnect();
+        };
+    }, [activeTab, result, totalColumnWidth]);
+
     const planColumns: TableProps<ExecutionPlan>["columns"] = [
         { title: 'ID', dataIndex: 'id', key: 'id', width: 60, align: 'center' as const },
         { title: '操作', dataIndex: 'operation', key: 'operation', width: 200, render: (text) => <Tag color="blue">{text}</Tag> },
@@ -165,7 +188,8 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
             activeKey={activeTab}
             onChange={onTabChange}
             size="small"
-            style={{height: '100%'}}
+            className="result-panel-tabs"
+            style={{height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column'}}
             items={[
                 {
                     key: 'result',
@@ -188,15 +212,8 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
                                     </Card>
                                 </div>
                             ) : result ? (
-                                <>
-                                    <div style={{
-                                        padding: '10px 16px',
-                                        background: '#f8fafc',
-                                        borderBottom: '1px solid #e2e8f0',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                    }}>
+                                <div className="result-table-panel">
+                                    <div className="result-table-summary">
                                         <span style={{fontSize: 13, color: '#475569'}}>
                                             <ClockCircleOutlined style={{marginRight: 6, color: '#3b82f6'}}/>
                                             耗时 <strong style={{color: '#1e293b'}}>{result.duration}ms</strong>
@@ -209,23 +226,18 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
                                             下载 CSV
                                         </Button>
                                     </div>
-                                    <Table
-                                        dataSource={rowsWithIndex.slice((pagination.current - 1) * pagination.pageSize, pagination.current * pagination.pageSize)}
-                                        columns={columnsWithKey}
-                                        rowKey="_idx"
-                                        size="small"
-                                        pagination={false}
-                                        scroll={{x: totalColumnWidth, y: 'calc(100vh - 580px)'}}
-                                        bordered
-                                    />
-                                    <div style={{
-                                        padding: '10px 16px',
-                                        background: '#f8fafc',
-                                        borderTop: '1px solid #e2e8f0',
-                                        display: 'flex',
-                                        justifyContent: 'flex-end',
-                                        alignItems: 'center',
-                                    }}>
+                                    <div className="result-table-container" ref={tableContainerRef}>
+                                        <Table
+                                            dataSource={rowsWithIndex.slice((pagination.current - 1) * pagination.pageSize, pagination.current * pagination.pageSize)}
+                                            columns={columnsWithKey}
+                                            rowKey="_idx"
+                                            size="small"
+                                            pagination={false}
+                                            scroll={{x: totalColumnWidth, y: tableScrollY}}
+                                            bordered
+                                        />
+                                    </div>
+                                    <div className="result-pagination">
                                         <Pagination
                                             size="small"
                                             current={pagination.current}
@@ -238,7 +250,7 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
                                             onChange={(page, pageSize) => handleTableChange({current: page, pageSize})}
                                         />
                                     </div>
-                                </>
+                                </div>
                             ) : (
                                 <Empty description="暂无查询结果，请先执行 SQL" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{marginTop: 48}}/>
                             )}
