@@ -20,6 +20,25 @@ export interface MetricAiChatRequest {
   user: string;
 }
 
+export interface DifyConversation {
+  id: string;
+  name: string;
+  inputs: Record<string, unknown>;
+  status: string;
+  introduction: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface DifyMessage {
+  id: string;
+  conversation_id: string;
+  inputs: Record<string, unknown>;
+  query: string;
+  answer: string;
+  created_at: number;
+}
+
 /**
  * SSE 流式调用 Dify Chat API（指标创建 Agent）
  */
@@ -71,4 +90,48 @@ export async function* streamMetricAiChat(
       }
     }
   }
+}
+
+/**
+ * 获取用户的对话列表
+ */
+export async function getConversations(user: string): Promise<DifyConversation[]> {
+  const response = await fetch(
+    `${DIFY_BASE_URL}/v1/conversations?user=${encodeURIComponent(user)}&limit=100`,
+    {
+      headers: {
+        'Authorization': `Bearer ${DIFY_API_KEY}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Dify API error: ${response.status} ${text}`);
+  }
+
+  const data = await response.json();
+  return (data.data || []) as DifyConversation[];
+}
+
+/**
+ * 获取指定对话的消息列表
+ */
+export async function getMessages(conversationId: string, user: string): Promise<DifyMessage[]> {
+  const response = await fetch(
+    `${DIFY_BASE_URL}/v1/messages?user=${encodeURIComponent(user)}&conversation_id=${encodeURIComponent(conversationId)}&limit=100`,
+    {
+      headers: {
+        'Authorization': `Bearer ${DIFY_API_KEY}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Dify API error: ${response.status} ${text}`);
+  }
+
+  const data = await response.json();
+  return (data.data || []) as DifyMessage[];
 }

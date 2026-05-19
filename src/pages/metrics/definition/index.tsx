@@ -1,27 +1,26 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-    Card, Table, Button, Space, Modal, Form, Input, Select, TreeSelect, message,
-    Empty, Tag, Popconfirm, Typography,  Row, Col, Drawer,
+    Card, Table, Button, Space, message,
+    Empty, Tag, Popconfirm, Typography, Drawer,
 } from 'antd';
 import {
-    PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, PlayCircleOutlined,
+    PlusOutlined, EditOutlined, DeleteOutlined,
     RocketOutlined, DownOutlined, HistoryOutlined,
 } from '@ant-design/icons';
 import {
-    MetricApi, MetricListItem, MetricType, MetricStatus, StatFunc, AtomicMetricCmd,
-    DerivedMetricCmd, CompositeMetricCmd, MetricVersionItem,
-    PageResult,
+    MetricApi, MetricListItem, MetricType, MetricStatus,
+    MetricVersionItem,
 } from '@/api/MetricApi';
-import { ModifierApi, ModifierDTO, TimePeriodApi, TimePeriodDTO, DimensionApi, DimensionDTO, DimType, MetadataTableSelectorApi, MetadataColumnDTO } from '@/api/MetricConfigApi';
 import { MetricSubjectApi, MetricSubject } from '@/api/MetricSubjectApi';
-import { executeSql } from '@/api/DatagawayApi';
 import { ApiResponse } from '@/api/Response';
-import { listEmployees, EmployeeDTO, currentEmployee } from '@/api/EmployeeApi';
+import { PageResult } from '@/api/Response';
+import { listEmployees, currentEmployee } from '@/api/EmployeeApi';
+import MetricDefinitionFormModal from './components/MetricDefinitionFormModal';
 
-const { Title, Text } = Typography;
-const { TextArea } = Input;
+const { Title } = Typography;
 const { Option } = Select;
+import { Input, Select, TreeSelect } from 'antd';
 
 const typeTagMap: Record<string, { color: string; label: string }> = {
     ATOMIC: { color: 'blue', label: '原子' },
@@ -35,279 +34,36 @@ const statusTagMap: Record<string, { color: string; label: string }> = {
     OFFLINE: { color: 'error', label: '已下线' },
 };
 
-// ==================== 数仓表选择器 ====================
-
-interface MetadataTableSelectorValue {
-    dsName?: string;
-    dbName?: string;
-    tblName?: string;
-    colName?: string;
-}
-
-interface MetadataTableSelectorProps {
-    value?: MetadataTableSelectorValue;
-    onChange?: (value: MetadataTableSelectorValue) => void;
-    onColumnsChange?: (columns: MetadataColumnDTO[]) => void;
-}
-
-const MetadataTableSelector: React.FC<MetadataTableSelectorProps> = ({ value, onChange, onColumnsChange }) => {
-    const [tableOptions, setTableOptions] = useState<{ id: string; name: string; layerCode?: string; catalog?: string; schema?: string;comment?: string }[]>([]);
-    const [tableLoading, setTableLoading] = useState(false);
-    const [columns, setColumns] = useState<MetadataColumnDTO[]>([]);
-    const [columnsLoading, setColumnsLoading] = useState(false);
-
-    const current = value || {};
-    const currentTableName = current.tblName || '';
-
-    // 加载数仓表列表
-    useEffect(() => {
-        setTableLoading(true);
-        MetadataTableSelectorApi.list()
-            .then(res => {
-                if (res.code === 200 && res.data) {
-                    setTableOptions((res.data.data || []).map(item => ({
-                        id: item.id,
-                        name: item.name,
-                        comment: item.comment,
-                        layerCode: item.layerCode,
-                        catalog: item.table?.catalog,
-                        schema: item.table?.schema,
-                    })));
-                }
-            })
-            .catch(() => message.error('加载数仓表列表失败'))
-            .finally(() => setTableLoading(false));
-    }, []);
-
-    // 根据当前表名加载字段列表
-    useEffect(() => {
-        const selected = tableOptions.find(t => t.name === currentTableName);
-        if (!selected) {
-            setColumns([]);
-            onColumnsChange?.([]);
-            return;
-        }
-        setColumnsLoading(true);
-        MetadataTableSelectorApi.columns(selected.id)
-            .then(res => {
-                if (res.code === 200 && res.data) {
-                    setColumns(res.data);
-                    onColumnsChange?.(res.data);
-                } else {
-                    setColumns([]);
-                    onColumnsChange?.([]);
-                }
-            })
-            .catch(() => {
-                message.error('加载字段列表失败');
-                setColumns([]);
-                onColumnsChange?.([]);
-            })
-            .finally(() => setColumnsLoading(false));
-    }, [currentTableName, tableOptions, onColumnsChange]);
-
-    const handleTableChange = (tableName: string | undefined) => {
-        const selected = tableOptions.find(t => t.name === tableName);
-        onChange?.({
-            dsName: selected?.catalog || '',
-            dbName: selected?.schema || '',
-            tblName: tableName || '',
-            colName: '',
-        });
-    };
-
-    const handleColumnChange = (colName: string | undefined) => {
-        onChange?.({ ...current, colName: colName || '' });
-    };
-
-    return (
-        <Space direction="vertical" style={{ width: '100%' }}>
-            <Select
-                showSearch
-                placeholder="选择数仓表"
-                value={currentTableName}
-                onChange={handleTableChange}
-                loading={tableLoading}
-                style={{ width: '100%' }}
-                allowClear
-                optionFilterProp="label"
-                options={tableOptions.map(t => ({
-                    value: t.name,
-                    label: `${t.name} - ${t.comment}`,
-                }))}
-            />
-            <Select
-                showSearch
-                placeholder={currentTableName ? '选择字段' : '请先选择数仓表'}
-                value={current.colName}
-                onChange={handleColumnChange}
-                loading={columnsLoading}
-                style={{ width: '100%' }}
-                allowClear
-                disabled={!currentTableName || columnsLoading}
-                optionFilterProp="label"
-                options={columns.map(c => ({
-                    value: c.col,
-                    label: `${c.col}${c.comment ? ' - ' + c.comment : ''}`,
-                }))}
-            />
-        </Space>
-    );
-};
-
-// ==================== SQL 预览与试算 ====================
-
-const SqlPreviewPanel: React.FC<{
-    metricType: MetricType;
-}> = ({ metricType }) => {
-    const form = Form.useFormInstance();
-    const [sql, setSql] = useState<string>('');
-    const [previewLoading, setPreviewLoading] = useState(false);
-    const [trialLoading, setTrialLoading] = useState(false);
-    const [sqlResult, setSqlResult] = useState<any>(null);
-    const [previewedFingerprint, setPreviewedFingerprint] = useState<string>('');
-
-    // 监听所有表单值变化，确保修改过滤条件等字段后组件重新渲染，试算按钮正确置灰
-    Form.useWatch([], form);
-
-    const buildDefinitionBody = (): Record<string, unknown> => {
-        const values = form.getFieldsValue();
-        if (metricType === MetricType.ATOMIC) {
-            return {
-                statFunc: values.statFunc,
-                dsName: values.dsSelector?.dsName,
-                dbName: values.dsSelector?.dbName,
-                tblName: values.dsSelector?.tblName,
-                colName: values.dsSelector?.colName,
-                filterCondition: values.filterCondition || [],
-            };
-        }
-        if (metricType === MetricType.DERIVED) {
-            return {
-                atomicMetricId: values.atomicMetricId,
-                timePeriodId: values.timePeriodId,
-                modifierIds: values.modifierIds || [],
-                dimensionIds: values.dimensionIds || [],
-                groupByFields: values.groupByFields || [],
-            };
-        }
-        if (metricType === MetricType.COMPOSITE) {
-            return {
-                formula: values.formula,
-                metricRefs: values.metricRefs || [],
-            };
-        }
-        return {};
-    };
-
-    const currentFingerprint = JSON.stringify(buildDefinitionBody());
-    // 只有当 SQL 存在且当前表单参数与预览时的参数一致时，才能试算
-    const canTrial = !!sql && currentFingerprint === previewedFingerprint;
-
-    const handlePreview = async () => {
-        setPreviewLoading(true);
-        try {
-            const definitionBody = buildDefinitionBody();
-            const fp = JSON.stringify(definitionBody);
-            const res = await MetricApi.previewSql({ metricType, definitionBody });
-            if (res.code === 200 && res.data) {
-                setSql(res.data);
-                setPreviewedFingerprint(fp);
-                setSqlResult(null);
-            } else {
-                message.error(res.message || '预览失败');
-            }
-        } catch {
-            message.error('SQL预览失败');
-        } finally {
-            setPreviewLoading(false);
-        }
-    };
-
-    const handleTrial = async () => {
-        if (!sql) return;
-        setTrialLoading(true);
-        try {
-            const res = await executeSql(sql);
-            if (res.code === 200 && res.data) {
-                setSqlResult(res.data);
-            } else {
-                message.error(res.message || '试算失败');
-            }
-        } catch (err: any) {
-            message.error(err?.message || 'SQL试算失败');
-        } finally {
-            setTrialLoading(false);
-        }
-    };
-
-    return (
-        <div style={{ marginTop: 16, padding: 16, background: '#f6f8fa', borderRadius: 6 }}>
-            <Space style={{ marginBottom: 8 }}>
-                <Button icon={<EyeOutlined />} loading={previewLoading} onClick={handlePreview}>SQL预览</Button>
-                <Button icon={<PlayCircleOutlined />} loading={trialLoading} onClick={handleTrial} disabled={!canTrial} title={!sql ? '请先点击SQL预览' : '当前参数已变更，请重新点击SQL预览'}>试算</Button>
-            </Space>
-            {sql && (
-                <pre style={{ background: '#fff', padding: 12, borderRadius: 4, whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxWidth: '100%' }}>{sql}</pre>
-            )}
-            {sqlResult && (
-                <div style={{ marginTop: 8 }}>
-                    <Text type="secondary">执行耗时: {sqlResult.costTimeMs}ms</Text>
-                    <Table
-                        size="small"
-                        dataSource={sqlResult.data || []}
-                        columns={sqlResult.data && sqlResult.data.length > 0 ? Object.keys(sqlResult.data[0]).map(key => ({
-                            title: key,
-                            dataIndex: key,
-                            key: key,
-                        })) : []}
-                        pagination={false}
-                    />
-                </div>
-            )}
-        </div>
-    );
-};
-
-// ==================== 主页面 ====================
-
 const MetricsDefinition: React.FC = () => {
     const [data, setData] = useState<MetricListItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [pageNum, setPageNum] = useState(1);
     const [pageSize] = useState(20);
     const [total, setTotal] = useState(0);
-
     const [filters, setFilters] = useState({ metricName: '', metricType: undefined as MetricType | undefined, subjectCode: undefined as string | undefined, status: undefined as MetricStatus | undefined });
     const [subjects, setSubjects] = useState<MetricSubject[]>([]);
 
+    // Modal 状态
     const [modalVisible, setModalVisible] = useState(false);
     const [modalType, setModalType] = useState<MetricType | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [form] = Form.useForm();
+    const [modalInitialValues, setModalInitialValues] = useState<Record<string, unknown> | undefined>(undefined);
 
+    // 历史版本
     const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false);
     const [historyList, setHistoryList] = useState<MetricVersionItem[]>([]);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [currentHistoryMetric, setCurrentHistoryMetric] = useState<MetricListItem | null>(null);
 
-    // 派生/复合指标依赖数据
-    const [atomicMetrics, setAtomicMetrics] = useState<MetricListItem[]>([]);
-    const [timePeriods, setTimePeriods] = useState<TimePeriodDTO[]>([]);
-    const [modifiers, setModifiers] = useState<ModifierDTO[]>([]);
-    const [dimensions, setDimensions] = useState<DimensionDTO[]>([]);
-    const [refMetrics, setRefMetrics] = useState<MetricListItem[]>([]);
-    const [employees, setEmployees] = useState<EmployeeDTO[]>([]);
     const [currentUser, setCurrentUser] = useState<string>('');
-    const [sourceColumns, setSourceColumns] = useState<MetadataColumnDTO[]>([]);
 
     const location = useLocation();
     const navigate = useNavigate();
 
-    // 加载员工列表和当前用户
+    // 加载员工和当前用户
     useEffect(() => {
         listEmployees().then(res => {
-            if (res.code === 200 && res.data) setEmployees(res.data);
+            if (res.code === 200 && res.data) {/**/}
         }).catch(() => {/**/});
         currentEmployee().then(res => {
             if (res.code === 200 && res.data) setCurrentUser(res.data.passport);
@@ -340,51 +96,22 @@ const MetricsDefinition: React.FC = () => {
 
     // AI 对话创建指标：从 location.state 读取预填数据并自动打开 Modal
     useEffect(() => {
-        const aiCreate = (location.state as any)?.aiCreate;
+        const aiCreate = location.state as { aiCreate?: { metricType: MetricType; initialValues: Record<string, unknown> } } | undefined;
         if (!aiCreate || !currentUser) return;
 
         const { metricType, initialValues } = aiCreate;
         if (!metricType || !initialValues) return;
 
-        const type = metricType as MetricType;
-
-        // 1. 设置 Modal 状态
-        setModalType(type);
+        setModalType(metricType as MetricType);
         setEditingId(null);
-        form.resetFields();
-
-        // 2. 加载派生/复合指标的依赖数据
-        if (type === MetricType.DERIVED) {
-            MetricApi.page({ pageNum: 1, pageSize: 1000, metricType: MetricType.ATOMIC }).then(res => {
-                if (res.code === 200 && res.data) setAtomicMetrics(res.data.list);
-            }).catch(() => {/**/});
-            TimePeriodApi.list().then(res => {
-                if (res.code === 200 && res.data) setTimePeriods(res.data);
-            }).catch(() => {/**/});
-            ModifierApi.page({ pageNum: 1, pageSize: 1000 }).then(res => {
-                if (res.code === 200 && res.data) setModifiers(res.data.list);
-            }).catch(() => {/**/});
-            DimensionApi.page({ pageNum: 1, pageSize: 1000 }).then(res => {
-                if (res.code === 200 && res.data) setDimensions(res.data.list);
-            }).catch(() => {/**/});
-        }
-        if (type === MetricType.COMPOSITE) {
-            MetricApi.page({ pageNum: 1, pageSize: 1000 }).then(res => {
-                if (res.code === 200 && res.data) setRefMetrics(res.data.list);
-            }).catch(() => {/**/});
-        }
-
-        // 3. 设置表单预填值（兜底 owner 和 securityLevel）
-        form.setFieldsValue({
+        setModalInitialValues({
             ...initialValues,
             owner: initialValues.owner || currentUser,
             securityLevel: initialValues.securityLevel || 'L1',
         });
-
-        // 4. 打开 Modal
         setModalVisible(true);
 
-        // 5. 清空 location.state，避免刷新后重复触发
+        // 清空 location.state
         navigate(location.pathname, { replace: true, state: {} });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location, currentUser]);
@@ -405,171 +132,31 @@ const MetricsDefinition: React.FC = () => {
         }));
     };
 
-    const openCreateModal = async (type: MetricType) => {
+    const openCreateModal = (type: MetricType) => {
         setModalType(type);
         setEditingId(null);
-        form.resetFields();
-        // 新建时默认负责人为当前用户，密级为 L1
-        form.setFieldsValue({ owner: currentUser, securityLevel: 'L1' });
-        // load dimension list
-
-        if (type === MetricType.DERIVED) {
-            MetricApi.page({ pageNum: 1, pageSize: 1000, metricType: MetricType.ATOMIC }).then(res => {
-                if (res.code === 200 && res.data) setAtomicMetrics(res.data.list);
-            }).catch(() => {/**/});
-            TimePeriodApi.list().then(res => {
-                if (res.code === 200 && res.data) setTimePeriods(res.data);
-            }).catch(() => {/**/});
-            ModifierApi.page({ pageNum: 1, pageSize: 1000 }).then(res => {
-                if (res.code === 200 && res.data) setModifiers(res.data.list);
-            }).catch(() => {/**/});
-            DimensionApi.page({ pageNum: 1, pageSize: 1000 }).then(res => {
-                if (res.code === 200 && res.data) setDimensions(res.data.list);
-            }).catch(() => {/**/});
-        }
-        if (type === MetricType.COMPOSITE) {
-            MetricApi.page({ pageNum: 1, pageSize: 1000 }).then(res => {
-                if (res.code === 200 && res.data) setRefMetrics(res.data.list);
-            }).catch(() => {/**/});
-        }
-
+        setModalInitialValues(undefined);
         setModalVisible(true);
     };
 
     const openEditModal = (record: MetricListItem) => {
         setModalType(record.metricType);
         setEditingId(record.id);
-        form.resetFields();
+        setModalInitialValues(undefined);
         setModalVisible(true);
-        // load dimension list
-
-        // 异步加载详情填充表单
-        MetricApi.detail(record.id).then(res => {
-            if (res.code === 200 && res.data) {
-                const detail = res.data;
-                const base = {
-                    metricName: detail.metricName,
-                    metricCode: detail.metricCode,
-                    bizCaliber: detail.bizCaliber,
-                    techCaliber: detail.techCaliber,
-                    subjectCode: detail.subjectCode,
-                    owner: detail.owner,
-                    securityLevel: detail.securityLevel || 'L1',
-                };
-                if (detail.metricType === MetricType.ATOMIC && detail.atomic) {
-                    form.setFieldsValue({
-                        ...base,
-                        statFunc: detail.atomic.statFunc,
-                        dsSelector: {
-                            dsName: detail.atomic.dsName,
-                            dbName: detail.atomic.dbName,
-                            tblName: detail.atomic.tblName,
-                            colName: detail.atomic.colName,
-                        },
-                        filterCondition: detail.atomic.filterCondition || [],
-                    });
-                } else if (detail.metricType === MetricType.DERIVED && detail.derived) {
-                    form.setFieldsValue({
-                        ...base,
-                        atomicMetricId: detail.derived.atomicMetricId,
-                        timePeriodId: detail.derived.timePeriodId,
-                        modifierIds: detail.derived.modifierIds || [],
-                        dimensionIds: detail.derived.dimensionIds || [],
-                        groupByFields: detail.derived.groupByFields || [],
-                    });
-                } else if (detail.metricType === MetricType.COMPOSITE && detail.composite) {
-                    form.setFieldsValue({
-                        ...base,
-                        formula: detail.composite.formula,
-                        metricRefs: detail.composite.metricRefs,
-                    });
-                }
-            }
-        }).catch(() => {/**/});
-
-        if (record.metricType === MetricType.DERIVED) {
-            MetricApi.page({ pageNum: 1, pageSize: 1000, metricType: MetricType.ATOMIC }).then(res => {
-                if (res.code === 200 && res.data) setAtomicMetrics(res.data.list);
-            }).catch(() => {/**/});
-            TimePeriodApi.list().then(res => {
-                if (res.code === 200 && res.data) setTimePeriods(res.data);
-            }).catch(() => {/**/});
-            ModifierApi.page({ pageNum: 1, pageSize: 1000 }).then(res => {
-                if (res.code === 200 && res.data) setModifiers(res.data.list);
-            }).catch(() => {/**/});
-            DimensionApi.page({ pageNum: 1, pageSize: 1000 }).then(res => {
-                if (res.code === 200 && res.data) setDimensions(res.data.list);
-            }).catch(() => {/**/});
-        }
-        if (record.metricType === MetricType.COMPOSITE) {
-            MetricApi.page({ pageNum: 1, pageSize: 1000 }).then(res => {
-                if (res.code === 200 && res.data) setRefMetrics(res.data.list);
-            }).catch(() => {/**/});
-        }
     };
 
-    const handleSave = async () => {
-        try {
-            const values = await form.validateFields();
-            const base = {
-                metricName: values.metricName,
-                metricCode: values.metricCode,
-                bizCaliber: values.bizCaliber,
-                techCaliber: values.techCaliber,
-                subjectCode: values.subjectCode,
-                owner: values.owner,
-                securityLevel: values.securityLevel,
-            };
-            if (modalType === MetricType.ATOMIC) {
-                const cmd: AtomicMetricCmd = {
-                    ...base,
-                    statFunc: values.statFunc,
-                    dsName: values.dsSelector.dsName,
-                    dbName: values.dsSelector.dbName,
-                    tblName: values.dsSelector.tblName,
-                    colName: values.dsSelector.colName,
-                    filterCondition: values.filterCondition,
-                };
-                if (editingId) {
-                    await MetricApi.updateAtomic(editingId, cmd);
-                } else {
-                    await MetricApi.createAtomic(cmd);
-                }
-            } else if (modalType === MetricType.DERIVED) {
-                const cmd: DerivedMetricCmd = {
-                    ...base,
-                    atomicMetricId: values.atomicMetricId,
-                    timePeriodId: values.timePeriodId,
-                    modifierIds: values.modifierIds,
-                    dimensionIds: values.dimensionIds,
-                    groupByFields: values.groupByFields,
-                };
-                if (editingId) {
-                    await MetricApi.updateDerived(editingId, cmd);
-                } else {
-                    await MetricApi.createDerived(cmd);
-                }
-            } else if (modalType === MetricType.COMPOSITE) {
-                const cmd: CompositeMetricCmd = {
-                    ...base,
-                    formula: values.formula,
-                    metricRefs: values.metricRefs,
-                };
-                if (editingId) {
-                    await MetricApi.updateComposite(editingId, cmd);
-                } else {
-                    await MetricApi.createComposite(cmd);
-                }
-            }
-            message.success('保存成功');
-            setModalVisible(false);
-            form.resetFields();
-            setEditingId(null);
-            fetchList(pageNum);
-        } catch (error) {
-            // validation or api error: keep modal open by re-throwing
-            throw error;
-        }
+    const handleModalSuccess = () => {
+        setModalVisible(false);
+        setEditingId(null);
+        setModalInitialValues(undefined);
+        fetchList(pageNum);
+    };
+
+    const handleModalClose = () => {
+        setModalVisible(false);
+        setEditingId(null);
+        setModalInitialValues(undefined);
     };
 
     const handleDelete = async (id: string) => {
@@ -629,13 +216,6 @@ const MetricsDefinition: React.FC = () => {
             render: (v: MetricType) => <Tag color={typeTagMap[v]?.color}>{typeTagMap[v]?.label}</Tag>,
         },
         { title: '主题域', dataIndex: 'subjectName', key: 'subjectName', width: 120 },
-        // {
-        //     title: '统计函数',
-        //     dataIndex: 'statFunc',
-        //     key: 'statFunc',
-        //     width: 100,
-        //     render: (v: StatFunc | undefined) => v || '-',
-        // },
         {
             title: '状态',
             dataIndex: 'status',
@@ -752,181 +332,15 @@ const MetricsDefinition: React.FC = () => {
                 locale={{ emptyText: <Empty description="暂无指标数据" /> }}
             />
 
-            {/* 新建/编辑弹窗 */}
-            <Modal
-                title={editingId ? (() => {
-                    const record = data.find(item => item.id === editingId);
-                    if (record && record.status === 'PUBLISHED') {
-                        return `编辑指标（将生成 V${record.version + 1} 草稿）`;
-                    }
-                    return '编辑指标';
-                })() : modalType === MetricType.ATOMIC ? '新建原子指标' : modalType === MetricType.DERIVED ? '新建派生指标' : '新建复合指标'}
-                open={modalVisible}
-                onOk={handleSave}
-                onCancel={() => { setModalVisible(false); form.resetFields(); setEditingId(null); }}
-                width={1200}
-                destroyOnClose
-            >
-                <Form form={form} layout="vertical">
-                    <Row gutter={24}>
-                        <Col span={14}>
-                            <Form.Item name="metricCode" label="指标编码">
-                                <Input placeholder={editingId ? undefined : '不填则系统自动生成'} disabled={!!editingId} />
-                            </Form.Item>
-                            <Form.Item name="metricName" label="指标名称" rules={[{ required: true }]}>
-                                <Input placeholder="请输入指标名称" />
-                            </Form.Item>
-                            <Form.Item name="bizCaliber" label="业务口径" rules={[{ required: true }]}>
-                                <TextArea rows={2} placeholder="请输入业务口径" />
-                            </Form.Item>
-                            <Form.Item name="techCaliber" label="技术口径">
-                                <TextArea rows={2} placeholder="请输入技术口径（选填）" />
-                            </Form.Item>
-                            <Form.Item name="subjectCode" label="所属主题域" rules={[{ required: true }]}>
-                                <TreeSelect
-                                    treeData={buildSubjectTree(subjects)}
-                                    placeholder="选择主题域"
-                                    treeDefaultExpandAll
-                                />
-                            </Form.Item>
-                            <Form.Item name="owner" label="负责人" rules={[{ required: true }]}>
-                                <Select placeholder="选择负责人" showSearch optionFilterProp="children">
-                                    {employees.map(emp => (
-                                        <Option key={emp.passport} value={emp.passport}>
-                                            {emp.cnName} ({emp.passport})
-                                        </Option>
-                                    ))}
-                                </Select>
-                            </Form.Item>
-                            <Form.Item name="securityLevel" label="数据密级" initialValue="L1">
-                                <Select placeholder="请选择数据密级">
-                                    <Option value="L1">L1 公开</Option>
-                                    <Option value="L2">L2 内部</Option>
-                                    <Option value="L3">L3 敏感</Option>
-                                    <Option value="L4">L4 机密</Option>
-                                </Select>
-                            </Form.Item>
-
-                            {modalType === MetricType.ATOMIC && (
-                                <>
-                                    <Form.Item name="statFunc" label="统计函数" rules={[{ required: true }]}>
-                                        <Select placeholder="选择统计函数">
-                                            {Object.values(StatFunc).map(f => <Option key={f} value={f}>{f}</Option>)}
-                                        </Select>
-                                    </Form.Item>
-                                    <Form.Item name="dsSelector" label="数据来源" rules={[{ required: true, validator: (_, val) => val?.dsName && val?.dbName && val?.tblName && val?.colName ? Promise.resolve() : Promise.reject(new Error('请选择数仓表和字段')) }]}>
-                                        <MetadataTableSelector onColumnsChange={setSourceColumns} />
-                                    </Form.Item>
-                                    <Form.List name="filterCondition">
-                                        {(fields, { add, remove }) => (
-                                            <>
-                                                {fields.map(({ key, name, ...restField }) => (
-                                                    <Row key={key} gutter={8} align="middle">
-                                                        <Col span={7}>
-                                                            <Form.Item {...restField} name={[name, 'field']} rules={[{ required: true }]}>
-                                                                <Select placeholder="选择字段" showSearch optionFilterProp="label" options={sourceColumns.map(c => ({ value: c.col, label: c.col + (c.comment ? ` - ${c.comment}` : '') }))} />
-                                                            </Form.Item>
-                                                        </Col>
-                                                        <Col span={5}>
-                                                            <Form.Item {...restField} name={[name, 'op']} rules={[{ required: true }]}>
-                                                                <Select placeholder="运算符">
-                                                                    <Option value="=">=</Option>
-                                                                    <Option value="!=">!=</Option>
-                                                                    <Option value=">">&gt;</Option>
-                                                                    <Option value="<">&lt;</Option>
-                                                                    <Option value="IN">IN</Option>
-                                                                </Select>
-                                                            </Form.Item>
-                                                        </Col>
-                                                        <Col span={9}>
-                                                            <Form.Item {...restField} name={[name, 'value']} rules={[{ required: true }]}>
-                                                                <Input placeholder="值" />
-                                                            </Form.Item>
-                                                        </Col>
-                                                        <Col span={3}>
-                                                            <Button type="link" danger onClick={() => remove(name)}>删除</Button>
-                                                        </Col>
-                                                    </Row>
-                                                ))}
-                                                <Button type="dashed" onClick={() => add()} block>添加过滤条件</Button>
-                                            </>
-                                        )}
-                                    </Form.List>
-                                </>
-                            )}
-
-                            {modalType === MetricType.DERIVED && (
-                                <>
-                                    <Form.Item name="atomicMetricId" label="原子指标" rules={[{ required: true }]}>
-                                        <Select placeholder="选择原子指标" showSearch optionFilterProp="children">
-                                            {atomicMetrics.map(m => <Option key={m.id} value={m.id}>{m.metricName} ({m.metricCode})</Option>)}
-                                        </Select>
-                                    </Form.Item>
-                                    <Form.Item name="timePeriodId" label="时间周期" rules={[{ required: true }]}>
-                                        <Select placeholder="选择时间周期">
-                                            {timePeriods.map(t => <Option key={t.id} value={t.id}>{t.periodName}</Option>)}
-                                        </Select>
-                                    </Form.Item>
-                                    <Form.Item name="modifierIds" label="修饰词">
-                                        <Select mode="multiple" placeholder="选择修饰词">
-                                            {modifiers.map(m => <Option key={m.id} value={m.id}>{m.modifierName}</Option>)}
-                                        </Select>
-                                    </Form.Item>
-                                    <Form.Item name="dimensionIds" label="维度">
-                                        <Select mode="multiple" placeholder="选择维度">
-                                            {dimensions.map(d => (
-                                                <Option key={d.id} value={d.id}>
-                                                    <span>{d.dimName}</span>
-                                                    <Tag color="blue" style={{ marginLeft: 8, fontSize: 12 }}>{d.dimType === DimType.DATE ? 'DATE' : d.dimType}</Tag>
-                                                </Option>
-                                            ))}
-                                        </Select>
-                                    </Form.Item>
-                                    <Form.List name="groupByFields">
-                                        {(fields, { add, remove }) => (
-                                            <>
-                                                {fields.map(({ key, name, ...restField }) => (
-                                                    <Row key={key} gutter={8} align="middle">
-                                                        <Col span={20}>
-                                                            <Form.Item {...restField} name={[name, 'col']} rules={[{ required: true }]}>
-                                                                <Input placeholder="分组字段" />
-                                                            </Form.Item>
-                                                        </Col>
-                                                        <Col span={4}>
-                                                            <Button type="link" danger onClick={() => remove(name)}>删除</Button>
-                                                        </Col>
-                                                    </Row>
-                                                ))}
-                                                <Button type="dashed" onClick={() => add()} block>添加分组字段</Button>
-                                            </>
-                                        )}
-                                    </Form.List>
-                                </>
-                            )}
-
-                            {modalType === MetricType.COMPOSITE && (
-                                <>
-                                    <Form.Item name="formula" label="计算公式" rules={[{ required: true }]}>
-                                        <Input placeholder="如：${M001} / ${M002} * 100" />
-                                    </Form.Item>
-                                    <Form.Item name="metricRefs" label="引用指标" rules={[{ required: true }]}>
-                                        <Select mode="multiple" placeholder="选择引用的指标">
-                                            {refMetrics.map(m => <Option key={m.id} value={m.id}>{m.metricName} ({m.metricCode})</Option>)}
-                                        </Select>
-                                    </Form.Item>
-                                </>
-                            )}
-                        </Col>
-                        <Col span={10}>
-                            <div style={{ position: 'sticky', top: 0 }}>
-                                {modalType && (
-                                    <SqlPreviewPanel metricType={modalType} />
-                                )}
-                            </div>
-                        </Col>
-                    </Row>
-                </Form>
-            </Modal>
+            {/* 表单 Modal */}
+            <MetricDefinitionFormModal
+                visible={modalVisible}
+                metricType={modalType}
+                editingId={editingId}
+                initialValues={modalInitialValues}
+                onClose={handleModalClose}
+                onSuccess={handleModalSuccess}
+            />
 
             <Drawer
                 title={`${currentHistoryMetric?.metricName} - 版本历史`}

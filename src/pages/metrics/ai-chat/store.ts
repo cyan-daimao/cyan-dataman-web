@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { streamMetricAiChat } from '@/api/MetricAiChatApi';
+import { streamMetricAiChat, getConversations, getMessages } from '@/api/MetricAiChatApi';
 import { extractMetricForm, type MetricFormValues } from './types';
 
 // ==================== 类型定义 ====================
@@ -12,6 +12,13 @@ export interface AiChatMessage {
   error?: string;
 }
 
+export interface ConversationItem {
+  id: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface MetricAiChatState {
   messages: AiChatMessage[];
   conversationId: string;
@@ -19,11 +26,19 @@ export interface MetricAiChatState {
   inputValue: string;
   pendingFormValues: MetricFormValues | null;
 
+  // 历史对话
+  conversations: ConversationItem[];
+  conversationsLoading: boolean;
+  sidebarCollapsed: boolean;
+
   // actions
   setInputValue: (value: string) => void;
   sendMessage: (query: string) => Promise<void>;
   resetChat: () => void;
   setPendingFormValues: (values: MetricFormValues | null) => void;
+  loadConversations: () => Promise<void>;
+  loadConversationMessages: (conversationId: string) => Promise<void>;
+  setSidebarCollapsed: (collapsed: boolean) => void;
 }
 
 // ==================== 工具函数 ====================
@@ -53,13 +68,83 @@ export const useMetricAiChatStore = create<MetricAiChatState>((set, get) => ({
   isLoading: false,
   inputValue: '',
   pendingFormValues: null,
+  conversations: [],
+  conversationsLoading: false,
+  sidebarCollapsed: false,
 
   setInputValue: (value: string) => set({ inputValue: value }),
 
   setPendingFormValues: (values: MetricFormValues | null) => set({ pendingFormValues: values }),
 
+  setSidebarCollapsed: (collapsed: boolean) => set({ sidebarCollapsed: collapsed }),
+
   resetChat: () => {
     set({ messages: [], conversationId: '', isLoading: false, inputValue: '', pendingFormValues: null });
+  },
+
+  loadConversations: async () => {
+    set({ conversationsLoading: true });
+    try {
+      const list = await getConversations(getCurrentUser());
+      set({
+        conversations: list.map(c => ({
+          id: c.id,
+          name: c.name || '新对话',
+          createdAt: c.created_at,
+          updatedAt: c.updated_at,
+        })),
+      });
+    } catch {
+      // ignore
+    } finally {
+      set({ conversationsLoading: false });
+    }
+  },
+
+  loadConversationMessages: async (conversationId: string) => {
+    set({ isLoading: true, pendingFormValues: null });
+    try {
+      const msgs = await getMessages(conversationId, getCurrentUser());
+      // Dify 消息是按时间倒序返回的，需要反转
+      const reversed = [...msgs].reverse();
+      const messages: AiChatMessage[] = [];
+
+      for (const msg of reversed) {
+        if (msg.query) {
+          messages.push({
+            id: generateId(),
+            role: 'user',
+            content: msg.query,
+          });
+        }
+        if (msg.answer) {
+          messages.push({
+            id: msg.id || generateId(),
+            role: 'assistant',
+            content: msg.answer,
+            loading: false,
+          });
+        }
+      }
+
+      // 解析最后一条 assistant 消息的 metric_form
+      let formValues: MetricFormValues | null = null;
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === 'assistant') {
+          formValues = extractMetricForm(messages[i].content);
+          break;
+        }
+      }
+
+      set({
+        messages,
+        conversationId,
+        isLoading: false,
+        pendingFormValues: formValues,
+      });
+    } catch {
+      set({ isLoading: false });
+    }
   },
 
   sendMessage: async (query: string) => {
@@ -137,6 +222,11 @@ export const useMetricAiChatStore = create<MetricAiChatState>((set, get) => ({
           pendingFormValues: formValues,
         };
       });
+
+      // 如果有新对话 ID，刷新历史对话列表
+      if (newConversationId && !state.conversationId) {
+        get().loadConversations();
+      }
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : '请求失败，请稍后重试';
       set((s) => {

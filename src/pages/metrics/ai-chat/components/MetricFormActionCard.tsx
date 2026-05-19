@@ -50,7 +50,7 @@ const MetricFormActionCard: React.FC<MetricFormActionCardProps> = ({ formValues,
           取消
         </Button>,
         <Button key="navigate" type="primary" icon={<FormOutlined />} onClick={onNavigate}>
-          去完善指标定义 <ArrowRightOutlined />
+          完善并保存 <ArrowRightOutlined />
         </Button>,
       ]}
     >

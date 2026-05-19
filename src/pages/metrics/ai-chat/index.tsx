@@ -1,5 +1,7 @@
 import React, { useRef, useEffect } from 'react';
-import { Spin, Button, message, Avatar, Typography, Space } from 'antd';
+import {
+  Spin, Button, message, Avatar, Typography, Space, Tooltip,
+} from 'antd';
 import {
   RobotOutlined,
   UserOutlined,
@@ -11,13 +13,18 @@ import {
   TagOutlined,
   NumberOutlined,
   BookOutlined,
+  PlusOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  MessageOutlined,
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
 import { useMetricAiChatStore, AiChatMessage } from './store';
 import ChatInput from './components/ChatInput';
 import MarkdownRender from './components/MarkdownRender';
 import ThinkingChain from './components/ThinkingChain';
 import MetricFormActionCard from './components/MetricFormActionCard';
+import MetricDefinitionFormModal from '../definition/components/MetricDefinitionFormModal';
+import { MetricType } from '@/api/MetricApi';
 import { stripMetricForm } from './types';
 import './index.less';
 
@@ -104,17 +111,33 @@ const EXAMPLE_CARDS = [
  * AI 创建对话主页面
  */
 const MetricAiChatPage: React.FC = () => {
-  const navigate = useNavigate();
   const messages = useMetricAiChatStore((s) => s.messages);
   const isLoading = useMetricAiChatStore((s) => s.isLoading);
   const inputValue = useMetricAiChatStore((s) => s.inputValue);
   const pendingFormValues = useMetricAiChatStore((s) => s.pendingFormValues);
+  const conversations = useMetricAiChatStore((s) => s.conversations);
+  const conversationsLoading = useMetricAiChatStore((s) => s.conversationsLoading);
+  const sidebarCollapsed = useMetricAiChatStore((s) => s.sidebarCollapsed);
+  const conversationId = useMetricAiChatStore((s) => s.conversationId);
+
   const sendMessage = useMetricAiChatStore((s) => s.sendMessage);
   const setInputValue = useMetricAiChatStore((s) => s.setInputValue);
   const resetChat = useMetricAiChatStore((s) => s.resetChat);
   const setPendingFormValues = useMetricAiChatStore((s) => s.setPendingFormValues);
+  const loadConversations = useMetricAiChatStore((s) => s.loadConversations);
+  const loadConversationMessages = useMetricAiChatStore((s) => s.loadConversationMessages);
+  const setSidebarCollapsed = useMetricAiChatStore((s) => s.setSidebarCollapsed);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 表单 Modal 状态
+  const [formModalVisible, setFormModalVisible] = React.useState(false);
+  const [formModalType, setFormModalType] = React.useState<MetricType | null>(null);
+
+  // 首次加载历史对话列表
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -129,25 +152,108 @@ const MetricAiChatPage: React.FC = () => {
     message.success('对话已重置');
   };
 
-  const handleNavigateToDefinition = () => {
+  const handleOpenFormModal = () => {
     if (!pendingFormValues) return;
-    navigate('/metrics/definition', {
-      state: {
-        aiCreate: {
-          metricType: pendingFormValues.metricType,
-          initialValues: pendingFormValues,
-        },
-      },
-    });
+    setFormModalType(pendingFormValues.metricType as MetricType);
+    setFormModalVisible(true);
   };
 
   const handleCancelPreview = () => {
     setPendingFormValues(null);
   };
 
+  const handleFormSuccess = () => {
+    setFormModalVisible(false);
+    setFormModalType(null);
+    setPendingFormValues(null);
+    message.success('指标创建成功');
+  };
+
+  const handleFormClose = () => {
+    setFormModalVisible(false);
+    setFormModalType(null);
+  };
+
+  const handleSelectConversation = (id: string) => {
+    if (id === conversationId) return;
+    loadConversationMessages(id);
+  };
+
+  const formatTime = (timestamp: number) => {
+    const date = new Date(timestamp * 1000);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    if (isToday) {
+      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    }
+    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+  };
+
   return (
     <div className="metric-ai-chat-page">
-      <div className="metric-ai-chat-content">
+      {/* 历史对话侧边栏 */}
+      <div className={`metric-ai-chat-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
+        <div className="metric-ai-chat-sidebar-header">
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            block
+            onClick={handleReset}
+            className="metric-ai-chat-new-conv-btn"
+          >
+            新对话
+          </Button>
+        </div>
+        <div className="metric-ai-chat-sidebar-list">
+          {conversationsLoading ? (
+            <div className="metric-ai-chat-sidebar-loading">
+              <Spin size="small" />
+            </div>
+          ) : conversations.length === 0 ? (
+            <div className="metric-ai-chat-sidebar-empty">
+              <MessageOutlined />
+              <span>暂无历史对话</span>
+            </div>
+          ) : (
+            conversations.map((conv) => (
+              <div
+                key={conv.id}
+                className={`metric-ai-chat-conv-item ${conv.id === conversationId ? 'active' : ''}`}
+                onClick={() => handleSelectConversation(conv.id)}
+                title={conv.name}
+              >
+                <MessageOutlined className="metric-ai-chat-conv-icon" />
+                <span className="metric-ai-chat-conv-name">{conv.name}</span>
+                <span className="metric-ai-chat-conv-time">{formatTime(conv.updatedAt)}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* 主聊天区域 */}
+      <div className="metric-ai-chat-main">
+        {/* 顶部工具栏 */}
+        <div className="metric-ai-chat-topbar">
+          <Tooltip title={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}>
+            <Button
+              type="text"
+              icon={sidebarCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="metric-ai-chat-sidebar-toggle"
+            />
+          </Tooltip>
+          <span className="metric-ai-chat-topbar-title">AI 智能创建指标与维度</span>
+          <Tooltip title="新对话">
+            <Button
+              type="text"
+              icon={<RedoOutlined />}
+              onClick={handleReset}
+              disabled={isLoading || messages.length === 0}
+            />
+          </Tooltip>
+        </div>
+
         {/* 消息列表 */}
         <div className="metric-ai-chat-messages">
           {messages.length === 0 && !pendingFormValues ? (
@@ -195,7 +301,7 @@ const MetricAiChatPage: React.FC = () => {
               <div className="metric-ai-chat-msg-outer">
                 <MetricFormActionCard
                   formValues={pendingFormValues}
-                  onNavigate={handleNavigateToDefinition}
+                  onNavigate={handleOpenFormModal}
                   onCancel={handleCancelPreview}
                 />
               </div>
@@ -206,19 +312,6 @@ const MetricAiChatPage: React.FC = () => {
         {/* 底部输入区 */}
         <div className="metric-ai-chat-footer">
           <div className="metric-ai-chat-footer-inner">
-            {/* 工具栏 */}
-            <div className="metric-ai-chat-footer-toolbar">
-              <Button
-                type="text"
-                size="small"
-                icon={<RedoOutlined />}
-                onClick={handleReset}
-                disabled={isLoading || messages.length === 0}
-                className="metric-ai-chat-reset-btn"
-              >
-                新对话
-              </Button>
-            </div>
             <ChatInput
               value={inputValue}
               onChange={setInputValue}
@@ -228,6 +321,15 @@ const MetricAiChatPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* 指标定义表单 Modal */}
+      <MetricDefinitionFormModal
+        visible={formModalVisible}
+        metricType={formModalType}
+        initialValues={pendingFormValues || undefined}
+        onClose={handleFormClose}
+        onSuccess={handleFormSuccess}
+      />
     </div>
   );
 };
