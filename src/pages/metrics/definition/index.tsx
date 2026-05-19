@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
     Card, Table, Button, Space, Modal, Form, Input, Select, TreeSelect, message,
     Empty, Tag, Popconfirm, Typography,  Row, Col, Drawer,
@@ -300,6 +301,9 @@ const MetricsDefinition: React.FC = () => {
     const [currentUser, setCurrentUser] = useState<string>('');
     const [sourceColumns, setSourceColumns] = useState<MetadataColumnDTO[]>([]);
 
+    const location = useLocation();
+    const navigate = useNavigate();
+
     // 加载员工列表和当前用户
     useEffect(() => {
         listEmployees().then(res => {
@@ -333,6 +337,57 @@ const MetricsDefinition: React.FC = () => {
         fetchList(1);
         MetricSubjectApi.tree().then(res => setSubjects(res)).catch(() => {/**/});
     }, [fetchList]);
+
+    // AI 对话创建指标：从 location.state 读取预填数据并自动打开 Modal
+    useEffect(() => {
+        const aiCreate = (location.state as any)?.aiCreate;
+        if (!aiCreate || !currentUser) return;
+
+        const { metricType, initialValues } = aiCreate;
+        if (!metricType || !initialValues) return;
+
+        const type = metricType as MetricType;
+
+        // 1. 设置 Modal 状态
+        setModalType(type);
+        setEditingId(null);
+        form.resetFields();
+
+        // 2. 加载派生/复合指标的依赖数据
+        if (type === MetricType.DERIVED) {
+            MetricApi.page({ pageNum: 1, pageSize: 1000, metricType: MetricType.ATOMIC }).then(res => {
+                if (res.code === 200 && res.data) setAtomicMetrics(res.data.list);
+            }).catch(() => {/**/});
+            TimePeriodApi.list().then(res => {
+                if (res.code === 200 && res.data) setTimePeriods(res.data);
+            }).catch(() => {/**/});
+            ModifierApi.page({ pageNum: 1, pageSize: 1000 }).then(res => {
+                if (res.code === 200 && res.data) setModifiers(res.data.list);
+            }).catch(() => {/**/});
+            DimensionApi.page({ pageNum: 1, pageSize: 1000 }).then(res => {
+                if (res.code === 200 && res.data) setDimensions(res.data.list);
+            }).catch(() => {/**/});
+        }
+        if (type === MetricType.COMPOSITE) {
+            MetricApi.page({ pageNum: 1, pageSize: 1000 }).then(res => {
+                if (res.code === 200 && res.data) setRefMetrics(res.data.list);
+            }).catch(() => {/**/});
+        }
+
+        // 3. 设置表单预填值（兜底 owner 和 securityLevel）
+        form.setFieldsValue({
+            ...initialValues,
+            owner: initialValues.owner || currentUser,
+            securityLevel: initialValues.securityLevel || 'L1',
+        });
+
+        // 4. 打开 Modal
+        setModalVisible(true);
+
+        // 5. 清空 location.state，避免刷新后重复触发
+        navigate(location.pathname, { replace: true, state: {} });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location, currentUser]);
 
     const handleFilterChange = (changed: Partial<typeof filters>) => {
         const next = { ...filters, ...changed };

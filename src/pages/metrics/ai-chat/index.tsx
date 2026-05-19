@@ -12,13 +12,13 @@ import {
   NumberOutlined,
   BookOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import { useMetricAiChatStore, AiChatMessage } from './store';
 import ChatInput from './components/ChatInput';
 import MarkdownRender from './components/MarkdownRender';
 import ThinkingChain from './components/ThinkingChain';
-import MetricPreviewCard from './components/MetricPreviewCard';
-import { stripMetricDefinition } from './types';
-import { MetricApi } from '@/api/MetricApi';
+import MetricFormActionCard from './components/MetricFormActionCard';
+import { stripMetricForm } from './types';
 import './index.less';
 
 const { Text } = Typography;
@@ -32,10 +32,10 @@ const MessageItem: React.FC<{ msg: AiChatMessage }> = ({ msg }) => {
   // 提取思考过程（如果有）
   const thinkMatch = msg.content.match(/<think>([\s\S]*?)<\/think>/);
   const thinkContent = thinkMatch ? thinkMatch[1].trim() : undefined;
-  // 同时移除 metric_definition 标签（预览卡片会单独展示）
+  // 同时移除 metric_form 标签（操作卡片会单独展示）
   const displayContent = thinkContent
-    ? stripMetricDefinition(msg.content.replace(/<think>[\s\S]*?<\/think>/, '').trim())
-    : stripMetricDefinition(msg.content);
+    ? stripMetricForm(msg.content.replace(/<think>[\s\S]*?<\/think>/, '').trim())
+    : stripMetricForm(msg.content);
 
   return (
     <div className={`metric-ai-chat-msg ${isUser ? 'metric-ai-chat-msg-user' : 'metric-ai-chat-msg-ai'}`}>
@@ -104,22 +104,21 @@ const EXAMPLE_CARDS = [
  * AI 创建对话主页面
  */
 const MetricAiChatPage: React.FC = () => {
+  const navigate = useNavigate();
   const messages = useMetricAiChatStore((s) => s.messages);
   const isLoading = useMetricAiChatStore((s) => s.isLoading);
   const inputValue = useMetricAiChatStore((s) => s.inputValue);
-  const pendingDefinition = useMetricAiChatStore((s) => s.pendingDefinition);
-  const isCreating = useMetricAiChatStore((s) => s.isCreating);
+  const pendingFormValues = useMetricAiChatStore((s) => s.pendingFormValues);
   const sendMessage = useMetricAiChatStore((s) => s.sendMessage);
   const setInputValue = useMetricAiChatStore((s) => s.setInputValue);
   const resetChat = useMetricAiChatStore((s) => s.resetChat);
-  const setPendingDefinition = useMetricAiChatStore((s) => s.setPendingDefinition);
-  const setIsCreating = useMetricAiChatStore((s) => s.setIsCreating);
+  const setPendingFormValues = useMetricAiChatStore((s) => s.setPendingFormValues);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, pendingDefinition]);
+  }, [messages, pendingFormValues]);
 
   const handleSend = (query: string) => {
     sendMessage(query);
@@ -130,72 +129,20 @@ const MetricAiChatPage: React.FC = () => {
     message.success('对话已重置');
   };
 
-  const handleConfirmCreate = async () => {
-    if (!pendingDefinition) return;
-    setIsCreating(true);
-    try {
-      const def = pendingDefinition;
-      let res;
-      if (def.metricType === 'ATOMIC') {
-        res = await MetricApi.createAtomic({
-          metricName: def.metricName,
-          bizCaliber: def.bizCaliber,
-          techCaliber: def.techCaliber || '',
-          statFunc: def.statFunc!,
-          dsName: def.dsName || '',
-          dbName: def.dbName || '',
-          tblName: def.tblName || '',
-          colName: def.colName || '',
-          filterCondition: def.filterCondition,
-          subjectCode: def.subjectCode,
-          securityLevel: def.securityLevel,
-          owner: def.owner,
-        });
-      } else if (def.metricType === 'DERIVED') {
-        res = await MetricApi.createDerived({
-          metricName: def.metricName,
-          bizCaliber: def.bizCaliber,
-          techCaliber: def.techCaliber || '',
-          atomicMetricId: def.atomicMetricId || '',
-          timePeriodId: def.timePeriodId || '',
-          modifierIds: def.modifierIds,
-          dimensionIds: def.dimensionIds,
-          groupByFields: def.groupByFields,
-          subjectCode: def.subjectCode,
-          securityLevel: def.securityLevel,
-          owner: def.owner,
-        });
-      } else if (def.metricType === 'COMPOSITE') {
-        res = await MetricApi.createComposite({
-          metricName: def.metricName,
-          bizCaliber: def.bizCaliber,
-          techCaliber: def.techCaliber || '',
-          formula: def.formula || '',
-          metricRefs: def.metricRefs || [],
-          subjectCode: def.subjectCode,
-          securityLevel: def.securityLevel,
-          owner: def.owner,
-        });
-      } else {
-        throw new Error('指标定义格式不正确');
-      }
-
-      if (res.code === 200 && res.data) {
-        message.success(`指标「${res.data.metricName}」创建成功！编码：${res.data.metricCode}`);
-        setPendingDefinition(null);
-      } else {
-        message.error(res.message || '创建失败');
-      }
-    } catch (e) {
-      const errMsg = e instanceof Error ? e.message : '创建请求失败';
-      message.error(errMsg);
-    } finally {
-      setIsCreating(false);
-    }
+  const handleNavigateToDefinition = () => {
+    if (!pendingFormValues) return;
+    navigate('/metrics/definition', {
+      state: {
+        aiCreate: {
+          metricType: pendingFormValues.metricType,
+          initialValues: pendingFormValues,
+        },
+      },
+    });
   };
 
   const handleCancelPreview = () => {
-    setPendingDefinition(null);
+    setPendingFormValues(null);
   };
 
   return (
@@ -203,7 +150,7 @@ const MetricAiChatPage: React.FC = () => {
       <div className="metric-ai-chat-content">
         {/* 消息列表 */}
         <div className="metric-ai-chat-messages">
-          {messages.length === 0 && !pendingDefinition ? (
+          {messages.length === 0 && !pendingFormValues ? (
             <div className="metric-ai-chat-welcome">
               {/* Logo 区域 */}
               <div className="metric-ai-chat-welcome-brand">
@@ -242,24 +189,15 @@ const MetricAiChatPage: React.FC = () => {
             </div>
           )}
 
-          {/* 指标预览卡片 */}
-          {pendingDefinition && (
+          {/* 指标表单操作卡片 */}
+          {pendingFormValues && (
             <div className="metric-ai-chat-msg-list">
               <div className="metric-ai-chat-msg-outer">
-                <MetricPreviewCard
-                  definition={pendingDefinition}
-                  onConfirm={handleConfirmCreate}
+                <MetricFormActionCard
+                  formValues={pendingFormValues}
+                  onNavigate={handleNavigateToDefinition}
                   onCancel={handleCancelPreview}
                 />
-              </div>
-            </div>
-          )}
-
-          {isCreating && (
-            <div className="metric-ai-chat-msg-list">
-              <div className="metric-ai-chat-creating-hint">
-                <Spin size="small" />
-                <span>正在创建指标...</span>
               </div>
             </div>
           )}

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { streamMetricAiChat } from '@/api/MetricAiChatApi';
-import { extractMetricDefinition, type MetricDefinitionJSON } from './types';
+import { extractMetricForm, type MetricFormValues } from './types';
 
 // ==================== 类型定义 ====================
 
@@ -17,15 +17,13 @@ export interface MetricAiChatState {
   conversationId: string;
   isLoading: boolean;
   inputValue: string;
-  pendingDefinition: MetricDefinitionJSON | null;
-  isCreating: boolean;
+  pendingFormValues: MetricFormValues | null;
 
   // actions
   setInputValue: (value: string) => void;
   sendMessage: (query: string) => Promise<void>;
   resetChat: () => void;
-  setPendingDefinition: (def: MetricDefinitionJSON | null) => void;
-  setIsCreating: (value: boolean) => void;
+  setPendingFormValues: (values: MetricFormValues | null) => void;
 }
 
 // ==================== 工具函数 ====================
@@ -54,17 +52,14 @@ export const useMetricAiChatStore = create<MetricAiChatState>((set, get) => ({
   conversationId: '',
   isLoading: false,
   inputValue: '',
-  pendingDefinition: null,
-  isCreating: false,
+  pendingFormValues: null,
 
   setInputValue: (value: string) => set({ inputValue: value }),
 
-  setPendingDefinition: (def: MetricDefinitionJSON | null) => set({ pendingDefinition: def }),
-
-  setIsCreating: (value: boolean) => set({ isCreating: value }),
+  setPendingFormValues: (values: MetricFormValues | null) => set({ pendingFormValues: values }),
 
   resetChat: () => {
-    set({ messages: [], conversationId: '', isLoading: false, inputValue: '', pendingDefinition: null, isCreating: false });
+    set({ messages: [], conversationId: '', isLoading: false, inputValue: '', pendingFormValues: null });
   },
 
   sendMessage: async (query: string) => {
@@ -90,7 +85,7 @@ export const useMetricAiChatStore = create<MetricAiChatState>((set, get) => ({
       messages: [...s.messages, userMsg, assistantMsg],
       isLoading: true,
       inputValue: '',
-      pendingDefinition: null,
+      pendingFormValues: null,
     }));
 
     let fullContent = '';
@@ -126,8 +121,8 @@ export const useMetricAiChatStore = create<MetricAiChatState>((set, get) => ({
         }
       }
 
-      // 消息结束：解析 metric_definition
-      const definition = extractMetricDefinition(fullContent);
+      // 消息结束：解析 metric_form
+      const formValues = extractMetricForm(fullContent);
 
       set((s) => {
         const msgs = [...s.messages];
@@ -139,7 +134,7 @@ export const useMetricAiChatStore = create<MetricAiChatState>((set, get) => ({
           messages: msgs,
           conversationId: newConversationId,
           isLoading: false,
-          pendingDefinition: definition,
+          pendingFormValues: formValues,
         };
       });
     } catch (error) {
@@ -151,7 +146,7 @@ export const useMetricAiChatStore = create<MetricAiChatState>((set, get) => ({
           lastMsg.loading = false;
           lastMsg.error = errMsg;
         }
-        return { messages: msgs, isLoading: false, pendingDefinition: null };
+        return { messages: msgs, isLoading: false, pendingFormValues: null };
       });
     }
   },
