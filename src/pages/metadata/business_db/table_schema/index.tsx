@@ -32,7 +32,6 @@ import {Database, databaseApi, DatasourceType, DSApi, DsConfig, tableApi} from '
 import {
     listCdcConfigs,
     createCdcConfig,
-    deleteCdcConfig,
     toggleCdcConfig,
     CdcConfigDTO,
     CdcConfigCmd
@@ -117,6 +116,17 @@ const convertToIcebergType = (dbType: string): string => {
     };
 
     return commonTypeMap[upperType] || 'STRING';
+};
+
+const safeOdsNamePart = (name?: string | null): string => {
+    return (name || '').replace(/[^a-zA-Z0-9_]/g, '_');
+};
+
+const buildOdsTableName = (subjectCode?: string | null, dbName?: string | null, tableName?: string | null): string => {
+    if (!subjectCode || !dbName || !tableName) {
+        return '';
+    }
+    return `ods_cdc_raw_${safeOdsNamePart(subjectCode)}_${safeOdsNamePart(dbName)}_${safeOdsNamePart(tableName)}`;
 };
 
 const TableSchemaManagement: React.FC = () => {
@@ -268,6 +278,10 @@ const TableSchemaManagement: React.FC = () => {
         setSelectedDbName(dbName);
     };
 
+    const getTableComment = (tableName: string): string => {
+        return tables.find(table => table.tableName === tableName)?.tableComment || '';
+    };
+
     // CDC 相关操作
     const handleOpenCdcModal = async (tableName: string, configId?: string) => {
         setCdcModalTableName(tableName);
@@ -298,7 +312,8 @@ const TableSchemaManagement: React.FC = () => {
                     cdcForm.setFieldsValue({
                         subjectCode: dto.subjectCode,
                         secretLevel: dto.secretLevel || 'L1',
-                        icebergTableName: dto.icebergTableName,
+                        icebergTableName: dto.icebergTableName || buildOdsTableName(dto.subjectCode, selectedDbName, tableName),
+                        description: dto.description || '',
                     });
                     setCdcSelectedSubjectCode(dto.subjectCode || '');
                     setCdcModalConfigEnabled(dto.enabled);
@@ -315,11 +330,24 @@ const TableSchemaManagement: React.FC = () => {
                 const subjectList = await listSubjects({parentId: '0'});
                 const cdcSubject = subjectList?.find(s => s.subjectCode === 'cdc');
                 if (cdcSubject) {
-                    cdcForm.setFieldsValue({ subjectCode: cdcSubject.subjectCode, secretLevel: 'L1' });
+                    cdcForm.setFieldsValue({
+                        subjectCode: cdcSubject.subjectCode,
+                        secretLevel: 'L1',
+                        icebergTableName: buildOdsTableName(cdcSubject.subjectCode, selectedDbName, tableName),
+                        description: getTableComment(tableName),
+                    });
                     setCdcSelectedSubjectCode(cdcSubject.subjectCode);
+                } else {
+                    cdcForm.setFieldsValue({
+                        secretLevel: 'L1',
+                        description: getTableComment(tableName),
+                    });
                 }
             } catch {
-                // ignore
+                cdcForm.setFieldsValue({
+                    secretLevel: 'L1',
+                    description: getTableComment(tableName),
+                });
             }
         }
 
@@ -355,8 +383,7 @@ const TableSchemaManagement: React.FC = () => {
             } else {
                 // create 模式：创建新配置
                 const values = await cdcForm.validateFields();
-                // 如用户未输入 ODS 表名，自动生成
-                const defaultIcebergTableName = `ods_cdc_raw_${values.subjectCode.replace(/[^a-zA-Z0-9_]/g, '_')}_${selectedDbName!.replace(/[^a-zA-Z0-9_]/g, '_')}_${cdcModalTableName.replace(/[^a-zA-Z0-9_]/g, '_')}`;
+                const icebergTableName = buildOdsTableName(values.subjectCode, selectedDbName, cdcModalTableName);
                 const cmd: CdcConfigCmd = {
                     name: `${selectedDbName}_${cdcModalTableName}_cdc`,
                     dsName: selectedDsName,
@@ -364,8 +391,8 @@ const TableSchemaManagement: React.FC = () => {
                     tableName: cdcModalTableName,
                     subjectCode: values.subjectCode,
                     syncTool: 'FLINK',
-                    description: `CDC 同步: ${selectedDbName}.${cdcModalTableName}`,
-                    icebergTableName: values.icebergTableName || defaultIcebergTableName,
+                    description: values.description,
+                    icebergTableName,
                     secretLevel: values.secretLevel,
                 };
 
@@ -822,7 +849,11 @@ const TableSchemaManagement: React.FC = () => {
                             placeholder="请选择主题"
                             showSearch
                             optionFilterProp="children"
-                            onChange={(value) => setCdcSelectedSubjectCode(value as string)}
+                            onChange={(value) => {
+                                const subjectCode = value as string;
+                                setCdcSelectedSubjectCode(subjectCode);
+                                cdcForm.setFieldValue('icebergTableName', buildOdsTableName(subjectCode, selectedDbName, cdcModalTableName));
+                            }}
                         >
                             {subjects.map(subject => (
                                 <Select.Option key={subject.subjectCode} value={subject.subjectCode}>
@@ -839,14 +870,25 @@ const TableSchemaManagement: React.FC = () => {
                     >
                         <Select options={SECRET_LEVEL_OPTIONS} placeholder="请选择密级"/>
                     </Form.Item>
+                    <Form.Item
+                        name="description"
+                        label="表描述"
+                    >
+                        <Input.TextArea
+                            placeholder="请输入表描述"
+                            rows={3}
+                            maxLength={500}
+                            showCount
+                        />
+                    </Form.Item>
                     {cdcSelectedSubjectCode && selectedDbName && (
                         <Form.Item
                             name="icebergTableName"
                             label="目标 ODS 表名"
-                            rules={[{ required: true, message: '请输入目标 ODS 表名' }]}
                         >
                             <Input
-                                placeholder={`ods_cdc_raw_${cdcSelectedSubjectCode.replace(/[^a-zA-Z0-9_]/g, '_')}_${selectedDbName.replace(/[^a-zA-Z0-9_]/g, '_')}_${cdcModalTableName.replace(/[^a-zA-Z0-9_]/g, '_')}`}
+                                disabled
+                                placeholder={buildOdsTableName(cdcSelectedSubjectCode, selectedDbName, cdcModalTableName)}
                             />
                         </Form.Item>
                     )}

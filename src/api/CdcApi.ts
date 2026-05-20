@@ -12,6 +12,7 @@ export interface CdcConfigDTO {
     dsName: string;
     dbName: string;
     tableName: string;
+    subjectCode: string;
     icebergTableName: string;
     syncTool: 'SPARK' | 'FLINK';
     syncSql?: string;
