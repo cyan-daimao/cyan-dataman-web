@@ -12,7 +12,9 @@ export interface DataWorkTaskDTO {
     name: string;
     description?: string;
     engineType: 'SPARK' | 'FLINK';
+    nodeType?: NodeType;
     sqlContent: string;
+    configJson?: string;
     status: 'DRAFT' | 'ONLINE' | 'OFFLINE';
     createdBy?: string;
     createdAt?: string;
@@ -28,6 +30,10 @@ export interface ScheduleConfigDTO {
     cronExpression: string;
     enabled: boolean;
     nextExecuteTime?: string;
+    createdBy?: string;
+    createdAt?: string;
+    updatedBy?: string;
+    updatedAt?: string;
 }
 
 /**
@@ -44,6 +50,23 @@ export interface ExecutionRecordDTO {
     resultData?: string;
     errorMessage?: string;
     createdAt?: string;
+}
+
+/**
+ * 数据加工节点类型
+ */
+export type NodeType = 'ODS_TO_DWD' | 'SPARK_SQL' | 'FLINK_SQL' | 'PYTHON' | 'DATA_QUALITY' | 'VIRTUAL';
+
+/**
+ * ODS到DWD节点配置
+ */
+export interface OdsToDwdNodeConfig {
+    inputTable?: string;
+    outputTable?: string;
+    primaryKeys?: string[];
+    opField?: string;
+    eventTimeField?: string;
+    ingestionTimeField?: string;
 }
 
 // ==================== 分页类型 ====================
@@ -185,7 +208,9 @@ export interface JobDTO {
     name: string;
     description?: string;
     engineType: 'SPARK' | 'FLINK';
+    nodeType?: NodeType;
     sqlContent: string;
+    configJson?: string;
     status: 'DRAFT' | 'ONLINE' | 'OFFLINE';
     createdBy?: string;
     createdAt?: string;
@@ -205,13 +230,16 @@ export interface JobInstanceDTO {
     costTimeMs?: number;
     resultData?: string;
     errorMessage?: string;
+    createdBy?: string;
     createdAt?: string;
+    updatedBy?: string;
+    updatedAt?: string;
 }
 
 /**
  * 分页查询作业列表
  */
-export const pageJobs = async (query: { name?: string; engineType?: string; folderId?: number; current?: number; size?: number }): Promise<Page<JobDTO>> => {
+export const pageJobs = async (query: { name?: string; engineType?: string; nodeType?: NodeType; folderId?: number; current?: number; size?: number }): Promise<Page<JobDTO>> => {
     const config: AxiosRequestConfig = { params: query };
     const resp = await dataworksRequest.get('/api/v1/data-work/jobs', config);
     return resp.data;

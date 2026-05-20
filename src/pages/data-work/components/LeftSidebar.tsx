@@ -12,11 +12,9 @@ import {
 } from 'antd';
 import {
     DatabaseOutlined,
-    FileTextOutlined,
     HistoryOutlined,
     PlusOutlined,
     FolderOutlined,
-    FolderOpenOutlined,
     FileOutlined,
     LinkOutlined,
 } from '@ant-design/icons';
@@ -173,8 +171,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
     ];
 
     // 处理树节点选择
-    const handleTreeSelect = (selectedKeys: React.Key[], info: any) => {
-        const node = info.node as TreeNode;
+    const handleTreeSelect = (_selectedKeys: React.Key[], info: Parameters<NonNullable<React.ComponentProps<typeof Tree>['onSelect']>>[1]) => {
+        const node = info.node as unknown as TreeNode;
         if (node.type === 'task' && node.task) {
             onTaskSelect(node.task);
         }
@@ -196,7 +194,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
     };
 
     // 自定义树节点标题：统一渲染 icon + title，确保在同一行
-    const titleRender = (nodeData: any) => {
+    const titleRender = (nodeData: TreeNode) => {
         const node = nodeData as TreeNode;
         if (node.type === 'task' && node.task) {
             return (
@@ -323,7 +321,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
                                             title={
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                     <Text ellipsis style={{ maxWidth: 140, fontSize: 12 }}>
-                                                        {item.taskName}
+                                                        {item.jobName}
                                                     </Text>
                                                     <Tag
                                                         color={item.status === 'SUCCESS' ? 'success' : item.status === 'FAILED' ? 'error' : 'processing'}

@@ -29,6 +29,7 @@ import {
     saveJobSchedule,
     deleteJob,
     publishJob,
+    executeJob,
 } from '@/api/DataworksApi.ts';
 import { executeSparkSql } from '@/api/DatagawayApi.ts';
 import { authFilterSql } from '@/api/DataAuthApi';
@@ -72,7 +73,9 @@ const createEmptyTask = (): JobDTO => ({
     name: '未命名任务',
     description: '',
     engineType: 'SPARK',
+    nodeType: 'SPARK_SQL',
     sqlContent: '',
+    configJson: '',
     status: 'DRAFT',
 });
 
@@ -337,7 +340,9 @@ const DataWorkWorkspace: React.FC = () => {
             name: tab.task.name.trim(),
             description: tab.task.description,
             engineType: tab.task.engineType,
+            nodeType: tab.task.nodeType || (tab.task.engineType === 'FLINK' ? 'FLINK_SQL' : 'SPARK_SQL'),
             sqlContent: tab.sqlContent,
+            configJson: tab.task.configJson,
         };
         setSaving(true);
         try {
@@ -413,7 +418,50 @@ const DataWorkWorkspace: React.FC = () => {
         if (!tab) return;
 
         if (tab.task.engineType === 'FLINK') {
-            message.info('FlinkSQL 执行功能暂未开放');
+            if (!tab.task.id || tab.isModified) {
+                message.warning('请先保存任务后再执行FlinkSQL节点');
+                return;
+            }
+            setExecuting(true);
+            setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                ...t,
+                result: null,
+                executionPlan: null,
+                error: null,
+                logs: [
+                    `[${new Date().toLocaleString()}] INFO 开始执行 ${tab.task.nodeType || 'FLINK_SQL'}: ${tab.task.name}`,
+                ],
+            } : t));
+            try {
+                const resp = await executeJob(tab.task.id);
+                const instance = resp.data;
+                setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                    ...t,
+                    error: instance.errorMessage || null,
+                    logs: [
+                        ...t.logs,
+                        `[${new Date().toLocaleString()}] INFO 实例状态: ${instance.status}`,
+                        `[${new Date().toLocaleString()}] INFO 执行SQL快照:`,
+                        ...(instance.sqlContent || '').split('\n').map(line => `    ${line}`),
+                        ...(instance.errorMessage ? [`[${new Date().toLocaleString()}] ERROR ${instance.errorMessage}`] : []),
+                    ],
+                } : t));
+                if (instance.status === 'SUCCESS') {
+                    message.success('任务执行成功');
+                } else {
+                    message.error(instance.errorMessage || '任务执行失败');
+                }
+            } catch (e: unknown) {
+                const errMsg = e instanceof Error ? e.message : '执行异常';
+                setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                    ...t,
+                    error: errMsg,
+                    logs: [...t.logs, `[${new Date().toLocaleString()}] ERROR ${errMsg}`],
+                } : t));
+                message.error(errMsg);
+            } finally {
+                setExecuting(false);
+            }
             return;
         }
 
@@ -546,13 +594,16 @@ const DataWorkWorkspace: React.FC = () => {
             const explainSql = `EXPLAIN ${tab.sqlContent}`;
             const resp = await executeSql(explainSql);
             const result = resp.data;
-            const plan: ExecutionPlan[] = result.data.map((row: Record<string, unknown>) => ({
-                id: String(idx + 1),
-                operation: row.operation || row.Operation || '',
-                rowCount: row.rows || row.Rows || 0,
-                cost: row.cost || row.Cost || 0,
-                details: row.details || row.Details || JSON.stringify(row),
-            }));
+            const plan: ExecutionPlan[] = result.data.map((item: object, idx: number) => {
+                const row = item as Record<string, unknown>;
+                return {
+                    id: String(idx + 1),
+                    operation: String(row.operation || row.Operation || ''),
+                    rowCount: Number(row.rows || row.Rows || 0),
+                    cost: Number(row.cost || row.Cost || 0),
+                    details: String(row.details || row.Details || JSON.stringify(row)),
+                };
+            });
             setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
                 ...t,
                 executionPlan: plan,
@@ -655,7 +706,7 @@ const DataWorkWorkspace: React.FC = () => {
             sqlContent: record.sqlContent || t.sqlContent,
             isModified: true,
         } : t));
-        message.info(`已加载历史 SQL: ${record.taskName}`);
+        message.info(`已加载历史 SQL: ${record.jobName}`);
     }, [activeTabId]);
 
     // ========== 渲染 ==========
@@ -814,7 +865,7 @@ const DataWorkWorkspace: React.FC = () => {
                     {!activeTab.task.id && <span style={{color: '#999', fontWeight: 400}}>（未保存）</span>}
                 </span>
                 <Space>
-                    <Button type="primary" icon={<PlayCircleOutlined />} loading={executing} onClick={handleExecute} disabled={activeTab.task.engineType === 'FLINK'}>
+                    <Button type="primary" icon={<PlayCircleOutlined />} loading={executing} onClick={handleExecute}>
                         运行
                     </Button>
                     <Button icon={<SaveOutlined />} loading={saving} onClick={handleSave}>
@@ -955,21 +1006,23 @@ const DataWorkWorkspace: React.FC = () => {
                                     name: activeTab.task.name,
                                     description: activeTab.task.description,
                                     engineType: activeTab.task.engineType,
+                                    nodeType: activeTab.task.nodeType,
+                                    configJson: activeTab.task.configJson,
                                 }}
                                 schedule={{
                                     cronExpression: activeTab.schedule.cronExpression,
                                     enabled: activeTab.schedule.enabled,
                                 }}
-                                onTaskChange={(t) => setTabs(prev => prev.map(tab => tab.tabId === activeTabId ? {
+                                onTaskChange={(nextTask) => setTabs(prev => prev.map(tab => tab.tabId === activeTabId ? {
                                     ...tab,
-                                    task: {...tab.task, ...t},
+                                    task: {...tab.task, ...nextTask},
                                     isModified: true,
-                                } : t))}
-                                onScheduleChange={(s) => setTabs(prev => prev.map(tab => tab.tabId === activeTabId ? {
+                                } : tab))}
+                                onScheduleChange={(nextSchedule) => setTabs(prev => prev.map(tab => tab.tabId === activeTabId ? {
                                     ...tab,
-                                    schedule: {...tab.schedule, ...s},
+                                    schedule: {...tab.schedule, ...nextSchedule},
                                     isModified: true,
-                                } : t))}
+                                } : tab))}
                                 onSave={handleSave}
                                 onExecute={handleExecute}
                                 onDelete={handleDelete}
