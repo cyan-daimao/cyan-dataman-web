@@ -29,7 +29,8 @@ import {
     saveJobSchedule,
     deleteJob,
     publishJob,
-    executeJob,
+    executePreviewJob,
+    startJobApplication,
 } from '@/api/DataworksApi.ts';
 import { executeSparkSql } from '@/api/DatagawayApi.ts';
 import { authFilterSql } from '@/api/DataAuthApi';
@@ -398,10 +399,23 @@ const DataWorkWorkspace: React.FC = () => {
         try {
             const resp = await publishJob(tab.task.id);
             const publishedTask = resp.data;
-            message.success('任务发布成功');
+            let startMessage = '';
+            if (publishedTask.engineType === 'FLINK') {
+                const startResp = await startJobApplication(publishedTask.id);
+                startMessage = startResp.data.status === 'SUCCESS'
+                    ? '，Application Mode任务已启动'
+                    : `，Application Mode启动失败：${startResp.data.errorMessage || '未知错误'}`;
+            }
+            message.success(`任务发布成功${startMessage}`);
             setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
                 ...t,
                 task: publishedTask,
+                logs: publishedTask.engineType === 'FLINK'
+                    ? [
+                        ...t.logs,
+                        `[${new Date().toLocaleString()}] INFO 任务已发布，开始启动Application Mode正式任务`,
+                    ]
+                    : t.logs,
                 isModified: false,
             } : t));
             setSidebarRefreshKey(prev => prev + 1);
@@ -417,11 +431,13 @@ const DataWorkWorkspace: React.FC = () => {
         const tab = tabs.find(t => t.tabId === activeTabId);
         if (!tab) return;
 
+        if (!tab.sqlContent.trim()) {
+            message.warning('请输入SQL语句');
+            return;
+        }
+
         if (tab.task.engineType === 'FLINK') {
-            if (!tab.task.id || tab.isModified) {
-                message.warning('请先保存任务后再执行FlinkSQL节点');
-                return;
-            }
+            const nodeType = tab.task.nodeType || 'FLINK_SQL';
             setExecuting(true);
             setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
                 ...t,
@@ -429,11 +445,18 @@ const DataWorkWorkspace: React.FC = () => {
                 executionPlan: null,
                 error: null,
                 logs: [
-                    `[${new Date().toLocaleString()}] INFO 开始执行 ${tab.task.nodeType || 'FLINK_SQL'}: ${tab.task.name}`,
+                    `[${new Date().toLocaleString()}] INFO 开始执行 ${nodeType}: ${tab.task.name}`,
+                    `[${new Date().toLocaleString()}] INFO 当前为Session Mode临时运行，不生成正式Application任务`,
                 ],
             } : t));
             try {
-                const resp = await executeJob(tab.task.id);
+                const resp = await executePreviewJob({
+                    name: tab.task.name,
+                    engineType: tab.task.engineType,
+                    nodeType,
+                    sqlContent: tab.sqlContent,
+                    configJson: tab.task.configJson,
+                });
                 const instance = resp.data;
                 setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
                     ...t,
@@ -462,11 +485,6 @@ const DataWorkWorkspace: React.FC = () => {
             } finally {
                 setExecuting(false);
             }
-            return;
-        }
-
-        if (!tab.sqlContent.trim()) {
-            message.warning('请输入SQL语句');
             return;
         }
 

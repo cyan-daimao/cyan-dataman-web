@@ -125,6 +125,25 @@
   flex-shrink: 0;
 }
 
+.metric-ai-chat-conv-delete {
+  font-size: 12px;
+  color: #b0b5c3;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: all 0.2s ease;
+  padding: 2px;
+  border-radius: 4px;
+
+  &:hover {
+    color: #ff4d4f;
+    background: #fff1f0;
+  }
+}
+
+.metric-ai-chat-conv-item:hover .metric-ai-chat-conv-delete {
+  opacity: 1;
+}
+
 /* ============================================
    主聊天区域
    ============================================ */

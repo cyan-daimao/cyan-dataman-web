@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { streamMetricAiChat, getConversations, getMessages } from '@/api/MetricAiChatApi';
+import { streamMetricAiChat, getConversations, getMessages, deleteConversation as deleteConversationApi } from '@/api/MetricAiChatApi';
 import { extractMetricForm, type MetricFormValues } from './types';
 
 // ==================== 类型定义 ====================
@@ -38,6 +38,7 @@ export interface MetricAiChatState {
   setPendingFormValues: (values: MetricFormValues | null) => void;
   loadConversations: () => Promise<void>;
   loadConversationMessages: (conversationId: string) => Promise<void>;
+  deleteConversation: (conversationId: string) => Promise<void>;
   setSidebarCollapsed: (collapsed: boolean) => void;
 }
 
@@ -144,6 +145,21 @@ export const useMetricAiChatStore = create<MetricAiChatState>((set, get) => ({
       });
     } catch {
       set({ isLoading: false });
+    }
+  },
+
+  deleteConversation: async (conversationId: string) => {
+    const state = get();
+    try {
+      await deleteConversationApi(conversationId, getCurrentUser());
+      const remaining = state.conversations.filter((c) => c.id !== conversationId);
+      set({ conversations: remaining });
+      // 如果删除的是当前激活的对话，重置聊天
+      if (state.conversationId === conversationId) {
+        set({ messages: [], conversationId: '', isLoading: false, pendingFormValues: null });
+      }
+    } catch {
+      // ignore
     }
   },
 

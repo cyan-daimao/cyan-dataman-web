@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import {
-  Spin, Button, message, Avatar, Typography, Space, Tooltip,
+  Spin, Button, message, Avatar, Typography, Space, Tooltip, Popconfirm,
 } from 'antd';
 import {
   RobotOutlined,
@@ -17,6 +17,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   MessageOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import { useMetricAiChatStore, AiChatMessage } from './store';
 import ChatInput from './components/ChatInput';
@@ -126,6 +127,7 @@ const MetricAiChatPage: React.FC = () => {
   const setPendingFormValues = useMetricAiChatStore((s) => s.setPendingFormValues);
   const loadConversations = useMetricAiChatStore((s) => s.loadConversations);
   const loadConversationMessages = useMetricAiChatStore((s) => s.loadConversationMessages);
+  const deleteConversation = useMetricAiChatStore((s) => s.deleteConversation);
   const setSidebarCollapsed = useMetricAiChatStore((s) => s.setSidebarCollapsed);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -225,6 +227,21 @@ const MetricAiChatPage: React.FC = () => {
                 <MessageOutlined className="metric-ai-chat-conv-icon" />
                 <span className="metric-ai-chat-conv-name">{conv.name}</span>
                 <span className="metric-ai-chat-conv-time">{formatTime(conv.updatedAt)}</span>
+                <Popconfirm
+                  title="确定删除此对话？"
+                  onConfirm={(e) => {
+                    e?.stopPropagation();
+                    deleteConversation(conv.id);
+                  }}
+                  onCancel={(e) => e?.stopPropagation()}
+                  okText="删除"
+                  cancelText="取消"
+                >
+                  <DeleteOutlined
+                    className="metric-ai-chat-conv-delete"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </Popconfirm>
               </div>
             ))
           )}

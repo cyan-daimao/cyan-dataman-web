@@ -237,6 +237,17 @@ export interface JobInstanceDTO {
 }
 
 /**
+ * 临时执行作业请求
+ */
+export interface JobPreviewExecuteCmd {
+    name?: string;
+    engineType: 'SPARK' | 'FLINK';
+    nodeType: NodeType;
+    sqlContent: string;
+    configJson?: string;
+}
+
+/**
  * 分页查询作业列表
  */
 export const pageJobs = async (query: { name?: string; engineType?: string; nodeType?: NodeType; folderId?: number; current?: number; size?: number }): Promise<Page<JobDTO>> => {
@@ -279,6 +290,20 @@ export const deleteJob = async (id: string): Promise<Response<void>> => {
  */
 export const executeJob = async (jobId: string): Promise<Response<JobInstanceDTO>> => {
     return await dataworksRequest.post(`/api/v1/data-work/jobs/${jobId}/execute`);
+};
+
+/**
+ * 临时执行作业，不生成正式实例
+ */
+export const executePreviewJob = async (body: JobPreviewExecuteCmd): Promise<Response<JobInstanceDTO>> => {
+    return await dataworksRequest.post('/api/v1/data-work/jobs/execute-preview', body);
+};
+
+/**
+ * 启动正式Application Mode作业
+ */
+export const startJobApplication = async (jobId: string): Promise<Response<JobInstanceDTO>> => {
+    return await dataworksRequest.post(`/api/v1/data-work/jobs/${jobId}/start`);
 };
 
 /**

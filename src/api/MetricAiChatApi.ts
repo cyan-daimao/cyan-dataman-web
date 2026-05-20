@@ -135,3 +135,23 @@ export async function getMessages(conversationId: string, user: string): Promise
   const data = await response.json();
   return (data.data || []) as DifyMessage[];
 }
+
+/**
+ * 删除指定对话
+ */
+export async function deleteConversation(conversationId: string, user: string): Promise<void> {
+  const response = await fetch(
+    `${DIFY_BASE_URL}/v1/conversations/${encodeURIComponent(conversationId)}?user=${encodeURIComponent(user)}`,
+    {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${DIFY_API_KEY}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Dify API error: ${response.status} ${text}`);
+  }
+}
