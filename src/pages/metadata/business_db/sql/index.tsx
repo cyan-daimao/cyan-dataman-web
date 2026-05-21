@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Input, Layout, message, Tabs, Spin} from 'antd';
-import {CodeOutlined, DatabaseOutlined, PlusOutlined} from '@ant-design/icons';
+import {Layout, message, Spin} from 'antd';
+import {CaretRightOutlined, DatabaseOutlined, FileSearchOutlined, FormatPainterOutlined, ReloadOutlined} from '@ant-design/icons';
+import {WorkbenchTabs, WorkbenchToolbar, ToolbarButton} from '@/pages/workbench/components';
 import Sidebar from './components/Sidebar';
 import SQLEditor from '@/pages/sql-editor/components/SQLEditor';
 import ResultPanel from '@/pages/sql-editor/components/ResultPanel';
@@ -102,10 +103,6 @@ const BusinessDsSqlPage: React.FC = () => {
 
     const [tableColumnsCache, setTableColumnsCache] = useState<TableColumnsCache>({});
     const [resultActiveTab, setResultActiveTab] = useState('result');
-
-    // 重命名相关状态
-    const [editingTabId, setEditingTabId] = useState<string | null>(null);
-    const [editingTabName, setEditingTabName] = useState('');
 
     // 拖拽相关状态
     const [siderWidth, setSiderWidth] = useState(280);
@@ -225,6 +222,20 @@ const BusinessDsSqlPage: React.FC = () => {
         });
     }, []);
 
+    // 关闭其他标签页
+    const handleCloseOtherTabs = useCallback((tabId: string) => {
+        setTabs(prev => {
+            if (prev.length <= 1) {
+                message.warning('没有其他查询标签页可关闭');
+                return prev;
+            }
+            const targetTab = prev.find(t => t.id === tabId);
+            if (!targetTab) return prev;
+            setActiveTab(tabId);
+            return [targetTab];
+        });
+    }, []);
+
     // 执行 SQL
     const handleExecute = useCallback(async (sqlToExecute?: string) => {
         if (!selectedDsName || !selectedDbName) {
@@ -272,8 +283,8 @@ const BusinessDsSqlPage: React.FC = () => {
             } else {
                 throw new Error(resp.message || '执行失败');
             }
-        } catch (error: any) {
-            const errorMessage = error.message || 'SQL执行失败';
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'SQL执行失败';
 
             setTabs(prev => prev.map(t =>
                 t.id === currentActiveTab
@@ -313,7 +324,7 @@ const BusinessDsSqlPage: React.FC = () => {
 
             if (resp.code === 200) {
                 const result = resp.data;
-                const plan: ExecutionPlan[] = (result.rows || []).map((row: any, index: number) => ({
+                const plan: ExecutionPlan[] = (result.rows || []).map((row: Record<string, unknown>, index: number) => ({
                     id: String(index + 1),
                     operation: row.operation || row.Operation || row.id || '',
                     rowCount: row.rows || row.Rows || row.row_count || 0,
@@ -330,8 +341,8 @@ const BusinessDsSqlPage: React.FC = () => {
                 setResultActiveTab('plan');
                 message.success('执行计划生成成功');
             }
-        } catch (error: any) {
-            message.error(error.message || '获取执行计划失败');
+        } catch (error: unknown) {
+            message.error(error instanceof Error ? error.message : '获取执行计划失败');
         } finally {
             setLoading(false);
         }
@@ -342,7 +353,7 @@ const BusinessDsSqlPage: React.FC = () => {
         const currentTabData = tabs.find(t => t.id === activeTabRef.current);
         if (!currentTabData?.sql) return;
 
-        let formatted = currentTabData.sql
+        const formatted = currentTabData.sql
             .replace(/\s+/g, ' ')
             .replace(/\s*,\s*/g, ',\n    ')
             .replace(/\s+(SELECT|FROM|WHERE|JOIN|LEFT JOIN|RIGHT JOIN|INNER JOIN|GROUP BY|HAVING|ORDER BY|LIMIT|UNION|WITH)/gi, '\n$1')
@@ -397,45 +408,54 @@ const BusinessDsSqlPage: React.FC = () => {
         handleSQLChange(sql);
     }, [handleSQLChange]);
 
-    // 开始重命名
-    const handleStartRename = useCallback((tabId: string, currentName: string) => {
-        setEditingTabId(tabId);
-        setEditingTabName(currentName);
+    const handleRename = useCallback((tabId: string, newName: string) => {
+        setTabs(prev => prev.map(t =>
+            t.id === tabId ? {...t, name: newName} : t
+        ));
     }, []);
 
-    // 完成重命名
-    const handleFinishRename = useCallback(() => {
-        if (editingTabId && editingTabName.trim()) {
-            setTabs(prev => prev.map(t =>
-                t.id === editingTabId ? {...t, name: editingTabName.trim()} : t
-            ));
-        }
-        setEditingTabId(null);
-        setEditingTabName('');
-    }, [editingTabId, editingTabName]);
+    const workbenchTabItems = useMemo(() => tabs.map(tab => ({
+        id: tab.id,
+        name: tab.name,
+        status: 'normal' as const,
+    })), [tabs]);
 
-    // 标签页配置
-    const tabItems = useMemo(() => tabs.map(tab => ({
-        key: tab.id,
-        label: editingTabId === tab.id ? (
-            <Input
-                autoFocus
-                size="small"
-                value={editingTabName}
-                onChange={(e) => setEditingTabName(e.target.value)}
-                onBlur={handleFinishRename}
-                onPressEnter={handleFinishRename}
-                style={{width: 100}}
-                onClick={(e) => e.stopPropagation()}
-            />
-        ) : (
-            <span onDoubleClick={() => handleStartRename(tab.id, tab.name)}>
-                <CodeOutlined style={{marginRight: 4}}/>
-                {tab.name}
-            </span>
-        ),
-        children: null
-    })), [tabs, editingTabId, editingTabName, handleStartRename, handleFinishRename]);
+    const toolbarButtons: ToolbarButton[] = [
+        {
+            key: 'run',
+            label: '运行',
+            icon: <CaretRightOutlined />,
+            type: 'primary',
+            onClick: () => handleExecute(),
+            tooltip: '执行选中内容或全部 (Ctrl+Enter)',
+        },
+        {
+            key: 'plan',
+            label: '执行计划',
+            icon: <FileSearchOutlined />,
+            onClick: handleExecutePlan,
+            tooltip: '查看执行计划',
+        },
+        {
+            key: 'format',
+            label: '格式化',
+            icon: <FormatPainterOutlined />,
+            onClick: handleFormat,
+            tooltip: '格式化 SQL',
+        },
+        {
+            key: 'clear',
+            label: '清空结果',
+            icon: <ReloadOutlined />,
+            onClick: () => {
+                setTabs(prev => prev.map(t =>
+                    t.id === activeTab ? {...t, result: null, error: null, executionPlan: null} : t
+                ));
+                message.info('已清空结果');
+            },
+            tooltip: '清空结果',
+        },
+    ];
 
     return (
         <Layout style={{height: '100%', background: '#f5f5f5', display: 'flex', flexDirection: 'row'}}>
@@ -475,36 +495,28 @@ const BusinessDsSqlPage: React.FC = () => {
             <Content style={{display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden'}}
                      ref={containerRef}>
                 {/* 标签页栏 */}
-                <div style={{
-                    background: '#fff',
-                    borderBottom: '1px solid #f0f0f0',
-                    padding: '4px 8px 0'
-                }}>
-                    <Tabs
-                        type="editable-card"
-                        activeKey={activeTab}
-                        onChange={setActiveTab}
-                        items={tabItems}
-                        onEdit={(targetKey, action) => {
-                            if (action === 'add') {
-                                handleAddTab();
-                            } else if (action === 'remove' && typeof targetKey === 'string') {
-                                handleCloseTab(targetKey);
-                            }
-                        }}
-                        hideAdd={false}
-                        addIcon={<PlusOutlined/>}
-                        tabBarStyle={{marginBottom: 0}}
-                        tabBarExtraContent={
-                            <span style={{color: '#999', fontSize: 12}}>
-                                <DatabaseOutlined style={{marginRight: 4}}/>
-                                {selectedDsName && selectedDbName
-                                    ? `当前数据库: ${selectedDbName}`
-                                    : '请选择数据源和数据库'}
-                            </span>
-                        }
-                    />
-                </div>
+                <WorkbenchTabs
+                    tabs={workbenchTabItems}
+                    activeTabId={activeTab}
+                    onActiveChange={setActiveTab}
+                    onClose={handleCloseTab}
+                    onCloseOthers={handleCloseOtherTabs}
+                    onRename={handleRename}
+                    onNew={handleAddTab}
+                />
+
+                {/* 工具栏 */}
+                <WorkbenchToolbar
+                    leftContent={
+                        <span style={{color: '#8c8c8c', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4}}>
+                            <DatabaseOutlined />
+                            {selectedDsName && selectedDbName
+                                ? `当前数据库: ${selectedDbName}`
+                                : '请选择数据源和数据库'}
+                        </span>
+                    }
+                    buttons={toolbarButtons}
+                />
 
                 {/* 当前标签页内容 */}
                 <div style={{flex: 1, overflow: 'hidden'}}>
@@ -532,6 +544,8 @@ const BusinessDsSqlPage: React.FC = () => {
                                     onExecutePlan={handleExecutePlan}
                                     onFormat={handleFormat}
                                     tableColumnsCache={tableColumnsCache}
+                                    showRun={false}
+                                    showFormat={false}
                                 />
                             </div>
                             {/* 水平拖拽条 */}

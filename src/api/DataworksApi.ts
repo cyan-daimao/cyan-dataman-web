@@ -55,19 +55,7 @@ export interface ExecutionRecordDTO {
 /**
  * 数据加工节点类型
  */
-export type NodeType = 'ODS_TO_DWD' | 'SPARK_SQL' | 'FLINK_SQL' | 'PYTHON' | 'DATA_QUALITY' | 'VIRTUAL';
-
-/**
- * ODS到DWD节点配置
- */
-export interface OdsToDwdNodeConfig {
-    inputTable?: string;
-    outputTable?: string;
-    primaryKeys?: string[];
-    opField?: string;
-    eventTimeField?: string;
-    ingestionTimeField?: string;
-}
+export type NodeType = 'SPARK_SQL' | 'FLINK_SQL' | 'PYTHON' | 'DATA_QUALITY' | 'VIRTUAL';
 
 // ==================== 分页类型 ====================
 

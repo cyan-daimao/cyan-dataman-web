@@ -1,7 +1,8 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Input, Layout, message, Tabs, Spin, Button} from 'antd';
+import {Layout, message, Spin, Button} from 'antd';
 const { Sider } = Layout;
-import {CodeOutlined, DatabaseOutlined, PlusOutlined, MenuFoldOutlined, MenuUnfoldOutlined} from '@ant-design/icons';
+import {CaretRightOutlined, DatabaseOutlined, FileSearchOutlined, FormatPainterOutlined, ReloadOutlined, MenuFoldOutlined, MenuUnfoldOutlined} from '@ant-design/icons';
+import {WorkbenchTabs, WorkbenchToolbar, ToolbarButton} from '@/pages/workbench/components';
 import Sidebar from './components/Sidebar';
 import SQLEditor from './components/SQLEditor';
 import ResultPanel from './components/ResultPanel';
@@ -98,10 +99,6 @@ const SQLEditorPage: React.FC = () => {
     const [tableColumnsCache, setTableColumnsCache] = useState<TableColumnsCache>({});
     const [availableTables, setAvailableTables] = useState<Array<{name: string; title: string}>>([]);
     const [resultActiveTab, setResultActiveTab] = useState('result');
-    
-    // 重命名相关状态
-    const [editingTabId, setEditingTabId] = useState<string | null>(null);
-    const [editingTabName, setEditingTabName] = useState('');
     
     // 拖拽相关状态
     const [siderWidth, setSiderWidth] = useState(280);
@@ -237,6 +234,20 @@ const SQLEditorPage: React.FC = () => {
                 setActiveTab(newTabs[0].id);
             }
             return newTabs;
+        });
+    }, []);
+
+    // 关闭其他标签页
+    const handleCloseOtherTabs = useCallback((tabId: string) => {
+        setTabs(prev => {
+            if (prev.length <= 1) {
+                message.warning('没有其他查询标签页可关闭');
+                return prev;
+            }
+            const targetTab = prev.find(t => t.id === tabId);
+            if (!targetTab) return prev;
+            setActiveTab(tabId);
+            return [targetTab];
         });
     }, []);
 
@@ -436,45 +447,54 @@ const SQLEditorPage: React.FC = () => {
         handleSQLChange(sql);
     }, [handleSQLChange]);
 
-    // 开始重命名
-    const handleStartRename = useCallback((tabId: string, currentName: string) => {
-        setEditingTabId(tabId);
-        setEditingTabName(currentName);
+    const handleRename = useCallback((tabId: string, newName: string) => {
+        setTabs(prev => prev.map(t =>
+            t.id === tabId ? {...t, name: newName} : t
+        ));
     }, []);
 
-    // 完成重命名
-    const handleFinishRename = useCallback(() => {
-        if (editingTabId && editingTabName.trim()) {
-            setTabs(prev => prev.map(t => 
-                t.id === editingTabId ? {...t, name: editingTabName.trim()} : t
-            ));
-        }
-        setEditingTabId(null);
-        setEditingTabName('');
-    }, [editingTabId, editingTabName]);
+    const workbenchTabItems = useMemo(() => tabs.map(tab => ({
+        id: tab.id,
+        name: tab.name,
+        status: 'normal' as const,
+    })), [tabs]);
 
-    // 标签页配置
-    const tabItems = useMemo(() => tabs.map(tab => ({
-        key: tab.id,
-        label: editingTabId === tab.id ? (
-            <Input
-                autoFocus
-                size="small"
-                value={editingTabName}
-                onChange={(e) => setEditingTabName(e.target.value)}
-                onBlur={handleFinishRename}
-                onPressEnter={handleFinishRename}
-                style={{width: 100}}
-                onClick={(e) => e.stopPropagation()}
-            />
-        ) : (
-            <span onDoubleClick={() => handleStartRename(tab.id, tab.name)}>
-                <CodeOutlined style={{marginRight: 4}}/>
-                {tab.name}
-            </span>
-        ),
-        children: null
-    })), [tabs, editingTabId, editingTabName, handleStartRename, handleFinishRename]);
+    const toolbarButtons: ToolbarButton[] = [
+        {
+            key: 'run',
+            label: '运行',
+            icon: <CaretRightOutlined />,
+            type: 'primary',
+            onClick: () => handleExecute(),
+            tooltip: '执行选中内容或全部 (Ctrl+Enter)',
+        },
+        {
+            key: 'plan',
+            label: '执行计划',
+            icon: <FileSearchOutlined />,
+            onClick: handleExecutePlan,
+            tooltip: '查看执行计划',
+        },
+        {
+            key: 'format',
+            label: '格式化',
+            icon: <FormatPainterOutlined />,
+            onClick: handleFormat,
+            tooltip: '格式化 SQL',
+        },
+        {
+            key: 'clear',
+            label: '清空结果',
+            icon: <ReloadOutlined />,
+            onClick: () => {
+                setTabs(prev => prev.map(t =>
+                    t.id === activeTab ? {...t, result: null, error: null, executionPlan: null} : t
+                ));
+                message.info('已清空结果');
+            },
+            tooltip: '清空结果',
+        },
+    ];
 
     return (
         <Layout style={{height: '100%', minHeight: 0, overflow: 'hidden'}}>
@@ -518,30 +538,24 @@ const SQLEditorPage: React.FC = () => {
             <Layout style={{height: '100%', minHeight: 0, overflow: 'hidden'}}>
                 <div ref={containerRef} style={{height: '100%', minHeight: 0, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden'}}>
                     <div style={{height: editorHeight, flexShrink: 0, minHeight: 0, background: '#fff', overflow: 'hidden', display: 'flex', flexDirection: 'column'}}>
-                        <div style={{background: '#fff', borderBottom: '1px solid #f0f0f0', padding: '4px 8px 0', flexShrink: 0}}>
-                            <Tabs
-                                type="editable-card"
-                                activeKey={activeTab}
-                                onChange={setActiveTab}
-                                items={tabItems}
-                                onEdit={(targetKey, action) => {
-                                    if (action === 'add') {
-                                        handleAddTab();
-                                    } else if (action === 'remove' && typeof targetKey === 'string') {
-                                        handleCloseTab(targetKey);
-                                    }
-                                }}
-                                hideAdd={false}
-                                addIcon={<PlusOutlined/>}
-                                tabBarStyle={{marginBottom: 0}}
-                                tabBarExtraContent={
-                                    <span style={{color: '#999', fontSize: 12}}>
-                                        <DatabaseOutlined style={{marginRight: 4}}/>
-                                        数据仓库SQL编辑器,默认只展示1000行
-                                    </span>
-                                }
-                            />
-                        </div>
+                        <WorkbenchTabs
+                            tabs={workbenchTabItems}
+                            activeTabId={activeTab}
+                            onActiveChange={setActiveTab}
+                            onClose={handleCloseTab}
+                            onCloseOthers={handleCloseOtherTabs}
+                            onRename={handleRename}
+                            onNew={handleAddTab}
+                        />
+                        <WorkbenchToolbar
+                            leftContent={
+                                <span style={{color: '#8c8c8c', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4}}>
+                                    <DatabaseOutlined />
+                                    数据仓库SQL编辑器，默认只展示1000行
+                                </span>
+                            }
+                            buttons={toolbarButtons}
+                        />
                         <div style={{flex: 1, minHeight: 0}}>
                             <SQLEditor
                                 value={currentTab?.sql || ''}
@@ -551,6 +565,8 @@ const SQLEditorPage: React.FC = () => {
                                 onFormat={handleFormat}
                                 tableColumnsCache={tableColumnsCache}
                                 availableTables={availableTables}
+                                showRun={false}
+                                showFormat={false}
                             />
                         </div>
                     </div>

@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {message, Spin, Button, Space, Divider, Tooltip, Modal} from 'antd';
+import {message, Spin, Modal, Tag} from 'antd';
 import {
     PlayCircleOutlined,
     SaveOutlined,
@@ -7,11 +7,8 @@ import {
     ReloadOutlined,
     CloudUploadOutlined,
     ShareAltOutlined,
-    FileTextOutlined,
+    CodeOutlined,
     ThunderboltOutlined,
-    BranchesOutlined,
-    SettingOutlined,
-
 } from '@ant-design/icons';
 import {loader} from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
@@ -37,7 +34,8 @@ import { authFilterSql } from '@/api/DataAuthApi';
 import { KEY } from '@/utils/storage';
 import {QueryResult, ExecutionPlan} from '@/pages/sql-editor/types';
 import LeftSidebar from './components/LeftSidebar';
-import RightSidebar from './components/RightSidebar';
+import DataWorkRightDock from './components/DataWorkRightDock';
+import {WorkbenchTabs, WorkbenchToolbar, ToolbarButton} from '@/pages/workbench/components';
 
 // 预加载 Monaco
 loader.config({monaco});
@@ -68,13 +66,22 @@ interface TabData {
     isModified: boolean; // 是否有未保存修改
 }
 
+const getEngineTypeByNodeType = (nodeType: JobDTO['nodeType']): JobDTO['engineType'] => {
+    return nodeType === 'FLINK_SQL' ? 'FLINK' : 'SPARK';
+};
+
+const getDefaultTaskNameByNodeType = (nodeType: JobDTO['nodeType']) => {
+    if (nodeType === 'FLINK_SQL') return '未命名FlinkSQL任务';
+    return '未命名SparkSQL任务';
+};
+
 // 生成空任务
-const createEmptyTask = (): JobDTO => ({
+const createEmptyTask = (nodeType: JobDTO['nodeType'] = 'SPARK_SQL'): JobDTO => ({
     id: '',
-    name: '未命名任务',
+    name: getDefaultTaskNameByNodeType(nodeType),
     description: '',
-    engineType: 'SPARK',
-    nodeType: 'SPARK_SQL',
+    engineType: getEngineTypeByNodeType(nodeType),
+    nodeType,
     sqlContent: '',
     configJson: '',
     status: 'DRAFT',
@@ -89,9 +96,9 @@ const createEmptySchedule = (jobId: string = ''): ScheduleConfigDTO => ({
 });
 
 // 生成新 Tab
-const createNewTab = (): TabData => ({
+const createNewTab = (nodeType: JobDTO['nodeType'] = 'SPARK_SQL'): TabData => ({
     tabId: `new-${Date.now()}`,
-    task: createEmptyTask(),
+    task: createEmptyTask(nodeType),
     schedule: createEmptySchedule(),
     sqlContent: '',
     result: null,
@@ -115,6 +122,71 @@ interface PersistedTab {
     isModified: boolean;
     resultActiveTab: string;
 }
+
+interface FlinkPreviewPayload {
+    mock?: boolean;
+    mode?: string;
+    durationMs?: number;
+    result?: {
+        isQueryResult?: boolean;
+        columns?: string[];
+        rows?: Record<string, unknown>[];
+        total?: number;
+        maxRowsReached?: boolean;
+        results?: {
+            columns?: Array<{ name?: string; columnName?: string }>;
+            data?: unknown[];
+        };
+    };
+}
+
+const toRecord = (value: unknown): Record<string, unknown> | null => {
+    return value && typeof value === 'object' && !Array.isArray(value)
+        ? value as Record<string, unknown>
+        : null;
+};
+
+const normalizeFlinkRows = (rows: unknown[], columns: string[]): Record<string, unknown>[] => {
+    return rows.map((row) => {
+        const record = toRecord(row);
+        if (record) {
+            if (Array.isArray(record.fields)) {
+                const normalized: Record<string, unknown> = {};
+                record.fields.forEach((field, index) => {
+                    normalized[columns[index] || `col_${index}`] = field;
+                });
+                return normalized;
+            }
+            return record;
+        }
+        return {[columns[0] || 'result']: row};
+    });
+};
+
+const parseFlinkQueryResult = (instance: JobInstanceDTO): QueryResult | null => {
+    if (!instance.resultData) return null;
+    try {
+        const payload = JSON.parse(instance.resultData) as FlinkPreviewPayload;
+        const result = payload.result;
+        if (!result?.isQueryResult) return null;
+
+        const columns = Array.isArray(result.columns) && result.columns.length > 0
+            ? result.columns
+            : (result.results?.columns || []).map((column, index) => column.name || column.columnName || `col_${index}`);
+        const rows = Array.isArray(result.rows)
+            ? normalizeFlinkRows(result.rows, columns)
+            : normalizeFlinkRows(result.results?.data || [], columns);
+
+        return {
+            columns: columns.length > 0 ? columns : Object.keys(rows[0] || {}),
+            rows,
+            total: typeof result.total === 'number' ? result.total : rows.length,
+            duration: instance.costTimeMs || payload.durationMs || 0,
+        };
+    } catch {
+        return null;
+    }
+};
 
 const loadTabsFromStorage = (): { tabs: TabData[]; activeTabId: string } => {
     try {
@@ -286,8 +358,8 @@ const DataWorkWorkspace: React.FC = () => {
     }, []);
 
     // ========== 新建任务（新开 Tab）==========
-    const handleNewTask = useCallback(() => {
-        const newTab = createNewTab();
+    const handleNewTask = useCallback((nodeType: JobDTO['nodeType'] = 'SPARK_SQL') => {
+        const newTab = createNewTab(nodeType);
         newTab.tabId = `new-${Date.now()}-${++tempIdCounter}`;
         setTabs(prev => [...prev, newTab]);
         setActiveTabId(newTab.tabId);
@@ -327,6 +399,35 @@ const DataWorkWorkspace: React.FC = () => {
             doCloseTab(tabId);
         }
     }, [tabs, doCloseTab]);
+
+    // ========== 关闭其他 Tab ==========
+    const doCloseOtherTabs = useCallback((tabId: string) => {
+        setTabs(prev => {
+            if (prev.length <= 1) {
+                message.warning('没有其他任务标签页可关闭');
+                return prev;
+            }
+            const targetTab = prev.find(t => t.tabId === tabId);
+            if (!targetTab) return prev;
+            setActiveTabId(tabId);
+            return [targetTab];
+        });
+    }, []);
+
+    const handleCloseOtherTabs = useCallback((tabId: string) => {
+        const otherModifiedTabs = tabs.filter(t => t.tabId !== tabId && t.isModified);
+        if (otherModifiedTabs.length > 0) {
+            Modal.confirm({
+                title: '确认关闭其他标签页',
+                content: `有 ${otherModifiedTabs.length} 个其他任务存在未保存的修改，关闭后将丢失更改，是否继续？`,
+                okText: '关闭其他',
+                cancelText: '取消',
+                onOk: () => doCloseOtherTabs(tabId),
+            });
+            return;
+        }
+        doCloseOtherTabs(tabId);
+    }, [tabs, doCloseOtherTabs]);
 
     // ========== 保存任务 ==========
     const handleSave = useCallback(async () => {
@@ -458,12 +559,19 @@ const DataWorkWorkspace: React.FC = () => {
                     configJson: tab.task.configJson,
                 });
                 const instance = resp.data;
+                const queryResult = parseFlinkQueryResult(instance);
                 setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
                     ...t,
+                    result: queryResult,
                     error: instance.errorMessage || null,
+                    resultActiveTab: queryResult ? 'result' : t.resultActiveTab,
                     logs: [
                         ...t.logs,
                         `[${new Date().toLocaleString()}] INFO 实例状态: ${instance.status}`,
+                        ...(queryResult ? [
+                            `[${new Date().toLocaleString()}] INFO 执行成功，返回 ${queryResult.rows.length} 行`,
+                            `[${new Date().toLocaleString()}] INFO 耗时: ${queryResult.duration}ms`,
+                        ] : []),
                         `[${new Date().toLocaleString()}] INFO 执行SQL快照:`,
                         ...(instance.sqlContent || '').split('\n').map(line => `    ${line}`),
                         ...(instance.errorMessage ? [`[${new Date().toLocaleString()}] ERROR ${instance.errorMessage}`] : []),
@@ -727,190 +835,120 @@ const DataWorkWorkspace: React.FC = () => {
         message.info(`已加载历史 SQL: ${record.jobName}`);
     }, [activeTabId]);
 
+    const workbenchTabItems = React.useMemo(() => tabs.map(t => ({
+        id: t.tabId,
+        name: t.task.name || '未命名任务',
+        isModified: t.isModified,
+        status: t.task.status,
+    })), [tabs]);
+
+    const newDropdownItems = [
+        { key: 'SPARK_SQL', icon: <CodeOutlined />, label: 'SparkSQL' },
+        { key: 'FLINK_SQL', icon: <ThunderboltOutlined />, label: 'FlinkSQL' },
+    ];
+
+    const statusMeta: Record<JobDTO['status'], { color: string; text: string }> = {
+        DRAFT: { color: 'gold', text: '开发中' },
+        ONLINE: { color: 'green', text: '已发布' },
+        OFFLINE: { color: 'default', text: '已下线' },
+    };
+
+    const currentStatus = statusMeta[activeTab.task.status] || statusMeta.DRAFT;
+
+    const toolbarButtons: ToolbarButton[] = [
+        {
+            key: 'run',
+            label: '运行',
+            icon: <PlayCircleOutlined />,
+            type: 'primary',
+            loading: executing,
+            onClick: handleExecute,
+            tooltip: '临时运行当前 SQL',
+        },
+        {
+            key: 'save',
+            label: '保存',
+            icon: <SaveOutlined />,
+            loading: saving,
+            onClick: handleSave,
+        },
+        {
+            key: 'format',
+            label: '格式化',
+            icon: <FormatPainterOutlined />,
+            onClick: handleFormat,
+        },
+        {
+            key: 'clear',
+            label: '清空结果',
+            icon: <ReloadOutlined />,
+            onClick: () => {
+                setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                    ...t,
+                    result: null,
+                    error: null,
+                } : t));
+                message.info('已清空结果');
+            },
+        },
+        {
+            key: 'publish',
+            label: '发布',
+            icon: <CloudUploadOutlined />,
+            loading: publishing,
+            disabled: !activeTab.task.id || activeTab.task.status === 'ONLINE',
+            onClick: handlePublish,
+        },
+        {
+            key: 'share',
+            label: '分享',
+            icon: <ShareAltOutlined />,
+            disabled: !activeTab.task.id,
+            onClick: () => message.info('分享功能开发中'),
+        },
+    ];
+
     // ========== 渲染 ==========
     return (
         <div style={{height: '100%', flex: 1, display: 'flex', flexDirection: 'column', background: '#f5f5f5', minHeight: 0, minWidth: 0, overflow: 'hidden'}}>
-            {/* Tab 栏 — 模仿 DataWorks 编辑器标签页 */}
-            <div style={{
-                height: 36,
-                background: '#f5f5f5',
-                borderBottom: '1px solid #e8e8e8',
-                display: 'flex',
-                alignItems: 'flex-end',
-                flexShrink: 0,
-                overflow: 'hidden',
-                padding: '0 8px 0 0',
-                gap: 2,
-            }}>
-                {tabs.map((tab) => {
-                    const isActive = tab.tabId === activeTabId;
-                    return (
-                        <div
-                            key={tab.tabId}
-                            onClick={() => setActiveTabId(tab.tabId)}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 4,
-                                height: 28,
-                                padding: '0 8px',
-                                fontSize: 14,
-                                cursor: 'pointer',
-                                userSelect: 'none',
-                                borderRadius: 4,
-                                border: '1px solid transparent',
-                                background: isActive ? '#fff' : 'transparent',
-                                borderColor: isActive ? '#e8e8e8' : 'transparent',
-                                color: isActive ? '#262626' : '#8c8c8c',
-                                fontWeight: isActive ? 500 : 400,
-                                position: 'relative',
-                                top: isActive ? 0 : 1,
-                                maxWidth: 160,
-                                minWidth: 60,
-                                flexShrink: 0,
-                                transition: 'all 0.15s ease',
-                            }}
-                            onMouseEnter={(e) => {
-                                if (!isActive) {
-                                    e.currentTarget.style.background = '#e8e8e8';
-                                    e.currentTarget.style.color = '#595959';
-                                }
-                            }}
-                            onMouseLeave={(e) => {
-                                if (!isActive) {
-                                    e.currentTarget.style.background = 'transparent';
-                                    e.currentTarget.style.color = '#8c8c8c';
-                                }
-                            }}
-                        >
-                            {/* 左侧小圆点指示修改状态 */}
-                            {tab.isModified && (
-                                <span style={{
-                                    width: 6,
-                                    height: 6,
-                                    borderRadius: '50%',
-                                    background: '#faad14',
-                                    flexShrink: 0,
-                                }} />
-                            )}
-                            <span style={{
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                flex: 1,
-                            }}>
-                                {tab.task.name || '未命名任务'}
-                            </span>
-                            {tabs.length > 1 && (
-                                <span
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        width: 14,
-                                        height: 14,
-                                        borderRadius: 3,
-                                        fontSize: 12,
-                                        lineHeight: '14px',
-                                        color: '#bfbfbf',
-                                        cursor: 'pointer',
-                                        flexShrink: 0,
-                                        transition: 'all 0.15s',
-                                    }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleCloseTab(tab.tabId);
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.background = '#ff4d4f';
-                                        e.currentTarget.style.color = '#fff';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.background = 'transparent';
-                                        e.currentTarget.style.color = '#bfbfbf';
-                                    }}
-                                >
-                                    ×
-                                </span>
-                            )}
-                        </div>
-                    );
-                })}
-                {/* 新建按钮 */}
-                <div
-                    onClick={handleNewTask}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 24,
-                        height: 24,
-                        borderRadius: 4,
-                        cursor: 'pointer',
-                        color: '#8c8c8c',
-                        fontSize: 16,
-                        fontWeight: 300,
-                        flexShrink: 0,
-                        marginBottom: 2,
-                        transition: 'all 0.15s',
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.color = '#1677ff';
-                        e.currentTarget.style.background = '#e6f4ff';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.color = '#8c8c8c';
-                        e.currentTarget.style.background = 'transparent';
-                    }}
-                >
-                    +
-                </div>
-            </div>
+            <WorkbenchTabs
+                tabs={workbenchTabItems}
+                activeTabId={activeTabId}
+                onActiveChange={setActiveTabId}
+                onClose={handleCloseTab}
+                onCloseOthers={handleCloseOtherTabs}
+                showNewDropdown
+                newDropdownItems={newDropdownItems}
+                onNewDropdownSelect={(key) => handleNewTask(key as JobDTO['nodeType'])}
+                newButtonTooltip="新建任务"
+            />
 
-            {/* 顶部工具栏 */}
-            <div style={{
-                height: 40,
-                background: '#fff',
-                borderBottom: '1px solid #f0f0f0',
-                display: 'flex',
-                alignItems: 'center',
-                padding: '0 12px',
-                gap: 8,
-                flexShrink: 0,
-            }}>
-                <span style={{fontWeight: 600, fontSize: 13, marginRight: 12, minWidth: 120, color: '#262626'}}>
-                    {activeTab.task.name}
-                    {!activeTab.task.id && <span style={{color: '#999', fontWeight: 400}}>（未保存）</span>}
-                </span>
-                <Space>
-                    <Button type="primary" icon={<PlayCircleOutlined />} loading={executing} onClick={handleExecute}>
-                        运行
-                    </Button>
-                    <Button icon={<SaveOutlined />} loading={saving} onClick={handleSave}>
-                        保存
-                    </Button>
-                    <Button icon={<FormatPainterOutlined />} onClick={handleFormat}>
-                        格式化
-                    </Button>
-                    <Button icon={<ReloadOutlined />} onClick={() => {
-                        setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
-                            ...t,
-                            result: null,
-                            error: null,
-                        } : t));
-                        message.info('已重置结果');
-                    }}>
-                        刷新
-                    </Button>
-                    <Divider type="vertical" />
-                    <Button icon={<CloudUploadOutlined />} loading={publishing} onClick={handlePublish} disabled={!activeTab.task.id || activeTab.task.status === 'ONLINE'}>
-                        发布
-                    </Button>
-                    <Button icon={<ShareAltOutlined />} disabled={!activeTab.task.id}>
-                        分享
-                    </Button>
-                </Space>
-            </div>
+            <WorkbenchToolbar
+                leftContent={
+                    <>
+                        <span style={{
+                            fontWeight: 600,
+                            fontSize: 13,
+                            color: '#1f2329',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            maxWidth: 260,
+                        }}>
+                            {activeTab.task.name || '未命名任务'}
+                        </span>
+                        <Tag color={activeTab.task.engineType === 'SPARK' ? 'blue' : 'purple'} style={{ marginInlineEnd: 0 }}>
+                            {activeTab.task.engineType === 'SPARK' ? 'SparkSQL' : 'FlinkSQL'}
+                        </Tag>
+                        <Tag color={currentStatus.color} style={{ marginInlineEnd: 0 }}>
+                            {currentStatus.text}
+                        </Tag>
+                        {!activeTab.task.id && <Tag color="orange" style={{ marginInlineEnd: 0 }}>未保存</Tag>}
+                    </>
+                }
+                buttons={toolbarButtons}
+                dividerIndices={[4]}
+            />
 
             {/* 主体三栏布局 */}
             <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', overflow: 'hidden' }}>
@@ -1002,106 +1040,31 @@ const DataWorkWorkspace: React.FC = () => {
                     </div>
                 </div>
 
-                {/* 右侧边栏 */}
-                <div style={{ width: 44, flex: '0 0 44px', height: '100%', position: 'relative', overflow: 'visible' }}>
-                    {/* 展开面板 */}
-                    {rightActivePanel && (
-                        <div style={{
-                            position: 'absolute',
-                            right: 44,
-                            top: 0,
-                            bottom: 0,
-                            width: rightSiderWidth,
-                            background: '#fff',
-                            borderLeft: '1px solid #f0f0f0',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            zIndex: 1,
-                        }}>
-                            <RightSidebar
-                                jobId={activeTab.task.id}
-                                task={{
-                                    name: activeTab.task.name,
-                                    description: activeTab.task.description,
-                                    engineType: activeTab.task.engineType,
-                                    nodeType: activeTab.task.nodeType,
-                                    configJson: activeTab.task.configJson,
-                                }}
-                                schedule={{
-                                    cronExpression: activeTab.schedule.cronExpression,
-                                    enabled: activeTab.schedule.enabled,
-                                }}
-                                onTaskChange={(nextTask) => setTabs(prev => prev.map(tab => tab.tabId === activeTabId ? {
-                                    ...tab,
-                                    task: {...tab.task, ...nextTask},
-                                    isModified: true,
-                                } : tab))}
-                                onScheduleChange={(nextSchedule) => setTabs(prev => prev.map(tab => tab.tabId === activeTabId ? {
-                                    ...tab,
-                                    schedule: {...tab.schedule, ...nextSchedule},
-                                    isModified: true,
-                                } : tab))}
-                                onSave={handleSave}
-                                onExecute={handleExecute}
-                                onDelete={handleDelete}
-                                saving={saving}
-                                executing={executing}
-                                deleting={deleting}
-                                activePanel={rightActivePanel}
-                                panelWidth={rightSiderWidth}
-                                onActivePanelChange={handleRightPanelChange}
-                            />
-                        </div>
-                    )}
-
-                    {/* icon 按钮列 */}
-                    <div style={{
-                        width: 44,
-                        height: '100%',
-                        background: '#fafafa',
-                        borderLeft: '1px solid #f0f0f0',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        padding: '8px 0',
-                        gap: 8,
-                    }}>
-                        {[
-                            { key: 'property', icon: <FileTextOutlined />, title: '属性' },
-                            { key: 'schedule', icon: <ThunderboltOutlined />, title: '调度配置' },
-                            { key: 'version', icon: <BranchesOutlined />, title: '版本' },
-                            { key: 'settings', icon: <SettingOutlined />, title: '运行配置' },
-                        ].map(btn => (
-                            <Tooltip key={btn.key} title={btn.title} placement="left">
-                                <Button
-                                    type={rightActivePanel === btn.key ? 'primary' : 'text'}
-                                    icon={btn.icon}
-                                    size="small"
-                                    style={{ width: 32, height: 32 }}
-                                    onClick={() => handleRightPanelChange(btn.key as 'property' | 'schedule' | 'version' | 'settings')}
-                                />
-                            </Tooltip>
-                        ))}
-                    </div>
-
-                    {/* 右侧拖拽条 */}
-                    {rightActivePanel && (
-                        <div
-                            onMouseDown={handleRightSiderMouseDown}
-                            style={{
-                                position: 'absolute',
-                                right: 41,
-                                top: 0,
-                                bottom: 0,
-                                width: 6,
-                                cursor: 'col-resize',
-                                background: isDraggingRightSider ? '#1890ff' : 'transparent',
-                                zIndex: 10,
-                                transition: 'background 0.2s',
-                            }}
-                        />
-                    )}
-                </div>
+                <DataWorkRightDock
+                    task={activeTab.task}
+                    schedule={activeTab.schedule}
+                    activePanel={rightActivePanel}
+                    panelWidth={rightSiderWidth}
+                    isDragging={isDraggingRightSider}
+                    saving={saving}
+                    executing={executing}
+                    deleting={deleting}
+                    onTaskChange={(nextTask) => setTabs(prev => prev.map(tab => tab.tabId === activeTabId ? {
+                        ...tab,
+                        task: {...tab.task, ...nextTask},
+                        isModified: true,
+                    } : tab))}
+                    onScheduleChange={(nextSchedule) => setTabs(prev => prev.map(tab => tab.tabId === activeTabId ? {
+                        ...tab,
+                        schedule: {...tab.schedule, ...nextSchedule},
+                        isModified: true,
+                    } : tab))}
+                    onSave={handleSave}
+                    onExecute={handleExecute}
+                    onDelete={handleDelete}
+                    onActivePanelChange={handleRightPanelChange}
+                    onResizeStart={handleRightSiderMouseDown}
+                />
             </div>
         </div>
     );

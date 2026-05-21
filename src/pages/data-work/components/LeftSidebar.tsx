@@ -9,6 +9,7 @@ import {
     Typography,
     Tree,
     Button,
+    Dropdown,
 } from 'antd';
 import {
     DatabaseOutlined,
@@ -17,6 +18,9 @@ import {
     FolderOutlined,
     FileOutlined,
     LinkOutlined,
+    ProjectOutlined,
+    CodeOutlined,
+    ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { JobDTO, pageJobs, pageAllJobInstances } from '@/api/DataworksApi.ts';
@@ -33,7 +37,7 @@ interface LeftSidebarProps {
     onTableListLoaded?: (tables: Array<{ name: string; title: string }>) => void;
     onTaskSelect: (task: JobDTO) => void;
     onHistorySelect?: (record: JobInstanceDTO) => void;
-    onNewTask: () => void;
+    onNewTask: (nodeType?: JobDTO['nodeType']) => void;
     refreshTrigger?: number;
 }
 
@@ -68,6 +72,19 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
     // 执行历史状态
     const [historyLoading, setHistoryLoading] = useState(false);
     const [historyRecords, setHistoryRecords] = useState<JobInstanceDTO[]>([]);
+
+    const createNodeMenuItems = [
+        {
+            key: 'SPARK_SQL',
+            icon: <CodeOutlined />,
+            label: 'SparkSQL',
+        },
+        {
+            key: 'FLINK_SQL',
+            icon: <ThunderboltOutlined />,
+            label: 'FlinkSQL',
+        },
+    ];
 
     // 加载任务列表
     const loadTasks = useCallback(async (name?: string) => {
@@ -130,8 +147,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
     // 将任务列表转换为目录树（按状态分组）
     const taskTreeData: TreeNode[] = [
         {
-            key: 'draft',
-            title: '草稿',
+            key: 'dev',
+            title: `开发中的作业 (${tasks.filter(t => t.status === 'DRAFT').length})`,
             type: 'folder',
             children: tasks
                 .filter(t => t.status === 'DRAFT')
@@ -144,7 +161,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
         },
         {
             key: 'online',
-            title: '已上线',
+            title: `生产发布 (${tasks.filter(t => t.status === 'ONLINE').length})`,
             type: 'folder',
             children: tasks
                 .filter(t => t.status === 'ONLINE')
@@ -157,7 +174,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
         },
         {
             key: 'offline',
-            title: '已下线',
+            title: `已下线 (${tasks.filter(t => t.status === 'OFFLINE').length})`,
             type: 'folder',
             children: tasks
                 .filter(t => t.status === 'OFFLINE')
@@ -181,7 +198,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
     // 节点图标映射
     const nodeIcon = (node: TreeNode) => {
         if (node.type === 'folder') {
-            if (node.key === 'draft') return <FolderOutlined style={{ color: '#faad14', fontSize: 14 }} />;
+            if (node.key === 'dev') return <FolderOutlined style={{ color: '#faad14', fontSize: 14 }} />;
             if (node.key === 'online') return <FolderOutlined style={{ color: '#52c41a', fontSize: 14 }} />;
             return <FolderOutlined style={{ color: '#999', fontSize: 14 }} />;
         }
@@ -232,13 +249,33 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
             key: 'tasks',
             label: (
                 <span style={{ whiteSpace: 'nowrap' }}>
-                    <FolderOutlined style={{ marginRight: 4 }} />
-                    项目目录
+                    <ProjectOutlined style={{ marginRight: 4 }} />
+                    开发
                 </span>
             ),
             children: (
                 <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                    <div style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0' }}>
+                    <div style={{ padding: '10px 12px 8px', borderBottom: '1px solid #edf0f5', background: '#fff' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                            <div style={{ minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: '#1f2329' }}>默认工作空间</div>
+                                <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2 }}>DataWorks 开发目录</div>
+                            </div>
+                            <Dropdown
+                                menu={{
+                                    items: createNodeMenuItems,
+                                    onClick: ({ key }) => onNewTask(key as JobDTO['nodeType']),
+                                }}
+                                trigger={['click']}
+                                placement="bottomRight"
+                            >
+                                <Button
+                                    type="primary"
+                                    icon={<PlusOutlined />}
+                                    size="small"
+                                />
+                            </Dropdown>
+                        </div>
                         <Search
                             placeholder="搜索任务"
                             allowClear
@@ -247,18 +284,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
                             size="small"
                         />
                     </div>
-                    <div style={{ padding: '8px 12px' }}>
-                        <Button
-                            type="dashed"
-                            block
-                            icon={<PlusOutlined />}
-                            size="small"
-                            onClick={onNewTask}
-                        >
-                            新建任务
-                        </Button>
-                    </div>
-                    <div style={{ flex: 1, overflow: 'auto', padding: '0 12px' }}>
+                    <div style={{ flex: 1, overflow: 'auto', padding: '8px 10px' }}>
                         <Spin spinning={taskLoading}>
                             {tasks.length > 0 ? (
                                 <Tree
@@ -282,7 +308,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
             label: (
                 <span style={{ whiteSpace: 'nowrap' }}>
                     <DatabaseOutlined style={{ marginRight: 4 }} />
-                    数据表
+                    数据
                 </span>
             ),
             children: (
@@ -302,7 +328,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
             label: (
                 <span style={{ whiteSpace: 'nowrap' }}>
                     <HistoryOutlined style={{ marginRight: 4 }} />
-                    执行历史
+                    运维
                 </span>
             ),
             children: (

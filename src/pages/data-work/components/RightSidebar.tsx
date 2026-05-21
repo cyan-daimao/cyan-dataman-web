@@ -5,8 +5,6 @@ import {
     Divider,
     Form,
     Input,
-    Radio,
-    Select,
     Space,
     Switch,
     Tag,
@@ -19,18 +17,7 @@ import {
     CloseOutlined,
     DeleteOutlined,
 } from '@ant-design/icons';
-import { NodeType, OdsToDwdNodeConfig } from '@/api/DataworksApi.ts';
-
-const engineOptions = [
-    { label: 'SparkSQL', value: 'SPARK' },
-    { label: 'FlinkSQL', value: 'FLINK' },
-];
-
-const nodeTypeOptions = [
-    { label: 'ODS到DWD', value: 'ODS_TO_DWD' },
-    { label: 'SparkSQL', value: 'SPARK_SQL' },
-    { label: 'FlinkSQL', value: 'FLINK_SQL' },
-];
+import { NodeType } from '@/api/DataworksApi.ts';
 
 interface TaskProps {
     name: string;
@@ -51,7 +38,7 @@ interface RightSidebarProps {
     jobId?: string;
     task: TaskProps;
     schedule: ScheduleProps;
-    onTaskChange: (task: TaskProps) => void;
+    onTaskChange: (task: Partial<TaskProps>) => void;
     onScheduleChange: (schedule: ScheduleProps) => void;
     onSave: () => void;
     onExecute: () => void;
@@ -63,39 +50,6 @@ interface RightSidebarProps {
     panelWidth: number;
     onActivePanelChange: (panel: PanelType) => void;
 }
-
-const parseOdsToDwdConfig = (configJson?: string): OdsToDwdNodeConfig => {
-    if (!configJson) {
-        return {
-            opField: '_op',
-            eventTimeField: '_ts',
-            ingestionTimeField: '_ingestion_time',
-            primaryKeys: [],
-        };
-    }
-    try {
-        const parsed = JSON.parse(configJson) as OdsToDwdNodeConfig;
-        return {
-            opField: '_op',
-            eventTimeField: '_ts',
-            ingestionTimeField: '_ingestion_time',
-            primaryKeys: [],
-            ...parsed,
-        };
-    } catch {
-        return {
-            opField: '_op',
-            eventTimeField: '_ts',
-            ingestionTimeField: '_ingestion_time',
-            primaryKeys: [],
-        };
-    }
-};
-
-const stringifyOdsToDwdConfig = (config: OdsToDwdNodeConfig) => JSON.stringify({
-    ...config,
-    primaryKeys: config.primaryKeys || [],
-});
 
 const RightSidebar: React.FC<RightSidebarProps> = ({
     jobId,
@@ -113,21 +67,6 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     onActivePanelChange,
 }) => {
     const isNew = !jobId;
-    const nodeType = task.nodeType || (task.engineType === 'FLINK' ? 'FLINK_SQL' : 'SPARK_SQL');
-    const odsToDwdConfig = parseOdsToDwdConfig(task.configJson);
-
-    const handleNodeTypeChange = (value: NodeType) => {
-        const nextEngineType = value === 'ODS_TO_DWD' || value === 'FLINK_SQL' ? 'FLINK' : 'SPARK';
-        const nextConfigJson = value === 'ODS_TO_DWD'
-            ? task.configJson || stringifyOdsToDwdConfig(odsToDwdConfig)
-            : task.configJson;
-        onTaskChange({ ...task, nodeType: value, engineType: nextEngineType, configJson: nextConfigJson });
-    };
-
-    const handleOdsConfigChange = (patch: Partial<OdsToDwdNodeConfig>) => {
-        const nextConfig = { ...odsToDwdConfig, ...patch };
-        onTaskChange({ ...task, configJson: stringifyOdsToDwdConfig(nextConfig) });
-    };
 
     const PropertyPanel = (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -149,7 +88,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                             <Input
                                 placeholder="请输入任务名称"
                                 value={task.name}
-                                onChange={(e) => onTaskChange({ ...task, name: e.target.value })}
+                                onChange={(e) => onTaskChange({ name: e.target.value })}
                                 maxLength={200}
                                 showCount
                             />
@@ -158,79 +97,14 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                             <Input.TextArea
                                 placeholder="请输入任务描述"
                                 value={task.description || ''}
-                                onChange={(e) => onTaskChange({ ...task, description: e.target.value })}
+                                onChange={(e) => onTaskChange({ description: e.target.value })}
                                 rows={2}
                                 maxLength={500}
                                 showCount
                             />
                         </Form.Item>
-                        <Form.Item label="节点类型" required>
-                            <Select
-                                options={nodeTypeOptions}
-                                value={nodeType}
-                                onChange={handleNodeTypeChange}
-                            />
-                        </Form.Item>
-                        <Form.Item label="引擎类型" required>
-                            <Radio.Group
-                                options={engineOptions}
-                                value={task.engineType}
-                                onChange={(e) => onTaskChange({ ...task, engineType: e.target.value })}
-                                optionType="button"
-                                buttonStyle="solid"
-                                style={{ width: '100%' }}
-                            />
-                        </Form.Item>
                     </Form>
                 </Card>
-
-                {nodeType === 'ODS_TO_DWD' && (
-                    <Card size="small" title="ODS到DWD配置" variant="borderless" style={{ marginBottom: 12 }} styles={{ body: { padding: '12px 0' } }}>
-                        <Form layout="vertical" size="small">
-                            <Form.Item label="输入ODS表" required>
-                                <Input
-                                    placeholder="ods_cdc_raw_subject_db_table"
-                                    value={odsToDwdConfig.inputTable || ''}
-                                    onChange={(e) => handleOdsConfigChange({ inputTable: e.target.value })}
-                                />
-                            </Form.Item>
-                            <Form.Item label="输出DWD表" required>
-                                <Input
-                                    placeholder="dwd_xxx_current"
-                                    value={odsToDwdConfig.outputTable || ''}
-                                    onChange={(e) => handleOdsConfigChange({ outputTable: e.target.value })}
-                                />
-                            </Form.Item>
-                            <Form.Item label="主键字段" required extra={<span style={{ fontSize: 11, color: '#999' }}>多个字段用逗号分隔</span>}>
-                                <Input
-                                    placeholder="id"
-                                    value={(odsToDwdConfig.primaryKeys || []).join(',')}
-                                    onChange={(e) => handleOdsConfigChange({
-                                        primaryKeys: e.target.value.split(',').map(item => item.trim()).filter(Boolean),
-                                    })}
-                                />
-                            </Form.Item>
-                            <Form.Item label="操作字段">
-                                <Input
-                                    value={odsToDwdConfig.opField || '_op'}
-                                    onChange={(e) => handleOdsConfigChange({ opField: e.target.value })}
-                                />
-                            </Form.Item>
-                            <Form.Item label="事件时间字段">
-                                <Input
-                                    value={odsToDwdConfig.eventTimeField || '_ts'}
-                                    onChange={(e) => handleOdsConfigChange({ eventTimeField: e.target.value })}
-                                />
-                            </Form.Item>
-                            <Form.Item label="入湖时间字段">
-                                <Input
-                                    value={odsToDwdConfig.ingestionTimeField || '_ingestion_time'}
-                                    onChange={(e) => handleOdsConfigChange({ ingestionTimeField: e.target.value })}
-                                />
-                            </Form.Item>
-                        </Form>
-                    </Card>
-                )}
 
                 <Divider style={{ margin: '8px 0' }} />
 
@@ -337,10 +211,9 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
             <div style={{ flex: 1, overflow: 'auto', padding: '12px 16px' }}>
                 <Form layout="vertical" size="small">
                     <Form.Item label="执行引擎">
-                        <Radio.Group value={task.engineType} optionType="button" buttonStyle="solid">
-                            <Radio.Button value="SPARK">SparkSQL</Radio.Button>
-                            <Radio.Button value="FLINK" disabled>FlinkSQL</Radio.Button>
-                        </Radio.Group>
+                        <Tag color={task.engineType === 'SPARK' ? 'blue' : 'purple'}>
+                            {task.engineType === 'SPARK' ? 'SparkSQL' : 'FlinkSQL'}
+                        </Tag>
                     </Form.Item>
                     <Form.Item label="内存（GB）">
                         <Input type="number" placeholder="2" defaultValue={2} />
