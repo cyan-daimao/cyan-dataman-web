@@ -15,9 +15,11 @@ const { Title } = Typography;
 const { Option } = Select;
 
 interface PageResult<T> {
-  records: T[];
+  list?: T[];
+  records?: T[];
   total: number;
-  pageNo: number;
+  pageNum?: number;
+  pageNo?: number;
   pageSize: number;
 }
 
@@ -74,9 +76,9 @@ const PropertyListPage: React.FC = () => {
         ...query,
       }) as unknown as ApiResponse<PageResult<TrackingPropertyDTO>>;
       if (res.code === 200 && res.data) {
-        setData(res.data.records || []);
-        setTotal(res.data.total);
-        setPageNo(res.data.pageNo);
+        setData(res.data.list || res.data.records || []);
+        setTotal(res.data.total || 0);
+        setPageNo(res.data.pageNum || res.data.pageNo || page);
       }
     } catch {
       message.error('获取属性列表失败');

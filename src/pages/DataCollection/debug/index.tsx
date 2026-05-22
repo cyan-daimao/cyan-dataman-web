@@ -14,9 +14,11 @@ const { RangePicker } = DatePicker;
 const { Option } = Select;
 
 interface PageResult<T> {
-  records: T[];
+  list?: T[];
+  records?: T[];
   total: number;
-  pageNo: number;
+  pageNum?: number;
+  pageNo?: number;
   pageSize: number;
 }
 
@@ -46,11 +48,12 @@ const DebugConsolePage: React.FC = () => {
         ...query,
       }) as unknown as ApiResponse<PageResult<EventSampleDTO>>;
       if (res.code === 200 && res.data) {
-        setData(res.data.records || []);
-        setTotal(res.data.total);
-        setPageNo(res.data.pageNo);
-        if (res.data.records && res.data.records.length > 0) {
-          setSelectedSample(res.data.records[0]);
+        const rows = res.data.list || res.data.records || [];
+        setData(rows);
+        setTotal(res.data.total || 0);
+        setPageNo(res.data.pageNum || res.data.pageNo || page);
+        if (rows.length > 0) {
+          setSelectedSample(rows[0]);
         } else {
           setSelectedSample(null);
         }

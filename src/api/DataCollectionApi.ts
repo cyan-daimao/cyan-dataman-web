@@ -2,9 +2,11 @@ import { dataCollectionRequest } from './Request';
 import { ApiResponse } from './Response';
 
 export interface PageResult<T> {
-    records: T[];
+    list?: T[];
+    records?: T[];
     total: number;
-    pageNo: number;
+    pageNum?: number;
+    pageNo?: number;
     pageSize: number;
 }
 

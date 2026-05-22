@@ -36,10 +36,12 @@ const AcceptancePage: React.FC = () => {
   const fetchPlanOptions = async () => {
     try {
       const res = await planApi.page({ pageNo: 1, pageSize: 100 }) as unknown as ApiResponse<{
-        records: { id: string; planCode: string; planName: string }[];
+        list?: { id: string; planCode: string; planName: string }[];
+        records?: { id: string; planCode: string; planName: string }[];
       }>;
       if (res.code === 200 && res.data) {
-        setPlanOptions(res.data.records.map(p => ({
+        const rows = res.data.list || res.data.records || [];
+        setPlanOptions(rows.map(p => ({
           label: `${p.planCode} - ${p.planName}`,
           value: p.id,
         })));
@@ -67,11 +69,12 @@ const AcceptancePage: React.FC = () => {
     setLoading(true);
     try {
       const res = await acceptanceApi.page({ pageNo: 1, pageSize: 100 }) as unknown as ApiResponse<{
-        records: TrackingAcceptanceTaskDTO[];
+        list?: TrackingAcceptanceTaskDTO[];
+        records?: TrackingAcceptanceTaskDTO[];
         total: number;
       }>;
       if (res.code === 200 && res.data) {
-        setData(res.data.records || []);
+        setData(res.data.list || res.data.records || []);
       }
     } catch {
       message.error('获取验收任务失败');
