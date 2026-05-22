@@ -9,6 +9,7 @@ import {
     UserOutlined
 } from '@ant-design/icons';
 import {getStorage, KEY, removeStorage} from "@/utils/storage";
+import { trackModuleClick } from "@/utils/tracker";
 
 const {Header, Content, Footer} = Layout;
 
@@ -20,6 +21,16 @@ const routeKeyMap: Record<string, string> = {
     '/bi': '5',
     '/auth': '6',
     '/data-collection': '7',
+};
+
+const navModuleMap: Record<string, { code: string; name: string }> = {
+    '1': { code: 'metadata', name: '元数据平台' },
+    '2': { code: 'metrics', name: '指标平台' },
+    '3': { code: 'sql_editor', name: 'SQL查询' },
+    '4': { code: 'data_work', name: '数据加工' },
+    '5': { code: 'bi', name: '智能分析' },
+    '6': { code: 'auth', name: '权限管理' },
+    '7': { code: 'data_collection', name: '数据采集' },
 };
 
 interface NavItem {
@@ -97,8 +108,36 @@ const App: React.FC = () => {
         }
     }, [location.pathname]);
 
+    // 路由变化时上报 module_click（覆盖使用 <Link> 的模块）
+    React.useEffect(() => {
+        const pathname = location.pathname;
+        if (pathname === '/') {
+            trackModuleClick('home', '首页', '/', { clickPosition: 'home_page' });
+            return;
+        }
+        for (const [route, key] of Object.entries(routeKeyMap)) {
+            if (pathname.startsWith(route) && route !== '/') {
+                const module = navModuleMap[key];
+                if (module) {
+                    trackModuleClick(module.code, module.name, pathname, {
+                        clickPosition: 'route_change',
+                        sourcePage: pathname,
+                    });
+                }
+                break;
+            }
+        }
+    }, [location.pathname]);
+
     const handleNavClick = (key: string) => {
         const route = keyToRoute[key];
+        const module = navModuleMap[key];
+        if (module) {
+            trackModuleClick(module.code, module.name, route || '/', {
+                clickPosition: 'top_nav',
+                sourcePage: location.pathname,
+            });
+        }
         if (route) {
             navigate(route);
         }

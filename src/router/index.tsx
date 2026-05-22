@@ -63,6 +63,8 @@ const DataCollectionAcceptanceDetail = React.lazy(() => import((`@/pages/DataCol
 const DataCollectionRelease = React.lazy(() => import((`@/pages/DataCollection/release/index.tsx`)))
 const DataCollectionReleaseDetail = React.lazy(() => import((`@/pages/DataCollection/release/detail.tsx`)))
 const DataCollectionQuality = React.lazy(() => import((`@/pages/DataCollection/quality/index.tsx`)))
+const DataCollectionMetricPipelines = React.lazy(() => import((`@/pages/DataCollection/metric-pipelines/index.tsx`)))
+const DataCollectionMetricPipelineDetail = React.lazy(() => import((`@/pages/DataCollection/metric-pipelines/detail.tsx`)))
 
 // 403 页面
 const ForbiddenPage = React.lazy(() => import((`@/pages/auth/ForbiddenPage.tsx`)))
@@ -417,6 +419,14 @@ const routes = createBrowserRouter([
                     {
                         path: "quality",
                         element: <DataCollectionQuality/>
+                    },
+                    {
+                        path: "metric-pipelines",
+                        element: <DataCollectionMetricPipelines/>
+                    },
+                    {
+                        path: "metric-pipelines/:id",
+                        element: <DataCollectionMetricPipelineDetail/>
                     },
                 ]
             }

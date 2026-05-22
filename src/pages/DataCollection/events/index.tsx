@@ -10,6 +10,7 @@ import {
 import {
   eventApi, TrackingEventDTO, TrackingEventSaveRequest,
 } from '@/api/DataCollectionApi';
+import EmployeeSelect from '@/component/employee/EmployeeSelect';
 import { ApiResponse } from '@/api/Response';
 
 const { Title } = Typography;
@@ -385,8 +386,8 @@ const EventListPage: React.FC = () => {
               ))}
             </Select>
           </Form.Item>
-          <Form.Item name="owner" label="Owner" rules={[{ required: true, message: '请输入Owner' }]}>
-            <Input placeholder="请输入Owner" />
+          <Form.Item name="owner" label="Owner" rules={[{ required: true, message: '请选择Owner' }]}>
+            <EmployeeSelect placeholder="请选择Owner" />
           </Form.Item>
           <Form.Item name="isCore" label="是否核心事件" valuePropName="checked">
             <Select placeholder="请选择">

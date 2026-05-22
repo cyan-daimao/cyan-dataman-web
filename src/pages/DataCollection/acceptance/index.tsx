@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Card, Table, Button, Space, Tag, message, Typography, Modal, Form, Input, Select,
+  Card, Table, Button, Space, Tag, message, Typography, Modal, Form, Select,
 } from 'antd';
 import { PlusOutlined, EyeOutlined, PlayCircleOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import {
-  acceptanceApi, TrackingAcceptanceTaskDTO,
+  acceptanceApi, planApi, debugApi, TrackingAcceptanceTaskDTO,
 } from '@/api/DataCollectionApi';
 import { ApiResponse } from '@/api/Response';
 
@@ -19,12 +19,49 @@ const statusTagMap: Record<string, { color: string; label: string }> = {
   FAIL: { color: 'error', label: '失败' },
 };
 
+interface SelectOption {
+  label: string;
+  value: string;
+}
+
 const AcceptancePage: React.FC = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<TrackingAcceptanceTaskDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [planOptions, setPlanOptions] = useState<SelectOption[]>([]);
+  const [debugSessionOptions, setDebugSessionOptions] = useState<SelectOption[]>([]);
   const [form] = Form.useForm();
+
+  const fetchPlanOptions = async () => {
+    try {
+      const res = await planApi.page({ pageNo: 1, pageSize: 100 }) as unknown as ApiResponse<{
+        records: { id: string; planCode: string; planName: string }[];
+      }>;
+      if (res.code === 200 && res.data) {
+        setPlanOptions(res.data.records.map(p => ({
+          label: `${p.planCode} - ${p.planName}`,
+          value: p.id,
+        })));
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const fetchDebugSessionOptions = async () => {
+    try {
+      const res = await debugApi.listSessions() as unknown as ApiResponse<{ debugToken: string }[]>;
+      if (res.code === 200 && res.data) {
+        setDebugSessionOptions(res.data.map(s => ({
+          label: s.debugToken,
+          value: s.debugToken,
+        })));
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -131,13 +168,20 @@ const AcceptancePage: React.FC = () => {
         loading={loading}
         size="small"
       />
-      <Modal title="创建验收任务" open={modalVisible} onOk={handleCreate} onCancel={() => { setModalVisible(false); form.resetFields(); }}>
+      <Modal title="创建验收任务" open={modalVisible} onOk={handleCreate} onCancel={() => { setModalVisible(false); form.resetFields(); }}
+        afterOpenChange={(open) => {
+          if (open) {
+            fetchPlanOptions();
+            fetchDebugSessionOptions();
+          }
+        }}
+      >
         <Form form={form} layout="vertical">
-          <Form.Item name="planId" label="方案ID" rules={[{ required: true }]}>
-            <Input placeholder="请输入方案ID" />
+          <Form.Item name="planId" label="方案" rules={[{ required: true }]}>
+            <Select placeholder="请选择方案" options={planOptions} showSearch optionFilterProp="label" />
           </Form.Item>
-          <Form.Item name="debugToken" label="Debug Token" rules={[{ required: true }]}>
-            <Input placeholder="请输入 Debug Token" />
+          <Form.Item name="debugToken" label="Debug 会话" rules={[{ required: true }]}>
+            <Select placeholder="请选择 Debug 会话" options={debugSessionOptions} showSearch optionFilterProp="label" />
           </Form.Item>
           <Form.Item name="environment" label="环境">
             <Select placeholder="请选择环境" allowClear>

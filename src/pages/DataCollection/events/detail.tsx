@@ -15,6 +15,7 @@ const { Option } = Select;
 const statusTagMap: Record<string, { color: string; label: string }> = {
   DRAFT: { color: 'default', label: '草稿' },
   PUBLISHED: { color: 'success', label: '已发布' },
+  FROZEN: { color: 'blue', label: '已冻结' },
   DEPRECATED: { color: 'error', label: '已废弃' },
 };
 
@@ -69,11 +70,8 @@ const EventDetailPage: React.FC = () => {
 
   useEffect(() => {
     fetchDetail();
-    // Mock version data
-    setVersions([
-      { version: 1, operator: 'zhangsan', operateTime: '2026-05-20 10:00:00', remark: '创建事件' },
-      { version: 2, operator: 'lisi', operateTime: '2026-05-21 14:30:00', remark: '更新触发时机' },
-    ]);
+    // 版本记录暂由后端提供，当前清空
+    setVersions([]);
   }, [fetchDetail]);
 
   const loadPropertyOptions = async () => {

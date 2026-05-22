@@ -12,6 +12,7 @@ import dayjs from 'dayjs';
 import {
   demandApi, TrackingDemandDTO, TrackingDemandSaveRequest,
 } from '@/api/DataCollectionApi';
+import EmployeeSelect from '@/component/employee/EmployeeSelect';
 import { ApiResponse } from '@/api/Response';
 
 const { Title } = Typography;
@@ -402,17 +403,17 @@ const DemandListPage: React.FC = () => {
           <Form.Item name="analysisGoal" label="分析目标" rules={[{ required: true, message: '请输入分析目标' }]}>
             <Input.TextArea rows={3} placeholder="请输入分析目标" />
           </Form.Item>
-          <Form.Item name="productOwner" label="产品负责人" rules={[{ required: true, message: '请输入产品负责人' }]}>
-            <Input placeholder="请输入产品负责人" />
+          <Form.Item name="productOwner" label="产品负责人" rules={[{ required: true, message: '请选择产品负责人' }]}>
+            <EmployeeSelect placeholder="请选择产品负责人" />
           </Form.Item>
           <Form.Item name="techOwner" label="技术负责人">
-            <Input placeholder="请输入技术负责人" />
+            <EmployeeSelect placeholder="请选择技术负责人" />
           </Form.Item>
           <Form.Item name="testOwner" label="测试负责人">
-            <Input placeholder="请输入测试负责人" />
+            <EmployeeSelect placeholder="请选择测试负责人" />
           </Form.Item>
-          <Form.Item name="dataOwner" label="数据负责人" rules={[{ required: true, message: '请输入数据负责人' }]}>
-            <Input placeholder="请输入数据负责人" />
+          <Form.Item name="dataOwner" label="数据负责人" rules={[{ required: true, message: '请选择数据负责人' }]}>
+            <EmployeeSelect placeholder="请选择数据负责人" />
           </Form.Item>
           <Form.Item name="expectedReleaseDate" label="期望上线时间">
             <DatePicker style={{ width: '100%' }} placeholder="请选择期望上线时间" />

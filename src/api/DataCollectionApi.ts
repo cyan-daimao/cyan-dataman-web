@@ -453,6 +453,8 @@ export const debugApi = {
         dataCollectionRequest.post('/api/data-collection/debug/sessions', data),
     getSession: async (id: string): Promise<ApiResponse<DebugSessionDTO>> =>
         dataCollectionRequest.get(`/api/data-collection/debug/sessions/${id}`),
+    listSessions: async (): Promise<ApiResponse<DebugSessionDTO[]>> =>
+        dataCollectionRequest.get('/api/data-collection/debug/sessions'),
     pageEvents: async (query: EventSamplePageQuery): Promise<ApiResponse<PageResult<EventSampleDTO>>> =>
         dataCollectionRequest.post('/api/data-collection/debug/events/page', query),
     getEvent: async (id: string): Promise<ApiResponse<EventSampleDTO>> =>
@@ -668,4 +670,58 @@ export const workbenchApi = {
         dataCollectionRequest.get('/api/data-collection/workbench/todos'),
     qualityRisks: async (): Promise<ApiResponse<WorkbenchQualityRiskDTO[]>> =>
         dataCollectionRequest.get('/api/data-collection/workbench/quality-risks'),
+};
+
+// ==================== 采集指标链路 ====================
+
+export interface TrackingMetricPipelineDTO {
+    id: string;
+    metricCode: string;
+    metricName: string;
+    eventCode: string;
+    appCode: string;
+    topicName: string;
+    odsTableName: string;
+    dwdTableName: string;
+    dwsTableName: string;
+    adsTableName: string;
+    dataworksJobId: string;
+    dataworksInstanceId: string;
+    flinkDeploymentName: string;
+    status: string;
+    errorMessage: string;
+    createdAt: string;
+    updatedAt: string;
+    createBy: string;
+}
+
+export interface TrackingMetricPipelineCreateRequest {
+    metricCode: string;
+    metricName: string;
+    eventCode: string;
+    appCode?: string;
+    dimensions?: string[];
+    measures?: { name: string; expr: string }[];
+}
+
+export interface TrackingMetricPipelinePageQuery {
+    pageNo?: number;
+    pageNum?: number;
+    pageSize?: number;
+    metricCode?: string;
+    metricName?: string;
+    status?: string;
+}
+
+export const metricPipelineApi = {
+    page: async (query: TrackingMetricPipelinePageQuery): Promise<ApiResponse<PageResult<TrackingMetricPipelineDTO>>> =>
+        dataCollectionRequest.post('/api/data-collection/metric-pipelines/page', query),
+    create: async (data: TrackingMetricPipelineCreateRequest): Promise<ApiResponse<TrackingMetricPipelineDTO>> =>
+        dataCollectionRequest.post('/api/data-collection/metric-pipelines', data),
+    getById: async (id: string): Promise<ApiResponse<TrackingMetricPipelineDTO>> =>
+        dataCollectionRequest.get(`/api/data-collection/metric-pipelines/${id}`),
+    provision: async (id: string): Promise<ApiResponse<TrackingMetricPipelineDTO>> =>
+        dataCollectionRequest.post(`/api/data-collection/metric-pipelines/${id}/provision`, {}),
+    start: async (id: string): Promise<ApiResponse<TrackingMetricPipelineDTO>> =>
+        dataCollectionRequest.post(`/api/data-collection/metric-pipelines/${id}/start`, {}),
 };
