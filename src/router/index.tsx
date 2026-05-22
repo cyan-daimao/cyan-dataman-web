@@ -45,6 +45,25 @@ const AuthApproval = React.lazy(() => import((`@/pages/auth/approval/index.tsx`)
 const AuthAudit = React.lazy(() => import((`@/pages/auth/audit/index.tsx`)))
 const AuthMy = React.lazy(() => import((`@/pages/auth/my/index.tsx`)))
 
+// 数据采集中心模块
+const DataCollectionLayout = React.lazy(() => import((`@/pages/DataCollection/index.tsx`)))
+const DataCollectionWorkbench = React.lazy(() => import((`@/pages/DataCollection/workbench/index.tsx`)))
+const DataCollectionDemands = React.lazy(() => import((`@/pages/DataCollection/demands/index.tsx`)))
+const DataCollectionDemandDetail = React.lazy(() => import((`@/pages/DataCollection/demands/detail.tsx`)))
+const DataCollectionPlans = React.lazy(() => import((`@/pages/DataCollection/plans/index.tsx`)))
+const DataCollectionPlanDetail = React.lazy(() => import((`@/pages/DataCollection/plans/detail.tsx`)))
+const DataCollectionEvents = React.lazy(() => import((`@/pages/DataCollection/events/index.tsx`)))
+const DataCollectionEventDetail = React.lazy(() => import((`@/pages/DataCollection/events/detail.tsx`)))
+const DataCollectionProperties = React.lazy(() => import((`@/pages/DataCollection/properties/index.tsx`)))
+const DataCollectionPropertyDetail = React.lazy(() => import((`@/pages/DataCollection/properties/detail.tsx`)))
+const DataCollectionDebug = React.lazy(() => import((`@/pages/DataCollection/debug/index.tsx`)))
+const DataCollectionApps = React.lazy(() => import((`@/pages/DataCollection/apps/index.tsx`)))
+const DataCollectionAcceptance = React.lazy(() => import((`@/pages/DataCollection/acceptance/index.tsx`)))
+const DataCollectionAcceptanceDetail = React.lazy(() => import((`@/pages/DataCollection/acceptance/detail.tsx`)))
+const DataCollectionRelease = React.lazy(() => import((`@/pages/DataCollection/release/index.tsx`)))
+const DataCollectionReleaseDetail = React.lazy(() => import((`@/pages/DataCollection/release/detail.tsx`)))
+const DataCollectionQuality = React.lazy(() => import((`@/pages/DataCollection/quality/index.tsx`)))
+
 // 403 页面
 const ForbiddenPage = React.lazy(() => import((`@/pages/auth/ForbiddenPage.tsx`)))
 
@@ -324,6 +343,80 @@ const routes = createBrowserRouter([
                     {
                         path: "my",
                         element: <AuthMy/>,
+                    },
+                ]
+            },
+            {
+                path: "data-collection",
+                element: <DataCollectionLayout/>,
+                children: [
+                    {
+                        index: true,
+                        element: <Navigate to="/data-collection/workbench" replace />
+                    },
+                    {
+                        path: "workbench",
+                        element: <DataCollectionWorkbench/>
+                    },
+                    {
+                        path: "demands",
+                        element: <DataCollectionDemands/>
+                    },
+                    {
+                        path: "demands/:id",
+                        element: <DataCollectionDemandDetail/>
+                    },
+                    {
+                        path: "plans",
+                        element: <DataCollectionPlans/>
+                    },
+                    {
+                        path: "plans/:id",
+                        element: <DataCollectionPlanDetail/>
+                    },
+                    {
+                        path: "events",
+                        element: <DataCollectionEvents/>
+                    },
+                    {
+                        path: "events/:id",
+                        element: <DataCollectionEventDetail/>
+                    },
+                    {
+                        path: "properties",
+                        element: <DataCollectionProperties/>
+                    },
+                    {
+                        path: "properties/:id",
+                        element: <DataCollectionPropertyDetail/>
+                    },
+                    {
+                        path: "debug",
+                        element: <DataCollectionDebug/>
+                    },
+                    {
+                        path: "apps",
+                        element: <DataCollectionApps/>
+                    },
+                    {
+                        path: "acceptance",
+                        element: <DataCollectionAcceptance/>
+                    },
+                    {
+                        path: "acceptance/:id",
+                        element: <DataCollectionAcceptanceDetail/>
+                    },
+                    {
+                        path: "release",
+                        element: <DataCollectionRelease/>
+                    },
+                    {
+                        path: "release/:id",
+                        element: <DataCollectionReleaseDetail/>
+                    },
+                    {
+                        path: "quality",
+                        element: <DataCollectionQuality/>
                     },
                 ]
             }

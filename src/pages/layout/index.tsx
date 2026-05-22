@@ -19,6 +19,7 @@ const routeKeyMap: Record<string, string> = {
     '/data-work': '4',
     '/bi': '5',
     '/auth': '6',
+    '/data-collection': '7',
 };
 
 interface NavItem {
@@ -34,6 +35,7 @@ const allNavItems: NavItem[] = [
     { label: '数据加工', key: '4', permission: 'data-work' },
     { label: '智能分析', key: '5', permission: 'bi' },
     { label: '权限管理', key: '6', permission: 'auth' },
+    { label: '数据采集', key: '7', permission: 'data-collection' },
 ];
 
 // Phase 1：根据本地缓存的功能权限动态过滤导航项，无缓存则显示全部
