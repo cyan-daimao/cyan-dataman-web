@@ -180,6 +180,24 @@ const PropertyListPage: React.FC = () => {
       .catch(() => message.error('获取使用情况失败'));
   };
 
+  const handleSyncDimension = async (record: TrackingPropertyDTO) => {
+    try {
+      const res = await propertyApi.syncDimension(record.id, {
+        dimCode: `dim_${record.propertyCode}`,
+        dimName: record.propertyName,
+        dimType: record.dataType === 'ENUM' ? 'ENUM' : 'STRING',
+        owner: 'system',
+      }) as unknown as ApiResponse<{ syncStatus: string; dimCode: string; errorMessage?: string }>;
+      if (res.code === 200 && res.data?.syncStatus === 'SUCCESS') {
+        message.success(`已同步维度 ${res.data.dimCode}`);
+      } else {
+        message.error(res.data?.errorMessage || '同步维度失败');
+      }
+    } catch {
+      message.error('同步维度失败');
+    }
+  };
+
   const columns = [
     { title: '属性编码', dataIndex: 'propertyCode', key: 'propertyCode', width: 160 },
     { title: '属性名称', dataIndex: 'propertyName', key: 'propertyName', width: 160 },
@@ -215,7 +233,7 @@ const PropertyListPage: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 240,
+      width: 300,
       fixed: 'right' as const,
       render: (_: unknown, record: TrackingPropertyDTO) => (
         <Space size="small">
@@ -228,6 +246,7 @@ const PropertyListPage: React.FC = () => {
               <Button type="link" size="small" danger icon={<StopOutlined />}>废弃</Button>
             </Popconfirm>
           )}
+          <Button type="link" size="small" icon={<CheckCircleOutlined />} onClick={() => handleSyncDimension(record)}>同步维度</Button>
           <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => handleViewUsage(record.id)}>使用情况</Button>
           <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => navigate(`/data-collection/properties/${record.id}`)}>详情</Button>
         </Space>

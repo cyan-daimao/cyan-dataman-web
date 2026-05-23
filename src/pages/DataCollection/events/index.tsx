@@ -191,6 +191,26 @@ const EventListPage: React.FC = () => {
       .catch(() => message.error('获取使用情况失败'));
   };
 
+  const handleSyncMetric = async (record: TrackingEventDTO) => {
+    try {
+      const res = await eventApi.syncMetric(record.id, {
+        metricCode: `${record.eventCode}_count`,
+        metricName: `${record.eventName}次数`,
+        subjectCode: 'data_collection',
+        statFunc: 'COUNT',
+        owner: record.owner || 'system',
+        securityLevel: 'L1',
+      }) as unknown as ApiResponse<{ syncStatus: string; metricCode: string; errorMessage?: string }>;
+      if (res.code === 200 && res.data?.syncStatus === 'SUCCESS') {
+        message.success(`已同步指标 ${res.data.metricCode}`);
+      } else {
+        message.error(res.data?.errorMessage || '同步指标失败');
+      }
+    } catch {
+      message.error('同步指标失败');
+    }
+  };
+
   const terminalTypeMap: Record<string, string> = {
     WEB: 'Web',
     IOS: 'iOS',
@@ -229,7 +249,7 @@ const EventListPage: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 280,
+      width: 340,
       fixed: 'right' as const,
       render: (_: unknown, record: TrackingEventDTO) => (
         <Space size="small">
@@ -244,6 +264,7 @@ const EventListPage: React.FC = () => {
             </Popconfirm>
           )}
           <Button type="link" size="small" icon={<CopyOutlined />} onClick={() => handleCopy(record)}>复制</Button>
+          <Button type="link" size="small" icon={<CheckCircleOutlined />} onClick={() => handleSyncMetric(record)}>同步指标</Button>
           <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => handleViewUsage(record.id)}>使用情况</Button>
           <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => navigate(`/data-collection/events/${record.id}`)}>详情</Button>
         </Space>

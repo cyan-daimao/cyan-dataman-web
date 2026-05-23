@@ -11,7 +11,7 @@ import {
     // CheckCircleOutlined,
     // CloudUploadOutlined,
     LineChartOutlined,
-    NodeIndexOutlined,
+    // NodeIndexOutlined,
 } from '@ant-design/icons';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { trackModuleClick } from '@/utils/tracker';
@@ -36,7 +36,7 @@ const menuItems: MenuItem[] = [
     // { key: 'acceptance', icon: <CheckCircleOutlined />, label: '验收中心', path: '/data-collection/acceptance' },
     // { key: 'release', icon: <CloudUploadOutlined />, label: '发布中心', path: '/data-collection/release' },
     { key: 'quality', icon: <LineChartOutlined />, label: '质量监控', path: '/data-collection/quality' },
-    { key: 'metric-pipelines', icon: <NodeIndexOutlined />, label: '采集指标链路', path: '/data-collection/metric-pipelines' },
+    // { key: 'metric-pipelines', icon: <NodeIndexOutlined />, label: '采集指标链路', path: '/data-collection/metric-pipelines' },
 ];
 
 const DataCollectionLayout: React.FC = () => {

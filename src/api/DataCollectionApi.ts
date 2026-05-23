@@ -215,6 +215,25 @@ export interface EventPropertyConfigRequest {
     description?: string;
 }
 
+export interface EventMetricSyncRequest {
+    metricCode?: string;
+    metricName?: string;
+    subjectCode?: string;
+    statFunc?: string;
+    owner?: string;
+    securityLevel?: string;
+}
+
+export interface EventMetricMappingDTO {
+    id: string;
+    eventId: string;
+    eventCode: string;
+    metricId?: string;
+    metricCode: string;
+    syncStatus: string;
+    errorMessage?: string;
+}
+
 export const eventApi = {
     page: async (query: TrackingEventPageQuery): Promise<ApiResponse<PageResult<TrackingEventDTO>>> =>
         dataCollectionRequest.post('/api/data-collection/events/page', query),
@@ -234,6 +253,10 @@ export const eventApi = {
         dataCollectionRequest.put(`/api/data-collection/events/${id}/properties`, data),
     getProperties: async (id: string): Promise<ApiResponse<EventPropertyDTO[]>> =>
         dataCollectionRequest.get(`/api/data-collection/events/${id}/properties`),
+    syncMetric: async (id: string, data: EventMetricSyncRequest = {}): Promise<ApiResponse<EventMetricMappingDTO>> =>
+        dataCollectionRequest.post(`/api/data-collection/events/${id}/sync-metric`, data),
+    getMetricMapping: async (id: string): Promise<ApiResponse<EventMetricMappingDTO>> =>
+        dataCollectionRequest.get(`/api/data-collection/events/${id}/metric-mapping`),
 };
 
 // ==================== 属性管理 ====================
@@ -288,6 +311,24 @@ export interface TrackingPropertyPageQuery {
     status?: string;
 }
 
+export interface PropertyDimensionSyncRequest {
+    dimCode?: string;
+    dimName?: string;
+    dimType?: string;
+    categoryId?: string;
+    owner?: string;
+}
+
+export interface PropertyDimensionMappingDTO {
+    id: string;
+    propertyId: string;
+    propertyCode: string;
+    dimId?: string;
+    dimCode: string;
+    syncStatus: string;
+    errorMessage?: string;
+}
+
 export const propertyApi = {
     page: async (query: TrackingPropertyPageQuery): Promise<ApiResponse<PageResult<TrackingPropertyDTO>>> =>
         dataCollectionRequest.post('/api/data-collection/properties/page', query),
@@ -303,6 +344,10 @@ export const propertyApi = {
         dataCollectionRequest.post(`/api/data-collection/properties/${id}/deprecate`, {}),
     usage: async (id: string): Promise<ApiResponse<unknown>> =>
         dataCollectionRequest.get(`/api/data-collection/properties/${id}/usage`),
+    syncDimension: async (id: string, data: PropertyDimensionSyncRequest = {}): Promise<ApiResponse<PropertyDimensionMappingDTO>> =>
+        dataCollectionRequest.post(`/api/data-collection/properties/${id}/sync-dimension`, data),
+    getDimensionMapping: async (id: string): Promise<ApiResponse<PropertyDimensionMappingDTO>> =>
+        dataCollectionRequest.get(`/api/data-collection/properties/${id}/dimension-mapping`),
 };
 
 // ==================== 接入应用 ====================
