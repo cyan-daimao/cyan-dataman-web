@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { Layout, Menu } from 'antd';
 import {
     DashboardOutlined,
-    FileTextOutlined,
-    ProjectOutlined,
+    // FileTextOutlined,
+    // ProjectOutlined,
     ThunderboltOutlined,
     TagOutlined,
     BugOutlined,
     AppstoreOutlined,
-    CheckCircleOutlined,
-    CloudUploadOutlined,
+    // CheckCircleOutlined,
+    // CloudUploadOutlined,
     LineChartOutlined,
     NodeIndexOutlined,
 } from '@ant-design/icons';
@@ -27,14 +27,14 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
     { key: 'workbench', icon: <DashboardOutlined />, label: '采集工作台', path: '/data-collection/workbench' },
-    { key: 'demands', icon: <FileTextOutlined />, label: '埋点需求', path: '/data-collection/demands' },
-    { key: 'plans', icon: <ProjectOutlined />, label: '埋点方案', path: '/data-collection/plans' },
+    // { key: 'demands', icon: <FileTextOutlined />, label: '埋点需求', path: '/data-collection/demands' },
+    // { key: 'plans', icon: <ProjectOutlined />, label: '埋点方案', path: '/data-collection/plans' },
     { key: 'events', icon: <ThunderboltOutlined />, label: '事件管理', path: '/data-collection/events' },
     { key: 'properties', icon: <TagOutlined />, label: '属性管理', path: '/data-collection/properties' },
     { key: 'debug', icon: <BugOutlined />, label: 'Debug 控制台', path: '/data-collection/debug' },
     { key: 'apps', icon: <AppstoreOutlined />, label: '接入配置', path: '/data-collection/apps' },
-    { key: 'acceptance', icon: <CheckCircleOutlined />, label: '验收中心', path: '/data-collection/acceptance' },
-    { key: 'release', icon: <CloudUploadOutlined />, label: '发布中心', path: '/data-collection/release' },
+    // { key: 'acceptance', icon: <CheckCircleOutlined />, label: '验收中心', path: '/data-collection/acceptance' },
+    // { key: 'release', icon: <CloudUploadOutlined />, label: '发布中心', path: '/data-collection/release' },
     { key: 'quality', icon: <LineChartOutlined />, label: '质量监控', path: '/data-collection/quality' },
     { key: 'metric-pipelines', icon: <NodeIndexOutlined />, label: '采集指标链路', path: '/data-collection/metric-pipelines' },
 ];
