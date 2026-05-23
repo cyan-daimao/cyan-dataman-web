@@ -163,6 +163,7 @@ export interface EventPropertyDTO {
 
 export interface TrackingEventDTO {
     id: string;
+    appCode: string;
     eventCode: string;
     eventName: string;
     eventType: string;
@@ -180,6 +181,7 @@ export interface TrackingEventDTO {
 }
 
 export interface TrackingEventSaveRequest {
+    appCode: string;
     eventCode: string;
     eventName: string;
     eventType: string;
@@ -198,6 +200,7 @@ export interface TrackingEventUpdateRequest extends TrackingEventSaveRequest {
 export interface TrackingEventPageQuery {
     pageNo?: number;
     pageSize?: number;
+    appCode?: string;
     eventCode?: string;
     eventName?: string;
     eventType?: string;

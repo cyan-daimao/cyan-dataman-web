@@ -9,7 +9,7 @@ import {
   StopOutlined, CheckCircleOutlined, MoreOutlined,
 } from '@ant-design/icons';
 import {
-  eventApi, TrackingEventDTO, TrackingEventSaveRequest,
+  appApi, eventApi, TrackingAppDTO, TrackingEventDTO, TrackingEventSaveRequest,
 } from '@/api/DataCollectionApi';
 import { MetricSubjectApi, MetricSubject } from '@/api/MetricSubjectApi';
 import EmployeeSelect from '@/component/employee/EmployeeSelect';
@@ -44,12 +44,14 @@ const EventListPage: React.FC = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<TrackingEventDTO[]>([]);
   const [loading, setLoading] = useState(false);
+  const [apps, setApps] = useState<TrackingAppDTO[]>([]);
   const [subjects, setSubjects] = useState<MetricSubject[]>([]);
   const [pageNo, setPageNo] = useState(1);
   const [pageSize] = useState(20);
   const [total, setTotal] = useState(0);
 
   const [filters, setFilters] = useState<{
+    appCode?: string;
     eventCode?: string;
     eventName?: string;
     eventType?: string;
@@ -100,6 +102,17 @@ const EventListPage: React.FC = () => {
       .catch(() => message.error('获取指标主题域失败'));
   }, []);
 
+  useEffect(() => {
+    appApi.page({ pageNo: 1, pageSize: 1000, status: 'ENABLED' })
+      .then((res) => {
+        const r = res as unknown as ApiResponse<PageResult<TrackingAppDTO>>;
+        if (r.code === 200 && r.data) {
+          setApps(r.data.list || r.data.records || []);
+        }
+      })
+      .catch(() => message.error('获取接入应用失败'));
+  }, []);
+
   const buildSubjectTree = useCallback((list: MetricSubject[]): React.ComponentProps<typeof TreeSelect>['treeData'] => (
     list.map((item) => ({
       title: item.subjectName,
@@ -125,6 +138,11 @@ const EventListPage: React.FC = () => {
     return findName(subjects) || subjectCode || '-';
   }, [subjects]);
 
+  const getAppName = useCallback((appCode?: string): string => {
+    const app = apps.find((item) => item.appCode === appCode);
+    return app ? `${app.appName} (${app.appCode})` : appCode || '-';
+  }, [apps]);
+
   const handleFilterChange = (changed: Partial<typeof filters>) => {
     const next = { ...filters, ...changed };
     setFilters(next);
@@ -143,6 +161,7 @@ const EventListPage: React.FC = () => {
     setModalTitle('编辑事件');
     setEditingId(record.id);
     form.setFieldsValue({
+      appCode: record.appCode,
       eventCode: record.eventCode,
       eventAction: parseEventAction(record.eventCode, record.businessDomain),
       eventName: record.eventName,
@@ -217,6 +236,7 @@ const EventListPage: React.FC = () => {
 
   const handleCopy = (record: TrackingEventDTO) => {
     form.setFieldsValue({
+      appCode: record.appCode,
       eventAction: `${parseEventAction(record.eventCode, record.businessDomain)}_copy`,
       eventName: `${record.eventName}_复制`,
       eventType: record.eventType,
@@ -312,6 +332,7 @@ const EventListPage: React.FC = () => {
   ].filter(Boolean) as MenuProps['items'];
 
   const columns = [
+    { title: '应用', dataIndex: 'appCode', key: 'appCode', width: 180, render: (v: string) => getAppName(v) },
     { title: '事件编码', dataIndex: 'eventCode', key: 'eventCode', width: 160 },
     { title: '事件名称', dataIndex: 'eventName', key: 'eventName', width: 160 },
     {
@@ -364,6 +385,19 @@ const EventListPage: React.FC = () => {
 
       <Card style={{ marginBottom: 16 }}>
         <Space wrap>
+          <Select
+            placeholder="应用"
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            style={{ width: 180 }}
+            value={filters.appCode}
+            onChange={(v) => handleFilterChange({ appCode: v })}
+            options={apps.map((app) => ({
+              value: app.appCode,
+              label: `${app.appName} (${app.appCode})`,
+            }))}
+          />
           <Input.Search
             placeholder="事件编码"
             allowClear
@@ -446,7 +480,7 @@ const EventListPage: React.FC = () => {
           },
           showTotal: (t) => `共 ${t} 条`,
         }}
-        scroll={{ x: 1140 }}
+        scroll={{ x: 1320 }}
         locale={{ emptyText: <Empty description="暂无事件数据" /> }}
       />
 
@@ -460,6 +494,18 @@ const EventListPage: React.FC = () => {
         destroyOnClose
       >
         <Form form={form} layout="vertical">
+          <Form.Item name="appCode" label="接入应用" rules={[{ required: true, message: '请选择接入应用' }]}>
+            <Select
+              placeholder="请选择接入应用"
+              showSearch
+              optionFilterProp="label"
+              disabled={!!editingId}
+              options={apps.map((app) => ({
+                value: app.appCode,
+                label: `${app.appName} (${app.appCode})`,
+              }))}
+            />
+          </Form.Item>
           <Form.Item name="businessDomain" label="业务域" rules={[{ required: true, message: '请选择业务域' }]}>
             <TreeSelect placeholder="请选择业务域" treeData={buildSubjectTree(subjects)} treeDefaultExpandAll disabled={!!editingId} />
           </Form.Item>

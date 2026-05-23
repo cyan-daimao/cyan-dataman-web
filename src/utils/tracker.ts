@@ -2,11 +2,12 @@ import { dataCollectionRequest } from '@/api/Request';
 
 /**
  * 平台自身轻量埋点工具
- * 调用 /rpc/data-collection/collect/events 上报 module_click 事件
+ * 调用 /rpc/data-collection/collect/events 上报 platform_module_click 事件
  * 不依赖登录态，请求失败不影响业务
  */
 
 const APP_CODE = 'dataman_web';
+const MODULE_CLICK_EVENT_CODE = 'platform_module_click';
 const TERMINAL_TYPE = 'WEB';
 const ENVIRONMENT = import.meta.env.MODE === 'production' ? 'PROD' : 'TEST';
 
@@ -64,7 +65,7 @@ function getDebugToken(): string | undefined {
 }
 
 /**
- * 上报 module_click 事件
+ * 上报 platform_module_click 事件
  * @param moduleCode 模块编码
  * @param moduleName 模块名称
  * @param routePath 路由路径
@@ -78,7 +79,7 @@ export function trackModuleClick(
 ): void {
     const payload = {
         appCode: APP_CODE,
-        eventCode: 'module_click',
+        eventCode: MODULE_CLICK_EVENT_CODE,
         eventTime: new Date().toISOString().replace('T', ' ').slice(0, 19),
         requestId: generateId('req'),
         terminalType: TERMINAL_TYPE,

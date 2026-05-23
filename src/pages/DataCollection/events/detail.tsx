@@ -172,6 +172,7 @@ const EventDetailPage: React.FC = () => {
           <>
             <Card title="事件定义" style={{ marginBottom: 16 }}>
               <Descriptions column={2}>
+                <Descriptions.Item label="接入应用">{detail.appCode}</Descriptions.Item>
                 <Descriptions.Item label="事件编码">{detail.eventCode}</Descriptions.Item>
                 <Descriptions.Item label="事件名称">{detail.eventName}</Descriptions.Item>
                 <Descriptions.Item label="事件类型">{eventTypeMap[detail.eventType] || detail.eventType}</Descriptions.Item>
