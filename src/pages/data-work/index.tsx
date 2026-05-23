@@ -492,10 +492,7 @@ const DataWorkWorkspace: React.FC = () => {
             message.warning('请先保存任务');
             return;
         }
-        if (tab.task.status === 'ONLINE') {
-            message.info('任务已发布');
-            return;
-        }
+        // 允许已发布任务再次发布（新版本发布）
         setPublishing(true);
         try {
             const resp = await publishJob(tab.task.id);
@@ -896,7 +893,7 @@ const DataWorkWorkspace: React.FC = () => {
             label: '发布',
             icon: <CloudUploadOutlined />,
             loading: publishing,
-            disabled: !activeTab.task.id || activeTab.task.status === 'ONLINE',
+            disabled: !activeTab.task.id,
             onClick: handlePublish,
         },
         {
