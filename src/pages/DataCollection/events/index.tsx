@@ -1,15 +1,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Card, Table, Button, Space, message, Empty, Modal, Form, Input, Select, Tag, Typography, Popconfirm,
+  Card, Table, Button, Space, message, Empty, Modal, Form, Input, Select, Tag, Typography, TreeSelect, Dropdown,
 } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   PlusOutlined, EditOutlined, EyeOutlined, RocketOutlined, CopyOutlined,
-  StopOutlined, CheckCircleOutlined,
+  StopOutlined, CheckCircleOutlined, MoreOutlined,
 } from '@ant-design/icons';
 import {
   eventApi, TrackingEventDTO, TrackingEventSaveRequest,
 } from '@/api/DataCollectionApi';
+import { MetricSubjectApi, MetricSubject } from '@/api/MetricSubjectApi';
 import EmployeeSelect from '@/component/employee/EmployeeSelect';
 import { ApiResponse } from '@/api/Response';
 
@@ -38,12 +40,11 @@ const eventTypeMap: Record<string, string> = {
   CUSTOM: '自定义',
 };
 
-const businessDomains = ['trade', 'user', 'product', 'marketing', 'finance', 'operations'];
-
 const EventListPage: React.FC = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<TrackingEventDTO[]>([]);
   const [loading, setLoading] = useState(false);
+  const [subjects, setSubjects] = useState<MetricSubject[]>([]);
   const [pageNo, setPageNo] = useState(1);
   const [pageSize] = useState(20);
   const [total, setTotal] = useState(0);
@@ -63,6 +64,11 @@ const EventListPage: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
+
+  const parseEventAction = useCallback((eventCode: string, subjectCode?: string): string => {
+    const prefix = subjectCode ? `${subjectCode}_` : '';
+    return prefix && eventCode.startsWith(prefix) ? eventCode.slice(prefix.length) : eventCode;
+  }, []);
 
   const fetchList = useCallback(async (page = 1, query = filters) => {
     setLoading(true);
@@ -88,6 +94,37 @@ const EventListPage: React.FC = () => {
     fetchList(1);
   }, [fetchList]);
 
+  useEffect(() => {
+    MetricSubjectApi.tree()
+      .then(setSubjects)
+      .catch(() => message.error('获取指标主题域失败'));
+  }, []);
+
+  const buildSubjectTree = useCallback((list: MetricSubject[]): React.ComponentProps<typeof TreeSelect>['treeData'] => (
+    list.map((item) => ({
+      title: item.subjectName,
+      value: item.subjectCode,
+      key: item.subjectCode,
+      children: item.children ? buildSubjectTree(item.children) : undefined,
+    }))
+  ), []);
+
+  const getSubjectName = useCallback((subjectCode?: string): string => {
+    const findName = (list: MetricSubject[]): string | undefined => {
+      for (const item of list) {
+        if (item.subjectCode === subjectCode) {
+          return item.subjectName;
+        }
+        const childName = item.children ? findName(item.children) : undefined;
+        if (childName) {
+          return childName;
+        }
+      }
+      return undefined;
+    };
+    return findName(subjects) || subjectCode || '-';
+  }, [subjects]);
+
   const handleFilterChange = (changed: Partial<typeof filters>) => {
     const next = { ...filters, ...changed };
     setFilters(next);
@@ -107,6 +144,7 @@ const EventListPage: React.FC = () => {
     setEditingId(record.id);
     form.setFieldsValue({
       eventCode: record.eventCode,
+      eventAction: parseEventAction(record.eventCode, record.businessDomain),
       eventName: record.eventName,
       eventType: record.eventType,
       businessDomain: record.businessDomain,
@@ -122,7 +160,11 @@ const EventListPage: React.FC = () => {
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
-      const payload: TrackingEventSaveRequest = { ...values };
+      const { eventAction, ...rest } = values;
+      const payload: TrackingEventSaveRequest = {
+        ...rest,
+        eventCode: editingId ? values.eventCode : `${values.businessDomain}_${eventAction}`,
+      };
       setSaving(true);
       if (editingId) {
         await eventApi.update(editingId, payload);
@@ -163,9 +205,19 @@ const EventListPage: React.FC = () => {
     }
   };
 
+  const confirmDeprecate = (id: string) => {
+    Modal.confirm({
+      title: '确认废弃该事件？',
+      okText: '确认废弃',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk: () => handleDeprecate(id),
+    });
+  };
+
   const handleCopy = (record: TrackingEventDTO) => {
     form.setFieldsValue({
-      eventCode: `${record.eventCode}_copy`,
+      eventAction: `${parseEventAction(record.eventCode, record.businessDomain)}_copy`,
       eventName: `${record.eventName}_复制`,
       eventType: record.eventType,
       businessDomain: record.businessDomain,
@@ -196,7 +248,7 @@ const EventListPage: React.FC = () => {
       const res = await eventApi.syncMetric(record.id, {
         metricCode: `${record.eventCode}_count`,
         metricName: `${record.eventName}次数`,
-        subjectCode: 'data_collection',
+        subjectCode: record.businessDomain || 'data_collection',
         statFunc: 'COUNT',
         owner: record.owner || 'system',
         securityLevel: 'L1',
@@ -219,6 +271,46 @@ const EventListPage: React.FC = () => {
     SERVER: 'Server',
   };
 
+  const getActionMenuItems = (record: TrackingEventDTO): MenuProps['items'] => [
+    {
+      key: 'submit-review',
+      icon: <RocketOutlined />,
+      label: '提交评审',
+      onClick: () => { message.info('提交评审功能开发中'); },
+    },
+    record.status !== 'PUBLISHED' ? {
+      key: 'publish',
+      icon: <CheckCircleOutlined />,
+      label: '发布',
+      onClick: () => handlePublish(record.id),
+    } : null,
+    record.status !== 'DEPRECATED' ? {
+      key: 'deprecate',
+      danger: true,
+      icon: <StopOutlined />,
+      label: '废弃',
+      onClick: () => confirmDeprecate(record.id),
+    } : null,
+    {
+      key: 'copy',
+      icon: <CopyOutlined />,
+      label: '复制',
+      onClick: () => handleCopy(record),
+    },
+    {
+      key: 'sync-metric',
+      icon: <CheckCircleOutlined />,
+      label: '同步指标',
+      onClick: () => handleSyncMetric(record),
+    },
+    {
+      key: 'usage',
+      icon: <EyeOutlined />,
+      label: '使用情况',
+      onClick: () => handleViewUsage(record.id),
+    },
+  ].filter(Boolean) as MenuProps['items'];
+
   const columns = [
     { title: '事件编码', dataIndex: 'eventCode', key: 'eventCode', width: 160 },
     { title: '事件名称', dataIndex: 'eventName', key: 'eventName', width: 160 },
@@ -229,7 +321,7 @@ const EventListPage: React.FC = () => {
       width: 100,
       render: (v: string) => eventTypeMap[v] || v,
     },
-    { title: '业务域', dataIndex: 'businessDomain', key: 'businessDomain', width: 100 },
+    { title: '业务域', dataIndex: 'businessDomain', key: 'businessDomain', width: 120, render: (v: string) => getSubjectName(v) },
     {
       title: '状态',
       dataIndex: 'status',
@@ -249,24 +341,18 @@ const EventListPage: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 340,
+      width: 180,
       fixed: 'right' as const,
       render: (_: unknown, record: TrackingEventDTO) => (
-        <Space size="small">
+        <Space size={4}>
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)}>编辑</Button>
-          <Button type="link" size="small" icon={<RocketOutlined />} onClick={() => { message.info('提交评审功能开发中'); }}>提交评审</Button>
-          {record.status !== 'PUBLISHED' && (
-            <Button type="link" size="small" icon={<CheckCircleOutlined />} onClick={() => handlePublish(record.id)}>发布</Button>
-          )}
-          {record.status !== 'DEPRECATED' && (
-            <Popconfirm title="确认废弃该事件？" onConfirm={() => handleDeprecate(record.id)}>
-              <Button type="link" size="small" danger icon={<StopOutlined />}>废弃</Button>
-            </Popconfirm>
-          )}
-          <Button type="link" size="small" icon={<CopyOutlined />} onClick={() => handleCopy(record)}>复制</Button>
-          <Button type="link" size="small" icon={<CheckCircleOutlined />} onClick={() => handleSyncMetric(record)}>同步指标</Button>
-          <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => handleViewUsage(record.id)}>使用情况</Button>
           <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => navigate(`/data-collection/events/${record.id}`)}>详情</Button>
+          <Dropdown
+            menu={{ items: getActionMenuItems(record) }}
+            trigger={['click']}
+          >
+            <Button type="link" size="small" icon={<MoreOutlined />}>更多</Button>
+          </Dropdown>
         </Space>
       ),
     },
@@ -301,17 +387,15 @@ const EventListPage: React.FC = () => {
               <Option key={k} value={k}>{label}</Option>
             ))}
           </Select>
-          <Select
+          <TreeSelect
             placeholder="业务域"
             allowClear
             style={{ width: 140 }}
             value={filters.businessDomain}
             onChange={(v) => handleFilterChange({ businessDomain: v })}
-          >
-            {businessDomains.map((d) => (
-              <Option key={d} value={d}>{d}</Option>
-            ))}
-          </Select>
+            treeData={buildSubjectTree(subjects)}
+            treeDefaultExpandAll
+          />
           <Select
             placeholder="状态"
             allowClear
@@ -362,7 +446,7 @@ const EventListPage: React.FC = () => {
           },
           showTotal: (t) => `共 ${t} 条`,
         }}
-        scroll={{ x: 1300 }}
+        scroll={{ x: 1140 }}
         locale={{ emptyText: <Empty description="暂无事件数据" /> }}
       />
 
@@ -376,8 +460,33 @@ const EventListPage: React.FC = () => {
         destroyOnClose
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="eventCode" label="事件编码" rules={[{ required: true, message: '请输入事件编码' }, { pattern: /^[a-z][a-z0-9_]*$/, message: '必须以字母开头，只能包含小写字母、数字、下划线' }]}>
-            <Input placeholder="如: order_paid" disabled={!!editingId} />
+          <Form.Item name="businessDomain" label="业务域" rules={[{ required: true, message: '请选择业务域' }]}>
+            <TreeSelect placeholder="请选择业务域" treeData={buildSubjectTree(subjects)} treeDefaultExpandAll disabled={!!editingId} />
+          </Form.Item>
+          <Form.Item
+            name="eventAction"
+            label="事件动作"
+            rules={[
+              { required: true, message: '请输入事件动作' },
+              { pattern: /^[a-z][a-z0-9_]*$/, message: '必须以字母开头，只能包含小写字母、数字、下划线' },
+            ]}
+          >
+            <Input placeholder="如: module_click" disabled={!!editingId} />
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, current) => prev.businessDomain !== current.businessDomain || prev.eventAction !== current.eventAction || prev.eventCode !== current.eventCode}>
+            {({ getFieldValue }) => {
+              const subjectCode = getFieldValue('businessDomain');
+              const action = getFieldValue('eventAction');
+              const eventCode = editingId ? getFieldValue('eventCode') : subjectCode && action ? `${subjectCode}_${action}` : '';
+              return (
+                <Form.Item label="事件编码">
+                  <Input value={eventCode} placeholder="选择业务域并填写事件动作后自动生成" disabled />
+                </Form.Item>
+              );
+            }}
+          </Form.Item>
+          <Form.Item name="eventCode" hidden>
+            <Input />
           </Form.Item>
           <Form.Item name="eventName" label="事件名称" rules={[{ required: true, message: '请输入事件名称' }]}>
             <Input placeholder="请输入事件名称" />
@@ -386,13 +495,6 @@ const EventListPage: React.FC = () => {
             <Select placeholder="请选择事件类型">
               {Object.entries(eventTypeMap).map(([k, label]) => (
                 <Option key={k} value={k}>{label}</Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item name="businessDomain" label="业务域" rules={[{ required: true, message: '请选择业务域' }]}>
-            <Select placeholder="请选择业务域">
-              {businessDomains.map((d) => (
-                <Option key={d} value={d}>{d}</Option>
               ))}
             </Select>
           </Form.Item>

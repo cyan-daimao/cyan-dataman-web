@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Card, Descriptions, Tag, Spin, Empty, Button, Table, Typography, Modal, Form, Select, Switch, Input, Space, message,
+  Card, Descriptions, Tag, Spin, Empty, Button, Table, Typography, Modal, Form, Select, Switch, Input, message,
 } from 'antd';
 import { ArrowLeftOutlined, PlusOutlined, DeleteOutlined, SettingOutlined } from '@ant-design/icons';
 import {
-  eventApi, TrackingEventDTO, propertyApi, EventPropertyConfigRequest,
+  eventApi, TrackingEventDTO, propertyApi, EventPropertyConfigRequest, PageResult, TrackingPropertyDTO,
 } from '@/api/DataCollectionApi';
 import { ApiResponse } from '@/api/Response';
 
@@ -48,7 +48,7 @@ const EventDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [versions, setVersions] = useState<VersionRecord[]>([]);
   const [configModalVisible, setConfigModalVisible] = useState(false);
-  const [propertyOptions, setPropertyOptions] = useState<{ id: string; propertyCode: string; propertyName: string; dataType: string }[]>([]);
+  const [propertyOptions, setPropertyOptions] = useState<TrackingPropertyDTO[]>([]);
   const [propertyOptionsLoading, setPropertyOptionsLoading] = useState(false);
   const [configForm] = Form.useForm();
   const [configuring, setConfiguring] = useState(false);
@@ -77,11 +77,9 @@ const EventDetailPage: React.FC = () => {
   const loadPropertyOptions = async () => {
     setPropertyOptionsLoading(true);
     try {
-      const res = await propertyApi.page({ pageNo: 1, pageSize: 1000, status: 'PUBLISHED' }) as unknown as ApiResponse<{
-        records: { id: string; propertyCode: string; propertyName: string; dataType: string }[];
-      }>;
+      const res = await propertyApi.page({ pageNo: 1, pageSize: 1000, status: 'PUBLISHED' }) as unknown as ApiResponse<PageResult<TrackingPropertyDTO>>;
       if (res.code === 200 && res.data) {
-        setPropertyOptions(res.data.records || []);
+        setPropertyOptions(res.data.list || res.data.records || []);
       }
     } catch {
       /* message handled by interceptor */
@@ -235,7 +233,10 @@ const EventDetailPage: React.FC = () => {
         onOk={handleConfigProperties}
         onCancel={() => { setConfigModalVisible(false); configForm.resetFields(); }}
         confirmLoading={configuring}
-        width={720}
+        width={820}
+        maskClosable={false}
+        keyboard={false}
+        closable={false}
         destroyOnClose
       >
         <Form form={configForm} layout="vertical">
@@ -243,33 +244,75 @@ const EventDetailPage: React.FC = () => {
             {(fields, { add, remove }) => (
               <>
                 {fields.map(({ key, name, ...restField }) => (
-                  <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
-                    <Form.Item
-                      {...restField}
-                      name={[name, 'propertyId']}
-                      rules={[{ required: true, message: '请选择属性' }]}
-                      style={{ width: 180 }}
+                  <div
+                    key={key}
+                    style={{
+                      position: 'relative',
+                      padding: '16px 44px 12px 16px',
+                      marginBottom: 12,
+                      border: '1px solid #EDEFF5',
+                      borderRadius: 8,
+                      background: '#FAFBFC',
+                    }}
+                  >
+                    <Button
+                      type="text"
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={() => remove(name)}
+                      style={{ position: 'absolute', top: 10, right: 10 }}
+                    />
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 104px',
+                        gap: 12,
+                        alignItems: 'end',
+                      }}
                     >
-                      <Select placeholder="选择属性" loading={propertyOptionsLoading} showSearch optionFilterProp="children">
-                        {propertyOptions.map((p) => (
-                          <Option key={p.id} value={p.id}>{p.propertyCode} - {p.propertyName}</Option>
-                        ))}
-                      </Select>
-                    </Form.Item>
-                    <Form.Item {...restField} name={[name, 'isRequired']} valuePropName="checked" initialValue={false}>
-                      <Switch checkedChildren="必填" unCheckedChildren="选填" />
-                    </Form.Item>
-                    <Form.Item {...restField} name={[name, 'defaultValue']} style={{ width: 120 }}>
-                      <Input placeholder="默认值" />
-                    </Form.Item>
-                    <Form.Item {...restField} name={[name, 'sampleValue']} style={{ width: 120 }}>
-                      <Input placeholder="样例值" />
-                    </Form.Item>
-                    <Form.Item {...restField} name={[name, 'description']} style={{ width: 160 }}>
-                      <Input placeholder="说明" />
-                    </Form.Item>
-                    <Button type="link" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
-                  </Space>
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'propertyId']}
+                        label="属性"
+                        rules={[{ required: true, message: '请选择属性' }]}
+                        style={{ marginBottom: 12 }}
+                      >
+                        <Select
+                          placeholder="选择属性"
+                          loading={propertyOptionsLoading}
+                          showSearch
+                          optionFilterProp="label"
+                          popupMatchSelectWidth={420}
+                        >
+                          {propertyOptions.map((p) => (
+                            <Option key={p.id} value={p.id} label={`${p.propertyCode} ${p.propertyName}`}>
+                              {p.propertyCode} - {p.propertyName}
+                            </Option>
+                          ))}
+                        </Select>
+                      </Form.Item>
+                      <Form.Item {...restField} name={[name, 'isRequired']} label="是否必填" valuePropName="checked" initialValue={false} style={{ marginBottom: 12 }}>
+                        <Switch checkedChildren="必填" unCheckedChildren="选填" />
+                      </Form.Item>
+                    </div>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr 2fr',
+                        gap: 12,
+                      }}
+                    >
+                      <Form.Item {...restField} name={[name, 'defaultValue']} label="默认值" style={{ marginBottom: 0 }}>
+                        <Input placeholder="默认值" />
+                      </Form.Item>
+                      <Form.Item {...restField} name={[name, 'sampleValue']} label="样例值" style={{ marginBottom: 0 }}>
+                        <Input placeholder="样例值" />
+                      </Form.Item>
+                      <Form.Item {...restField} name={[name, 'description']} label="说明" style={{ marginBottom: 0 }}>
+                        <Input placeholder="说明" />
+                      </Form.Item>
+                    </div>
+                  </div>
                 ))}
                 <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
                   添加属性
