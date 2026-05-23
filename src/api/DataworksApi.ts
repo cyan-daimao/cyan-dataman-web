@@ -218,10 +218,39 @@ export interface JobInstanceDTO {
     costTimeMs?: number;
     resultData?: string;
     errorMessage?: string;
+    applicationName?: string;
+    applicationNamespace?: string;
+    configMapName?: string;
+    jobManagerPodName?: string;
+    taskManagerPodNames?: string;
     createdBy?: string;
     createdAt?: string;
     updatedBy?: string;
     updatedAt?: string;
+}
+
+/**
+ * 作业日志角色
+ */
+export type JobLogRole = 'ALL' | 'JOB_MANAGER' | 'TASK_MANAGER';
+
+/**
+ * 作业实例Pod日志 DTO
+ */
+export interface JobInstanceLogDTO {
+    instanceId: string;
+    deploymentName: string;
+    namespace: string;
+    role: JobLogRole;
+    tailLines: number;
+    pods: Array<{
+        podName: string;
+        role: JobLogRole;
+        containerName: string;
+        log: string;
+    }>;
+    logs: string;
+    message?: string;
 }
 
 /**
@@ -317,6 +346,18 @@ export const pageAllJobInstances = async (query: { status?: string; current?: nu
  */
 export const getJobInstance = async (id: string): Promise<JobInstanceDTO> => {
     const resp = await dataworksRequest.get(`/api/v1/data-work/instances/${id}`);
+    return resp.data;
+};
+
+/**
+ * 获取实例K8s Pod日志
+ */
+export const getJobInstanceLogs = async (
+    id: string,
+    query: { role?: JobLogRole; tailLines?: number; previous?: boolean },
+): Promise<JobInstanceLogDTO> => {
+    const config: AxiosRequestConfig = { params: query };
+    const resp = await dataworksRequest.get(`/api/v1/data-work/instances/${id}/logs`, config);
     return resp.data;
 };
 

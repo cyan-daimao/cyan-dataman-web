@@ -118,7 +118,7 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
             return {
                 title: (
                     <div style={{ position: 'relative', width: '100%', paddingRight: 6, userSelect: 'none' }}>
-                        <Text ellipsis style={{ maxWidth: width - 16, fontWeight: 600, fontSize: 13 }}>{col}</Text>
+                        <span className="query-result-header-text" title={col}>{col}</span>
                         <div
                             onMouseDown={(e) => handleResizeStart(e, col)}
                             style={{
@@ -144,7 +144,7 @@ const DataWorkResultPanel: React.FC<DataWorkResultPanelProps> = ({
                     if (value === null || value === undefined) {
                         return <Text type="secondary" style={{fontSize: 13}}>NULL</Text>;
                     }
-                    return <Text ellipsis style={{ maxWidth: width - 16, fontSize: 13 }} title={String(value)}>{String(value)}</Text>;
+                    return <span className="query-result-cell-text" title={String(value)}>{String(value)}</span>;
                 },
             };
         }) || [];

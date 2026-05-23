@@ -77,6 +77,10 @@ const DashboardList = React.lazy(() => import((`@/pages/bi/dashboard/index.tsx`)
 const DashboardEditor = React.lazy(() => import((`@/pages/bi/dashboard/DashboardEditor.tsx`)))
 const DashboardViewer = React.lazy(() => import((`@/pages/bi/dashboard/DashboardViewer.tsx`)))
 const ChatBI = React.lazy(() => import((`@/pages/bi/chatbi/index.tsx`)))
+const GrowthLayout = React.lazy(() => import((`@/pages/growth/index.tsx`)))
+const GrowthSelection = React.lazy(() => import((`@/pages/growth/selection/index.tsx`)))
+const GrowthAudience = React.lazy(() => import((`@/pages/growth/audience/index.tsx`)))
+const GrowthTag = React.lazy(() => import((`@/pages/growth/tag/index.tsx`)))
 
 // 鉴权组件：拦截未登录的访问
 const PrivateRoute = ({children}: { children: React.ReactNode }) => {
@@ -311,6 +315,27 @@ const routes = createBrowserRouter([
                     {
                         path: "chatbi",
                         element: <ChatBI/>
+                    },
+                ]
+            }, {
+                path: "growth",
+                element: <GrowthLayout/>,
+                children: [
+                    {
+                        index: true,
+                        element: <Navigate to="/growth/selection" replace />
+                    },
+                    {
+                        path: "selection",
+                        element: <GrowthSelection/>
+                    },
+                    {
+                        path: "audience",
+                        element: <GrowthAudience/>
+                    },
+                    {
+                        path: "tag",
+                        element: <GrowthTag/>
                     },
                 ]
             },

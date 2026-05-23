@@ -7,7 +7,7 @@ import { dataCollectionRequest } from '@/api/Request';
  */
 
 const APP_CODE = 'dataman_web';
-const MODULE_CLICK_EVENT_CODE = 'platform_module_click';
+const MODULE_CLICK_EVENT_CODE = 'bigdata_module_click';
 const TERMINAL_TYPE = 'WEB';
 const ENVIRONMENT = import.meta.env.MODE === 'production' ? 'PROD' : 'TEST';
 

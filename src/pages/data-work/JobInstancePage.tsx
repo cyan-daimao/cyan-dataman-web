@@ -1,13 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+    Alert,
     Button,
     Card,
     Drawer,
     Empty,
+    InputNumber,
     message,
     Pagination,
     Popconfirm,
+    Select,
     Space,
     Spin,
     Table,
@@ -20,13 +23,17 @@ import {
     EyeOutlined,
     PlayCircleOutlined,
     StopOutlined,
+    FileTextOutlined,
 } from '@ant-design/icons';
 import {
     JobInstanceDTO,
+    JobInstanceLogDTO,
+    JobLogRole,
     JobDTO,
     pageJobInstances,
     getJob,
     getJobInstance,
+    getJobInstanceLogs,
     retryJobInstance,
     terminateJobInstance,
 } from '@/api/DataworksApi';
@@ -54,6 +61,11 @@ const JobInstancePage: React.FC = () => {
     const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
     const [detailInstance, setDetailInstance] = useState<JobInstanceDTO | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
+    const [logLoading, setLogLoading] = useState(false);
+    const [logData, setLogData] = useState<JobInstanceLogDTO | null>(null);
+    const [logRole, setLogRole] = useState<JobLogRole>('ALL');
+    const [logTailLines, setLogTailLines] = useState(500);
+    const [logError, setLogError] = useState<string | null>(null);
 
     // 加载作业信息
     const loadJob = useCallback(async () => {
@@ -97,9 +109,49 @@ const JobInstancePage: React.FC = () => {
     const handleViewDetail = async (instanceId: string) => {
         setDetailLoading(true);
         setDetailDrawerOpen(true);
+        setLogData(null);
+        setLogError(null);
         try {
             const data = await getJobInstance(instanceId);
             setDetailInstance(data);
+        } catch {
+            setDetailDrawerOpen(false);
+        } finally {
+            setDetailLoading(false);
+        }
+    };
+
+    // 加载实例日志
+    const loadInstanceLogs = async (instanceId: string, role: JobLogRole = logRole, tailLines: number = logTailLines) => {
+        setLogLoading(true);
+        setLogError(null);
+        try {
+            const data = await getJobInstanceLogs(instanceId, {
+                role,
+                tailLines,
+                previous: false,
+            });
+            setLogData(data);
+        } catch (e: any) {
+            const errMsg = e?.message || '获取日志失败';
+            setLogData(null);
+            setLogError(errMsg);
+        } finally {
+            setLogLoading(false);
+        }
+    };
+
+    // 查看日志
+    const handleViewLogs = async (record: JobInstanceDTO) => {
+        setDetailLoading(true);
+        setDetailDrawerOpen(true);
+        setDetailInstance(record);
+        setLogData(null);
+        setLogError(null);
+        try {
+            const data = await getJobInstance(record.id);
+            setDetailInstance(data);
+            await loadInstanceLogs(record.id, logRole, logTailLines);
         } catch {
             setDetailDrawerOpen(false);
         } finally {
@@ -190,6 +242,9 @@ const JobInstancePage: React.FC = () => {
                 <Space size="small">
                     <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => handleViewDetail(record.id)}>
                         详情
+                    </Button>
+                    <Button type="text" size="small" icon={<FileTextOutlined />} onClick={() => handleViewLogs(record)}>
+                        日志
                     </Button>
                     <Button type="text" size="small" icon={<PlayCircleOutlined />} onClick={() => handleRetry(record.id)}>
                         重试
@@ -332,6 +387,39 @@ const JobInstancePage: React.FC = () => {
                                 <Text type="secondary">耗时</Text>
                                 <div>{detailInstance.costTimeMs ? `${detailInstance.costTimeMs}ms` : '-'}</div>
                             </div>
+                            {detailInstance.applicationName && (
+                                <div>
+                                    <Text type="secondary">Flink Application</Text>
+                                    <div><Text copyable>{detailInstance.applicationName}</Text></div>
+                                </div>
+                            )}
+                            {detailInstance.applicationNamespace && (
+                                <div>
+                                    <Text type="secondary">Application Namespace</Text>
+                                    <div>{detailInstance.applicationNamespace}</div>
+                                </div>
+                            )}
+                            {detailInstance.jobManagerPodName && (
+                                <div>
+                                    <Text type="secondary">JobManager Pod</Text>
+                                    <div><Text copyable>{detailInstance.jobManagerPodName}</Text></div>
+                                </div>
+                            )}
+                            {detailInstance.taskManagerPodNames && (
+                                <div>
+                                    <Text type="secondary">TaskManager Pods</Text>
+                                    <pre style={{
+                                        background: '#f6f8fa',
+                                        borderRadius: 4,
+                                        padding: 8,
+                                        fontSize: 12,
+                                        overflow: 'auto',
+                                        maxHeight: 120,
+                                    }}>
+                                        {detailInstance.taskManagerPodNames}
+                                    </pre>
+                                </div>
+                            )}
                             <div>
                                 <Text type="secondary">执行时间</Text>
                                 <div>{detailInstance.createdAt || '-'}</div>
@@ -381,6 +469,87 @@ const JobInstancePage: React.FC = () => {
                                     </pre>
                                 </div>
                             )}
+                            <div>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: 12,
+                                    marginBottom: 8,
+                                }}>
+                                    <Text type="secondary">运行日志</Text>
+                                    <Space size="small">
+                                        <Select
+                                            size="small"
+                                            value={logRole}
+                                            style={{ width: 132 }}
+                                            options={[
+                                                { label: '全部', value: 'ALL' },
+                                                { label: 'JobManager', value: 'JOB_MANAGER' },
+                                                { label: 'TaskManager', value: 'TASK_MANAGER' },
+                                            ]}
+                                            onChange={(value: JobLogRole) => {
+                                                setLogRole(value);
+                                                if (detailInstance) {
+                                                    loadInstanceLogs(detailInstance.id, value, logTailLines);
+                                                }
+                                            }}
+                                        />
+                                        <InputNumber
+                                            size="small"
+                                            min={1}
+                                            max={5000}
+                                            value={logTailLines}
+                                            style={{ width: 96 }}
+                                            onChange={(value) => setLogTailLines(value || 500)}
+                                        />
+                                        <Button
+                                            size="small"
+                                            icon={<ReloadOutlined />}
+                                            loading={logLoading}
+                                            onClick={() => detailInstance && loadInstanceLogs(detailInstance.id, logRole, logTailLines)}
+                                        >
+                                            刷新
+                                        </Button>
+                                    </Space>
+                                </div>
+                                <Spin spinning={logLoading}>
+                                    {logError ? (
+                                        <Alert type="error" showIcon message={logError} />
+                                    ) : logData ? (
+                                        <>
+                                            <div style={{ marginBottom: 8 }}>
+                                                <Space size={4} wrap>
+                                                    <Tag>{logData.namespace || '-'}</Tag>
+                                                    <Tag color="purple">{logData.deploymentName || '-'}</Tag>
+                                                    <Tag color={logData.pods?.length ? 'blue' : 'default'}>
+                                                        {logData.message || `Pod ${logData.pods?.length || 0} 个`}
+                                                    </Tag>
+                                                </Space>
+                                            </div>
+                                            {logData.logs ? (
+                                                <pre style={{
+                                                    background: '#111827',
+                                                    color: '#e5e7eb',
+                                                    borderRadius: 4,
+                                                    padding: 12,
+                                                    fontSize: 12,
+                                                    overflow: 'auto',
+                                                    maxHeight: 420,
+                                                    whiteSpace: 'pre-wrap',
+                                                    wordBreak: 'break-word',
+                                                }}>
+                                                    {logData.logs}
+                                                </pre>
+                                            ) : (
+                                                <Empty description="暂无日志" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                                            )}
+                                        </>
+                                    ) : (
+                                        <Empty description="点击刷新加载日志" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                                    )}
+                                </Spin>
+                            </div>
                         </Space>
                     )}
                 </Spin>

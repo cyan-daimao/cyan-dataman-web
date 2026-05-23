@@ -160,28 +160,25 @@ const AppListPage: React.FC = () => {
   };
 
   const columns = [
-    { title: '应用编码', dataIndex: 'appCode', key: 'appCode', width: 160 },
-    { title: '应用名称', dataIndex: 'appName', key: 'appName', width: 180 },
+    { title: '应用编码', dataIndex: 'appCode', key: 'appCode' },
+    { title: '应用名称', dataIndex: 'appName', key: 'appName' },
     {
       title: '应用类型',
       dataIndex: 'appType',
       key: 'appType',
-      width: 110,
       render: (v: string) => appTypeMap[v] || v,
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      width: 90,
       render: (v: string) => <Tag color={statusTagMap[v]?.color}>{statusTagMap[v]?.label}</Tag>,
     },
-    { title: '上报地址', dataIndex: 'reportUrl', key: 'reportUrl', ellipsis: true },
-    { title: '更新时间', dataIndex: 'updatedAt', key: 'updatedAt', width: 170 },
+    { title: '上报地址', dataIndex: 'reportUrl', key: 'reportUrl' },
+    { title: '更新时间', dataIndex: 'updatedAt', key: 'updatedAt' },
     {
       title: '操作',
       key: 'action',
-      width: 240,
       fixed: 'right' as const,
       render: (_: unknown, record: TrackingAppDTO) => (
         <Space size="small">

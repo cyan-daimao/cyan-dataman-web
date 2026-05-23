@@ -13,6 +13,7 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         databi: "http://localhost:8085",
         dataworks: "http://localhost:8086",
         dataauth: "http://localhost:8087",
+        datagrowth: "http://localhost:8089",
         "data-collection": "http://cyan-data-collection.cyan.com/",
         dify: "http://10.0.0.2:20080",
     },
@@ -24,6 +25,7 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         databi: "http://cyan-databi-pre.cyan.com/",
         dataworks: "http://cyan-dataworks-pre.cyan.com/",
         dataauth: "http://cyan-dataauth-pre.cyan.com/",
+        datagrowth: "http://cyan-datagrowth-pre.cyan.com/",
         "data-collection": "http://cyan-data-collection-pre.cyan.com/",
         dify: "http://10.0.0.2:20080",
     },
@@ -41,6 +43,7 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         // dataworks: "http://cyan-dataworks-prod.cyan.com/",
         dataworks: "http://8.130.24.136:9108/",
         dataauth: "http://8.130.24.136:9110/",
+        datagrowth: "http://8.130.24.136:9111/",
         "data-collection": "http://cyan-data-collection-prod.cyan.com/",
         dify: "http://8.130.24.136:20080",
     },
@@ -53,6 +56,7 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         databi: "http://localhost:8085",
         dataworks: "http://localhost:8086",
         dataauth: "http://localhost:8087",
+        datagrowth: "http://localhost:8089",
         "data-collection": "http://cyan-data-collection.cyan.com/",
         dify: "http://10.0.0.2:20080",
     },
@@ -140,6 +144,7 @@ export const datametricRequest = createRequest('datametric');
 export const databiRequest = createRequest('databi');
 export const dataworksRequest = createRequest('dataworks');
 export const dataauthRequest = createRequest('dataauth');
+export const datagrowthRequest = createRequest('datagrowth');
 export const dataCollectionRequest = createRequest('data-collection');
 
 // 也可以导出创建函数，支持后续扩展更多业务线

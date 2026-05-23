@@ -21,6 +21,7 @@ const routeKeyMap: Record<string, string> = {
     '/bi': '5',
     '/auth': '6',
     '/data-collection': '7',
+    '/growth': '8',
 };
 
 const navModuleMap: Record<string, { code: string; name: string }> = {
@@ -31,6 +32,7 @@ const navModuleMap: Record<string, { code: string; name: string }> = {
     '5': { code: 'bi', name: '智能分析' },
     '6': { code: 'auth', name: '权限管理' },
     '7': { code: 'data_collection', name: '数据采集' },
+    '8': { code: 'growth', name: '用户增长' },
 };
 
 interface NavItem {
@@ -47,6 +49,7 @@ const allNavItems: NavItem[] = [
     { label: '智能分析', key: '5', permission: 'bi' },
     { label: '权限管理', key: '6', permission: 'auth' },
     { label: '数据采集', key: '7', permission: 'data-collection' },
+    { label: '用户增长', key: '8' },
 ];
 
 // Phase 1：根据本地缓存的功能权限动态过滤导航项，无缓存则显示全部

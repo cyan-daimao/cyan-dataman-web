@@ -1,0 +1,87 @@
+import React, { useEffect, useState } from 'react';
+import { Button, Descriptions, Drawer, Input, Space, Table, Tag, message } from 'antd';
+import { ReloadOutlined, SyncOutlined } from '@ant-design/icons';
+import { TagDTO, tagApi } from '@/api/GrowthApi';
+
+const statusColor: Record<string, string> = {
+    DRAFT: 'default',
+    READY: 'success',
+    FAILED: 'error',
+    RUNNING: 'processing',
+    SUCCESS: 'success',
+};
+
+const TagPage: React.FC = () => {
+    const [keyword, setKeyword] = useState('');
+    const [data, setData] = useState<TagDTO[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [detail, setDetail] = useState<TagDTO>();
+
+    const loadData = async (nextKeyword = keyword) => {
+        setLoading(true);
+        try {
+            const res = await tagApi.list({ keyword: nextKeyword || undefined });
+            setData(res.data || []);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadData();
+    }, []);
+
+    const handleRun = async (id: string) => {
+        await tagApi.run(id);
+        message.success('任务已提交');
+        loadData();
+    };
+
+    const columns = [
+        { title: '编码', dataIndex: 'tagCode', key: 'tagCode' },
+        { title: '名称', dataIndex: 'tagName', key: 'tagName' },
+        { title: '状态', dataIndex: 'status', key: 'status', render: (value: string) => <Tag color={statusColor[value] || 'default'}>{value}</Tag> },
+        { title: '命中人数', dataIndex: 'latestCount', key: 'latestCount', render: (value: number) => value ?? '-' },
+        { title: '命中值', dataIndex: 'tagValue', key: 'tagValue' },
+        { title: '更新时间', dataIndex: 'updatedAt', key: 'updatedAt' },
+        {
+            title: '操作',
+            key: 'action',
+            width: 180,
+            render: (_: unknown, record: TagDTO) => (
+                <Space>
+                    <Button type="link" onClick={() => setDetail(record)}>详情</Button>
+                    <Button type="link" icon={<SyncOutlined />} onClick={() => handleRun(record.id)}>运行</Button>
+                </Space>
+            ),
+        },
+    ];
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Space>
+                <Input.Search placeholder="搜索标签" value={keyword} onChange={(event) => setKeyword(event.target.value)} onSearch={loadData} allowClear style={{ width: 260 }} />
+                <Button icon={<ReloadOutlined />} onClick={() => loadData()}>刷新</Button>
+            </Space>
+            <Table rowKey="id" loading={loading} columns={columns} dataSource={data} />
+            <Drawer title="标签详情" width={720} open={!!detail} onClose={() => setDetail(undefined)}>
+                {detail && (
+                    <Descriptions bordered column={1} size="small">
+                        <Descriptions.Item label="编码">{detail.tagCode}</Descriptions.Item>
+                        <Descriptions.Item label="名称">{detail.tagName}</Descriptions.Item>
+                        <Descriptions.Item label="状态">{detail.status}</Descriptions.Item>
+                        <Descriptions.Item label="命中人数">{detail.latestCount ?? '-'}</Descriptions.Item>
+                        <Descriptions.Item label="快照">{detail.latestSnapshotId || '-'}</Descriptions.Item>
+                        <Descriptions.Item label="任务">{detail.latestTask?.status || '-'}</Descriptions.Item>
+                        <Descriptions.Item label="失败原因">{detail.latestTask?.errorMessage || '-'}</Descriptions.Item>
+                        <Descriptions.Item label="规则">
+                            <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{detail.ruleJson || '-'}</pre>
+                        </Descriptions.Item>
+                    </Descriptions>
+                )}
+            </Drawer>
+        </div>
+    );
+};
+
+export default TagPage;
