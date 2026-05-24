@@ -4,7 +4,7 @@ import { FilterRef, MetricRef, DimensionRef, OrderRef } from './DatabiApi';
 
 export interface MetricAudienceSelectionCmd {
     entityType?: string;
-    entityIdDimCode?: string;
+    entityIdColumn?: string;
     metrics: MetricRef[];
     dimensions: DimensionRef[];
     filters: FilterRef[];
@@ -53,6 +53,7 @@ export interface TagDTO {
     tagName: string;
     tagDesc?: string;
     entityType: string;
+    entityIdColumn: string;
     valueCode?: string;
     valueName?: string;
     status: string;
@@ -103,6 +104,8 @@ export interface TagCreateRequest {
     tagCode: string;
     tagName: string;
     tagDesc?: string;
+    entityType: string;
+    entityIdColumn: string;
     valueCode?: string;
     valueName?: string;
     valueDesc?: string;

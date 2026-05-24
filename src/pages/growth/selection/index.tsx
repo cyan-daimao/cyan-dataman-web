@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Col, Descriptions, Form, Input, InputNumber, Modal, Row, Select, Space, Table, Tag, message } from 'antd';
+import { AutoComplete, Button, Col, Descriptions, Form, Input, InputNumber, Modal, Row, Select, Space, Table, Tag, message } from 'antd';
 import { PlayCircleOutlined, SaveOutlined, TagsOutlined, TeamOutlined } from '@ant-design/icons';
 import { DimensionBiListItem, MetricBiListItem, dimensionBiListApi, metricBiListApi } from '@/api/MetricBiApi';
 import { FilterOperator, MetricRef, DimensionRef, FilterRef } from '@/api/DatabiApi';
@@ -26,6 +26,13 @@ const operatorOptions = [
 ];
 
 const splitValues = (value: string) => value.split(',').map(item => item.trim()).filter(Boolean);
+const USER_ENTITY_TYPE = 'USER';
+const USER_ENTITY_ID_COLUMN = 'user_id';
+
+const entityTypeOptions = [
+    { label: 'USER', value: 'USER' },
+    { label: 'PRODUCT', value: 'PRODUCT' },
+];
 
 const GrowthSelectionPage: React.FC = () => {
     const [metrics, setMetrics] = useState<MetricBiListItem[]>([]);
@@ -56,12 +63,18 @@ const GrowthSelectionPage: React.FC = () => {
     const selectedMetrics = useMemo(() => metrics.filter(item => metricCodes.includes(item.metricCode)), [metrics, metricCodes]);
     const selectedDimensions = useMemo(() => dimensions.filter(item => dimCodes.includes(item.dimCode)), [dimensions, dimCodes]);
 
-    const fieldOptions = useMemo(() => [
-        ...selectedDimensions.map(item => ({ label: item.dimName, value: `D:${item.dimCode}` })),
-        ...selectedMetrics.map(item => ({ label: item.metricName, value: `M:${item.metricCode}` })),
-    ], [selectedDimensions, selectedMetrics]);
+    const fieldOptions = useMemo(() => {
+        const dimensionOptions = selectedDimensions.map(item => ({ label: item.dimName, value: `D:${item.dimCode}` }));
+        if (selectedMetrics.length === 0) {
+            return dimensionOptions;
+        }
+        return [
+            ...dimensionOptions,
+            ...selectedMetrics.map(item => ({ label: item.metricName, value: `M:${item.metricCode}` })),
+        ];
+    }, [selectedDimensions, selectedMetrics]);
 
-    const buildSelection = (): MetricAudienceSelectionCmd => {
+    const buildSelection = (entityType = USER_ENTITY_TYPE, entityIdColumn = USER_ENTITY_ID_COLUMN): MetricAudienceSelectionCmd => {
         const metricRefs: MetricRef[] = selectedMetrics.map(item => ({
             metricCode: item.metricCode,
             alias: item.metricName,
@@ -82,8 +95,8 @@ const GrowthSelectionPage: React.FC = () => {
                 return { dimCode: item.field?.slice(2), operator: item.operator, values };
             });
         return {
-            entityType: 'USER',
-            entityIdDimCode: 'DIM_USER_ID',
+            entityType,
+            entityIdColumn,
             metrics: metricRefs,
             dimensions: dimensionRefs,
             filters: filterRefs,
@@ -92,11 +105,30 @@ const GrowthSelectionPage: React.FC = () => {
         };
     };
 
-    const handleEstimate = async () => {
+    const validateSelection = () => {
+        const selectedFilterRows = filters.filter(item => item.field);
         if (selectedMetrics.length === 0) {
-            message.warning('请选择指标');
-            return;
+            if (!selectedFilterRows.some(item => item.field?.startsWith('D:'))) {
+                message.warning('无指标圈选至少需要一个维度过滤条件');
+                return false;
+            }
+            if (selectedFilterRows.some(item => item.field?.startsWith('M:'))) {
+                message.warning('无指标圈选不支持指标过滤');
+                return false;
+            }
         }
+        return true;
+    };
+
+    const handleMetricChange = (values: string[]) => {
+        setMetricCodes(values);
+        if (values.length === 0) {
+            setFilters(prev => prev.filter(item => !item.field?.startsWith('M:')));
+        }
+    };
+
+    const handleEstimate = async () => {
+        if (!validateSelection()) return;
         setLoading(true);
         try {
             const res = await growthSelectionApi.estimate(buildSelection());
@@ -109,6 +141,7 @@ const GrowthSelectionPage: React.FC = () => {
     };
 
     const handleCreateAudience = async () => {
+        if (!validateSelection()) return;
         const values = await audienceForm.validateFields();
         await audienceApi.create({ ...values, selection: buildSelection() });
         message.success('人群包已创建');
@@ -117,8 +150,9 @@ const GrowthSelectionPage: React.FC = () => {
     };
 
     const handleCreateTag = async () => {
+        if (!validateSelection()) return;
         const values = await tagForm.validateFields();
-        await tagApi.create({ ...values, selection: buildSelection() });
+        await tagApi.create({ ...values, selection: buildSelection(values.entityType, values.entityIdColumn) });
         message.success('标签已创建');
         setTagOpen(false);
         tagForm.resetFields();
@@ -172,7 +206,7 @@ const GrowthSelectionPage: React.FC = () => {
                         optionFilterProp="label"
                         style={{ width: '100%' }}
                         options={metrics.map(item => ({ label: item.metricName, value: item.metricCode }))}
-                        onChange={setMetricCodes}
+                        onChange={handleMetricChange}
                     />
                 </Col>
                 <Col span={8}>
@@ -214,7 +248,7 @@ const GrowthSelectionPage: React.FC = () => {
 
             <Descriptions bordered size="small" column={2}>
                 <Descriptions.Item label="预估人数">{estimatedCount ?? '-'}</Descriptions.Item>
-                <Descriptions.Item label="实体ID">DIM_USER_ID</Descriptions.Item>
+                <Descriptions.Item label="实体ID">{USER_ENTITY_ID_COLUMN}</Descriptions.Item>
                 <Descriptions.Item label="SQL" span={2}>
                     <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{countSql || '-'}</pre>
                 </Descriptions.Item>
@@ -232,7 +266,19 @@ const GrowthSelectionPage: React.FC = () => {
             </Modal>
 
             <Modal title="创建标签" open={tagOpen} onOk={handleCreateTag} onCancel={() => setTagOpen(false)}>
-                <Form form={tagForm} layout="vertical" initialValues={{ valueCode: 'hit', valueName: '命中' }}>
+                <Form
+                    form={tagForm}
+                    layout="vertical"
+                    initialValues={{ entityType: 'USER', entityIdColumn: 'user_id', valueCode: 'hit', valueName: '命中' }}
+                    onValuesChange={(changedValues) => {
+                        if (changedValues.entityType === 'USER') {
+                            tagForm.setFieldValue('entityIdColumn', 'user_id');
+                        }
+                        if (changedValues.entityType === 'PRODUCT') {
+                            tagForm.setFieldValue('entityIdColumn', 'product_id');
+                        }
+                    }}
+                >
                     <Form.Item name="groupId" label="标签组">
                         <Select
                             allowClear
@@ -270,6 +316,18 @@ const GrowthSelectionPage: React.FC = () => {
                     <Form.Item name="tagName" label="标签名称" rules={[{ required: true, message: '请输入标签名称' }]}>
                         <Input />
                     </Form.Item>
+                    <Row gutter={12}>
+                        <Col span={12}>
+                            <Form.Item name="entityType" label="实体类型" rules={[{ required: true, message: '请输入实体类型' }]}>
+                                <AutoComplete options={entityTypeOptions} placeholder="USER / PRODUCT" />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="entityIdColumn" label="实体ID物理字段" rules={[{ required: true, message: '请输入实体ID物理字段' }]}>
+                                <Input placeholder="user_id / product_id" />
+                            </Form.Item>
+                        </Col>
+                    </Row>
                     <Row gutter={12}>
                         <Col span={12}>
                             <Form.Item name="valueCode" label="标签值编码" rules={[{ required: true, message: '请输入标签值编码' }]}>

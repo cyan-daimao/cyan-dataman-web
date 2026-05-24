@@ -39,6 +39,7 @@ const AudiencePage: React.FC = () => {
 
     const columns = [
         { title: '名称', dataIndex: 'audienceName', key: 'audienceName' },
+        { title: '实体', dataIndex: 'entityType', key: 'entityType', render: (value: string) => `${value || 'USER'} / user_id` },
         { title: '状态', dataIndex: 'status', key: 'status', render: (value: string) => <Tag color={statusColor[value] || 'default'}>{value}</Tag> },
         { title: '人数', dataIndex: 'latestCount', key: 'latestCount', render: (value: number) => value ?? '-' },
         { title: '快照', dataIndex: 'latestSnapshotId', key: 'latestSnapshotId', render: (value: string) => value || '-' },
@@ -67,6 +68,7 @@ const AudiencePage: React.FC = () => {
                 {detail && (
                     <Descriptions bordered column={1} size="small">
                         <Descriptions.Item label="名称">{detail.audienceName}</Descriptions.Item>
+                        <Descriptions.Item label="实体">{detail.entityType || 'USER'} / user_id</Descriptions.Item>
                         <Descriptions.Item label="状态">{detail.status}</Descriptions.Item>
                         <Descriptions.Item label="人数">{detail.latestCount ?? '-'}</Descriptions.Item>
                         <Descriptions.Item label="快照">{detail.latestSnapshotId || '-'}</Descriptions.Item>
