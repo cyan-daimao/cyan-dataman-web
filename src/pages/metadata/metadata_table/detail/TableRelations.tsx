@@ -14,8 +14,9 @@ import {
     TableProps,
     Tag,
 } from "antd";
-import {DeleteOutlined, PlusOutlined, PartitionOutlined, TableOutlined} from "@ant-design/icons";
+import {BulbOutlined, DeleteOutlined, PlusOutlined, PartitionOutlined, TableOutlined} from "@ant-design/icons";
 import {
+    AiRelationSuggestionDTO,
     ColumnVO,
     getMetadataTableById,
     MetadataTableDTO,
@@ -50,6 +51,11 @@ const TableRelations: React.FC<TableRelationsProps> = ({catalog, schema, table, 
     const [targetColumns, setTargetColumns] = useState<ColumnVO[]>([]);
     const [targetColumnsLoading, setTargetColumnsLoading] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
+    const [aiModalVisible, setAiModalVisible] = useState(false);
+    const [aiSuggestLoading, setAiSuggestLoading] = useState(false);
+    const [aiSuggestions, setAiSuggestions] = useState<AiRelationSuggestionDTO[]>([]);
+    const [selectedAiKeys, setSelectedAiKeys] = useState<React.Key[]>([]);
+    const [saveAiLoading, setSaveAiLoading] = useState(false);
 
     useEffect(() => {
         if (catalog && schema && table) {
@@ -78,6 +84,79 @@ const TableRelations: React.FC<TableRelationsProps> = ({catalog, schema, table, 
             loadRelations();
         } catch (error) {
             message.error('删除失败');
+        }
+    };
+
+    const tableRef = (itemCatalog: string, itemSchema: string, itemTable: string) =>
+        `${itemCatalog}.${itemSchema}.${itemTable}`;
+
+    const currentTableRef = () => tableRef(catalog, schema, table);
+
+    const isCurrentSource = (record: AiRelationSuggestionDTO) =>
+        tableRef(record.sourceCatalog, record.sourceSchema, record.sourceTable) === currentTableRef();
+
+    const getAiSuggestionKey = (_record: AiRelationSuggestionDTO, index?: number) => `ai-${index ?? 0}`;
+
+    const handleAiSuggest = async () => {
+        setAiModalVisible(true);
+        setAiSuggestLoading(true);
+        try {
+            const resp = await tableRelationApi.aiSuggest({catalog, schema, table, maxCandidates: 8});
+            const suggestions = resp.data || [];
+            setAiSuggestions(suggestions);
+            setSelectedAiKeys(suggestions.map((item, index) => getAiSuggestionKey(item, index)));
+            if (suggestions.length === 0) {
+                message.info('暂未发现可推荐的关联关系');
+            }
+        } catch (error) {
+            message.error('AI 推荐失败');
+            setAiSuggestions([]);
+            setSelectedAiKeys([]);
+        } finally {
+            setAiSuggestLoading(false);
+        }
+    };
+
+    const updateAiSuggestion = (index: number, patch: Partial<AiRelationSuggestionDTO>) => {
+        setAiSuggestions(prev => prev.map((item, itemIndex) => (
+            itemIndex === index ? {...item, ...patch} : item
+        )));
+    };
+
+    const handleSaveAiSuggestions = async () => {
+        const selected = aiSuggestions.filter((item, index) => selectedAiKeys.includes(getAiSuggestionKey(item, index)));
+        if (selected.length === 0) {
+            message.warning('请先选择要保存的推荐关系');
+            return;
+        }
+        setSaveAiLoading(true);
+        let successCount = 0;
+        try {
+            for (const item of selected) {
+                await tableRelationApi.create({
+                    sourceCatalog: item.sourceCatalog,
+                    sourceSchema: item.sourceSchema,
+                    sourceTable: item.sourceTable,
+                    sourceColumn: item.sourceColumn,
+                    targetCatalog: item.targetCatalog,
+                    targetSchema: item.targetSchema,
+                    targetTable: item.targetTable,
+                    targetColumn: item.targetColumn,
+                    joinType: item.joinType,
+                    description: item.description,
+                });
+                successCount += 1;
+            }
+            message.success(`已保存 ${successCount} 条关联关系`);
+            setAiModalVisible(false);
+            setAiSuggestions([]);
+            setSelectedAiKeys([]);
+            loadRelations();
+        } catch (error) {
+            message.error(successCount > 0 ? `已保存 ${successCount} 条，剩余保存失败` : '保存推荐关系失败');
+            loadRelations();
+        } finally {
+            setSaveAiLoading(false);
         }
     };
 
@@ -250,6 +329,112 @@ const TableRelations: React.FC<TableRelationsProps> = ({catalog, schema, table, 
         },
     ];
 
+    const aiColumns: TableProps<AiRelationSuggestionDTO>['columns'] = [
+        {
+            title: '方向',
+            key: 'direction',
+            width: 80,
+            render: (_, record) => isCurrentSource(record)
+                ? <Tag color="green">出向</Tag>
+                : <Tag color="purple">入向</Tag>,
+        },
+        {
+            title: '本表字段',
+            key: 'currentColumn',
+            width: 180,
+            render: (_, record, index) => {
+                const currentIsSource = isCurrentSource(record);
+                const options = currentIsSource ? record.sourceColumns : record.targetColumns;
+                return (
+                    <Select
+                        value={currentIsSource ? record.sourceColumn : record.targetColumn}
+                        onChange={(value) => updateAiSuggestion(index, currentIsSource ? {sourceColumn: value} : {targetColumn: value})}
+                        style={{width: '100%'}}
+                        options={(options || []).map(col => ({
+                            label: `${col.name}${col.comment ? `（${col.comment}）` : ''}`,
+                            value: col.name,
+                        }))}
+                    />
+                );
+            },
+        },
+        {
+            title: '关联表',
+            key: 'relationTable',
+            width: 240,
+            render: (_, record) => {
+                const currentIsSource = isCurrentSource(record);
+                const relationName = currentIsSource
+                    ? tableRef(record.targetCatalog, record.targetSchema, record.targetTable)
+                    : tableRef(record.sourceCatalog, record.sourceSchema, record.sourceTable);
+                const relationComment = currentIsSource ? record.targetTableComment : record.sourceTableComment;
+                return (
+                    <div>
+                        <div>{relationName}</div>
+                        {relationComment && <div style={{fontSize: 12, color: '#999'}}>{relationComment}</div>}
+                    </div>
+                );
+            },
+        },
+        {
+            title: '关联字段',
+            key: 'relationColumn',
+            width: 180,
+            render: (_, record, index) => {
+                const currentIsSource = isCurrentSource(record);
+                const options = currentIsSource ? record.targetColumns : record.sourceColumns;
+                return (
+                    <Select
+                        value={currentIsSource ? record.targetColumn : record.sourceColumn}
+                        onChange={(value) => updateAiSuggestion(index, currentIsSource ? {targetColumn: value} : {sourceColumn: value})}
+                        style={{width: '100%'}}
+                        options={(options || []).map(col => ({
+                            label: `${col.name}${col.comment ? `（${col.comment}）` : ''}`,
+                            value: col.name,
+                        }))}
+                    />
+                );
+            },
+        },
+        {
+            title: 'JOIN类型',
+            dataIndex: 'joinType',
+            key: 'joinType',
+            width: 120,
+            render: (value: AiRelationSuggestionDTO['joinType'], _, index) => (
+                <Select
+                    value={value}
+                    onChange={(joinType) => updateAiSuggestion(index, {joinType})}
+                    style={{width: '100%'}}
+                    options={[
+                        {label: 'LEFT', value: 'LEFT'},
+                        {label: 'INNER', value: 'INNER'},
+                        {label: 'RIGHT', value: 'RIGHT'},
+                    ]}
+                />
+            ),
+        },
+        {
+            title: '置信度',
+            dataIndex: 'confidence',
+            key: 'confidence',
+            width: 90,
+            render: (value: number) => <Tag color={value >= 0.75 ? 'green' : value >= 0.5 ? 'gold' : 'default'}>{Math.round((value || 0) * 100)}%</Tag>,
+        },
+        {
+            title: '推荐理由',
+            key: 'reason',
+            width: 260,
+            render: (_, record, index) => (
+                <TextArea
+                    value={record.description || record.reason}
+                    autoSize={{minRows: 1, maxRows: 3}}
+                    onChange={(e) => updateAiSuggestion(index, {description: e.target.value})}
+                />
+            ),
+        },
+    ];
+
     return (
         <div>
             <Card size="small" loading={loading}>
@@ -267,9 +452,14 @@ const TableRelations: React.FC<TableRelationsProps> = ({catalog, schema, table, 
                             <PartitionOutlined/> 关系图谱
                         </Radio.Button>
                     </Radio.Group>
-                    <Button type="primary" icon={<PlusOutlined/>} onClick={() => setModalVisible(true)}>
-                        添加关联
-                    </Button>
+                    <Space>
+                        <Button icon={<BulbOutlined/>} onClick={handleAiSuggest}>
+                            AI 推荐
+                        </Button>
+                        <Button type="primary" icon={<PlusOutlined/>} onClick={() => setModalVisible(true)}>
+                            添加关联
+                        </Button>
+                    </Space>
                 </div>
 
                 {viewMode === 'graph' ? (
@@ -406,6 +596,44 @@ const TableRelations: React.FC<TableRelationsProps> = ({catalog, schema, table, 
                         <TextArea rows={3} placeholder="请输入关联描述"/>
                     </Form.Item>
                 </Form>
+            </Modal>
+
+            <Modal
+                title="AI 推荐关联关系"
+                open={aiModalVisible}
+                onCancel={() => setAiModalVisible(false)}
+                width={1100}
+                destroyOnClose
+                footer={[
+                    <Button key="cancel" onClick={() => setAiModalVisible(false)}>
+                        取消
+                    </Button>,
+                    <Button
+                        key="save"
+                        type="primary"
+                        loading={saveAiLoading}
+                        disabled={aiSuggestions.length === 0}
+                        onClick={handleSaveAiSuggestions}
+                    >
+                        保存选中
+                    </Button>,
+                ]}
+            >
+                <Table
+                    dataSource={aiSuggestions}
+                    columns={aiColumns}
+                    rowKey={getAiSuggestionKey}
+                    loading={aiSuggestLoading}
+                    size="small"
+                    bordered
+                    pagination={false}
+                    scroll={{x: 1050}}
+                    rowSelection={{
+                        selectedRowKeys: selectedAiKeys,
+                        onChange: (keys) => setSelectedAiKeys(keys),
+                    }}
+                    locale={{emptyText: aiSuggestLoading ? 'AI 分析中...' : '暂无推荐结果'}}
+                />
             </Modal>
         </div>
     );

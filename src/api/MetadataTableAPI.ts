@@ -200,6 +200,41 @@ export interface TableRelationDTO {
     targetTableComment?: string;
 }
 
+// AI 关联推荐字段
+export interface AiRelationColumnDTO {
+    name: string;
+    type: string;
+    comment?: string;
+}
+
+// AI 关联推荐候选
+export interface AiRelationSuggestionDTO {
+    sourceCatalog: string;
+    sourceSchema: string;
+    sourceTable: string;
+    sourceTableComment?: string;
+    sourceColumn: string;
+    sourceColumns: AiRelationColumnDTO[];
+    targetCatalog: string;
+    targetSchema: string;
+    targetTable: string;
+    targetTableComment?: string;
+    targetColumn: string;
+    targetColumns: AiRelationColumnDTO[];
+    joinType: 'LEFT' | 'INNER' | 'RIGHT';
+    confidence: number;
+    reason?: string;
+    description?: string;
+}
+
+// AI 关联推荐请求
+export interface AiRelationSuggestRequest {
+    catalog: string;
+    schema: string;
+    table: string;
+    maxCandidates?: number;
+}
+
 // 表关联关系响应
 export interface TableRelationsResponse {
     outgoing: TableRelationDTO[];
@@ -213,6 +248,9 @@ export const tableRelationApi = {
 
     create: (data: Omit<TableRelationDTO, 'id'>): Promise<Response<TableRelationDTO>> =>
         datamanRequest.post('/api/v1/metadata/tables/relations', data),
+
+    aiSuggest: (data: AiRelationSuggestRequest): Promise<Response<AiRelationSuggestionDTO[]>> =>
+        datamanRequest.post('/api/v1/metadata/tables/relations/ai-suggest', data),
 
     delete: (id: string): Promise<Response<void>> =>
         datamanRequest.delete(`/api/v1/metadata/tables/relations/${id}`),
