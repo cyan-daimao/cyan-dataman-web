@@ -44,12 +44,25 @@ function getAnonymousId(): string {
 }
 
 /**
- * 获取当前登录用户 ID
+ * 获取当前登录员工 ID
  */
-function getUserId(): string | undefined {
+function getEmployeeId(): string | undefined {
+    const current = readCurrentUser(sessionStorage.getItem('current'))
+        || readCurrentUser(localStorage.getItem('current'))
+        || readCurrentUser(localStorage.getItem('CURRENT_USER'));
+    return current?.id || undefined;
+}
+
+/**
+ * 读取当前用户缓存
+ */
+function readCurrentUser(raw: string | null): Record<string, string | undefined> | undefined {
+    if (!raw) {
+        return undefined;
+    }
     try {
-        const user = JSON.parse(localStorage.getItem('CURRENT_USER') || '{}');
-        return user?.passport || user?.username || undefined;
+        const user = JSON.parse(raw);
+        return user && typeof user === 'object' ? user : undefined;
     } catch {
         return undefined;
     }
@@ -78,32 +91,33 @@ export function trackModuleClick(
     routePath: string,
     extra?: Record<string, string | undefined>
 ): void {
+    const employeeId = getEmployeeId();
     const payload = {
         common: {
-            appCode: APP_CODE,
-            terminalType: TERMINAL_TYPE,
+            app_code: APP_CODE,
+            terminal_type: TERMINAL_TYPE,
             environment: ENVIRONMENT,
-            userId: getUserId(),
-            anonymousId: getAnonymousId(),
-            sessionId: getSessionId(),
-            pageCode: window.location.pathname,
+            anonymous_id: getAnonymousId(),
+            session_id: getSessionId(),
+            page_code: window.location.pathname,
         },
         action: {
-            eventCode: MODULE_CLICK_EVENT_CODE,
-            eventTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-            eventType: 'CLICK',
-            clickPosition: extra?.clickPosition,
+            event_code: MODULE_CLICK_EVENT_CODE,
+            event_time: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+            event_type: 'CLICK',
+            click_position: extra?.clickPosition,
         },
         business: {
-            moduleCode,
-            moduleName,
-            routePath,
-            parentModuleCode: extra?.parentModuleCode,
+            module_code: moduleCode,
+            module_name: moduleName,
+            route_path: routePath,
+            parent_module_code: extra?.parentModuleCode,
+            employee_id: employeeId,
         },
         extra: {
-            requestId: generateId('req'),
-            debugToken: getDebugToken(),
-            sourcePage: extra?.sourcePage,
+            request_id: generateId('req'),
+            debug_token: getDebugToken(),
+            source_page: extra?.sourcePage,
         },
     };
 

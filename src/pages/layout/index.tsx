@@ -8,7 +8,7 @@ import {
     LogoutOutlined,
     UserOutlined
 } from '@ant-design/icons';
-import {getStorage, KEY, removeStorage} from "@/utils/storage";
+import {getSessionStorage, getStorage, KEY, removeSessionStorage, removeStorage} from "@/utils/storage";
 import { trackModuleClick } from "@/utils/tracker";
 
 const {Header, Content, Footer} = Layout;
@@ -76,7 +76,7 @@ const App: React.FC = () => {
     // 获取当前登录用户信息
     const currentUser = React.useMemo(() => {
         try {
-            return getStorage(KEY.CURRENT, null);
+            return getSessionStorage(KEY.CURRENT, null) || getStorage(KEY.CURRENT, null);
         } catch {
             return null;
         }
@@ -109,6 +109,10 @@ const App: React.FC = () => {
             if (btn) btn.style.setProperty('display', 'none', 'important');
             if (win) win.style.setProperty('display', 'none', 'important');
         }
+        return () => {
+            if (btn) btn.style.setProperty('display', 'none', 'important');
+            if (win) win.style.setProperty('display', 'none', 'important');
+        };
     }, [location.pathname]);
 
     // 路由变化时上报 module_click（覆盖使用 <Link> 的模块）
@@ -149,6 +153,7 @@ const App: React.FC = () => {
     const handleLogout = () => {
         removeStorage(KEY.TOKEN);
         removeStorage(KEY.CURRENT);
+        removeSessionStorage(KEY.CURRENT);
         localStorage.removeItem('user_function_permissions');
         localStorage.removeItem('user_function_permissions_tree');
         navigate('/login', { replace: true });

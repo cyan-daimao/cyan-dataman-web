@@ -352,7 +352,7 @@ const PropertyListPage: React.FC = () => {
       >
         <Form form={form} layout="vertical">
           <Form.Item name="propertyCode" label="属性编码" rules={[{ required: true, message: '请输入属性编码' }, { pattern: /^[a-z][a-z0-9_]*$/, message: '必须以字母开头，只能包含小写字母、数字、下划线' }]}>
-            <Input placeholder="如: order_id" disabled={!!editingId} />
+            <Input placeholder="如: employee_id" disabled={!!editingId} />
           </Form.Item>
           <Form.Item name="propertyName" label="属性名称" rules={[{ required: true, message: '请输入属性名称' }]}>
             <Input placeholder="请输入属性名称" />

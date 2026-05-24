@@ -268,7 +268,7 @@ const SQLEditorPage: React.FC = () => {
 
         // 权限校验
         try {
-            const currentStr = localStorage.getItem(KEY.CURRENT);
+            const currentStr = sessionStorage.getItem(KEY.CURRENT) || localStorage.getItem(KEY.CURRENT);
             const passport = currentStr ? JSON.parse(currentStr).passport : '';
             const authResp = await authFilterSql({passport, sql});
             if (!authResp.data?.permitted) {
@@ -331,7 +331,7 @@ const SQLEditorPage: React.FC = () => {
 
         // 权限校验
         try {
-            const currentStr = localStorage.getItem(KEY.CURRENT);
+            const currentStr = sessionStorage.getItem(KEY.CURRENT) || localStorage.getItem(KEY.CURRENT);
             const passport = currentStr ? JSON.parse(currentStr).passport : '';
             const explainSql = `EXPLAIN ${currentTabData.sql}`;
             const authResp = await authFilterSql({passport, sql: explainSql});

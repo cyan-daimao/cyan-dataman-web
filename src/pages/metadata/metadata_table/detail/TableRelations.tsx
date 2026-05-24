@@ -17,6 +17,7 @@ import {
 import {BulbOutlined, DeleteOutlined, PlusOutlined, PartitionOutlined, TableOutlined} from "@ant-design/icons";
 import {
     AiRelationSuggestionDTO,
+    AiRelationSuggestStreamEvent,
     ColumnVO,
     getMetadataTableById,
     MetadataTableDTO,
@@ -28,6 +29,14 @@ import TableRelationGraph from "./TableRelationGraph";
 
 const {Option} = Select;
 const {TextArea} = Input;
+
+type AiLogType = 'status' | 'answer' | 'error' | 'done';
+
+interface AiLogItem {
+    id: number;
+    type: AiLogType;
+    content: string;
+}
 
 interface TableRelationsProps {
     catalog: string;
@@ -56,6 +65,8 @@ const TableRelations: React.FC<TableRelationsProps> = ({catalog, schema, table, 
     const [aiSuggestions, setAiSuggestions] = useState<AiRelationSuggestionDTO[]>([]);
     const [selectedAiKeys, setSelectedAiKeys] = useState<React.Key[]>([]);
     const [saveAiLoading, setSaveAiLoading] = useState(false);
+    const [aiLogs, setAiLogs] = useState<AiLogItem[]>([]);
+    const [aiRawAnswer, setAiRawAnswer] = useState('');
 
     useEffect(() => {
         if (catalog && schema && table) {
@@ -97,18 +108,60 @@ const TableRelations: React.FC<TableRelationsProps> = ({catalog, schema, table, 
 
     const getAiSuggestionKey = (_record: AiRelationSuggestionDTO, index?: number) => `ai-${index ?? 0}`;
 
-    const handleAiSuggest = async () => {
-        setAiModalVisible(true);
-        setAiSuggestLoading(true);
-        try {
-            const resp = await tableRelationApi.aiSuggest({catalog, schema, table, maxCandidates: 8});
-            const suggestions = resp.data || [];
+    const appendAiLog = (type: AiLogType, content: string) => {
+        if (!content) {
+            return;
+        }
+        setAiLogs(prev => [...prev, {id: Date.now() + Math.random(), type, content}]);
+    };
+
+    const handleAiStreamEvent = (event: AiRelationSuggestStreamEvent) => {
+        if (event.event === 'status') {
+            appendAiLog('status', event.message);
+            return;
+        }
+        if (event.event === 'answer') {
+            setAiRawAnswer(prev => `${prev}${event.content}`);
+            return;
+        }
+        if (event.event === 'result') {
+            const suggestions = event.data || [];
             setAiSuggestions(suggestions);
             setSelectedAiKeys(suggestions.map((item, index) => getAiSuggestionKey(item, index)));
+            setAiSuggestLoading(false);
             if (suggestions.length === 0) {
                 message.info('暂未发现可推荐的关联关系');
             }
+            return;
+        }
+        if (event.event === 'error') {
+            appendAiLog('error', event.message);
+            setAiSuggestLoading(false);
+            message.error('AI 推荐失败');
+            return;
+        }
+        if (event.event === 'done') {
+            appendAiLog('done', event.message || 'AI 推荐完成');
+            setAiSuggestLoading(false);
+        }
+    };
+
+    const handleAiSuggest = async () => {
+        setAiModalVisible(true);
+        setAiSuggestLoading(true);
+        setAiSuggestions([]);
+        setSelectedAiKeys([]);
+        setAiLogs([]);
+        setAiRawAnswer('');
+        appendAiLog('status', '正在连接 AI 推荐服务');
+        try {
+            await tableRelationApi.aiSuggestStream(
+                {catalog, schema, table, maxCandidates: 8},
+                handleAiStreamEvent,
+            );
         } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            appendAiLog('error', errorMessage);
             message.error('AI 推荐失败');
             setAiSuggestions([]);
             setSelectedAiKeys([]);
@@ -619,6 +672,42 @@ const TableRelations: React.FC<TableRelationsProps> = ({catalog, schema, table, 
                     </Button>,
                 ]}
             >
+                <div
+                    style={{
+                        background: '#111827',
+                        borderRadius: 6,
+                        color: '#d1d5db',
+                        fontFamily: 'Menlo, Monaco, Consolas, monospace',
+                        fontSize: 12,
+                        lineHeight: 1.6,
+                        marginBottom: 16,
+                        maxHeight: 220,
+                        overflow: 'auto',
+                        padding: 12,
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                    }}
+                >
+                    {aiLogs.length === 0 && !aiRawAnswer ? (
+                        <div style={{color: '#9ca3af'}}>等待 AI 输出...</div>
+                    ) : (
+                        <>
+                            {aiLogs.map(log => (
+                                <div
+                                    key={log.id}
+                                    style={{color: log.type === 'error' ? '#fca5a5' : log.type === 'done' ? '#86efac' : '#d1d5db'}}
+                                >
+                                    [{log.type}] {log.content}
+                                </div>
+                            ))}
+                            {aiRawAnswer && (
+                                <div style={{color: '#93c5fd'}}>
+                                    [answer] {aiRawAnswer}
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
                 <Table
                     dataSource={aiSuggestions}
                     columns={aiColumns}

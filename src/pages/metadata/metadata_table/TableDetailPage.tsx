@@ -3,20 +3,16 @@ import {
     Button,
     Divider,
     Empty,
-    Modal,
     Space,
     Spin,
     Tabs,
     Tag,
-    Typography,
-    message
+    Typography
 } from "antd";
 import {
     ArrowLeftOutlined,
     ClockCircleOutlined, DashboardOutlined,
     DatabaseOutlined,
-    DeleteOutlined,
-    EditOutlined,
     EyeOutlined,
     FileTextOutlined,
     LinkOutlined,
@@ -24,8 +20,7 @@ import {
     TableOutlined
 } from "@ant-design/icons";
 import {useLocation, useNavigate} from "react-router-dom";
-import {deleteMetadataTable, getMetadataTableById, MetadataTableDTO} from "@/api/MetadataTableAPI.ts";
-import PermissionButton from "@/component/permission/PermissionButton";
+import {getMetadataTableById, MetadataTableDTO} from "@/api/MetadataTableAPI.ts";
 
 // 导入子组件
 import BasicInfo from "./detail/BasicInfo";
@@ -64,7 +59,6 @@ const TableDetailPage: React.FC = () => {
 
     const [loading, setLoading] = useState(true);
     const [tableData, setTableData] = useState<MetadataTableDTO | null>(null);
-    const [deleting, setDeleting] = useState(false);
 
     // 加载表详情
     useEffect(() => {
@@ -88,39 +82,6 @@ const TableDetailPage: React.FC = () => {
     // 返回列表
     const handleBack = () => {
         navigate('/meta/metadata/metadata_table');
-    };
-
-    // 编辑表
-    const handleEdit = () => {
-        if (!tableId) return;
-        navigate('/meta/metadata/metadata_table/edit', {
-            state: {mode: 'edit', tableId}
-        });
-    };
-
-    // 删除表
-    const handleDelete = () => {
-        if (!tableData) return;
-        Modal.confirm({
-            title: '确认删除',
-            content: `是否确定删除表【${tableData.name}】？删除后将同步清理 Iceberg 表及数据，此操作不可恢复。`,
-            okText: '确认删除',
-            cancelText: '取消',
-            okButtonProps: {danger: true},
-            onOk: async () => {
-                try {
-                    setDeleting(true);
-                    await deleteMetadataTable(tableData.id);
-                    message.success('删除成功');
-                    navigate('/meta/metadata/metadata_table');
-                } catch (error) {
-                    console.error('删除表失败:', error);
-                    message.error('删除表失败');
-                } finally {
-                    setDeleting(false);
-                }
-            },
-        });
     };
 
     // Tab 配置
@@ -273,29 +234,6 @@ const TableDetailPage: React.FC = () => {
                             </Space>
                         )}
                     </Space>
-                    {tableData && (
-                        <Space>
-                            <PermissionButton
-                                type="primary"
-                                ghost
-                                icon={<EditOutlined/>}
-                                onClick={handleEdit}
-                                permission="MENU:meta:table:UPDATE"
-                            >
-                                编辑
-                            </PermissionButton>
-                            <PermissionButton
-                                type="primary"
-                                danger
-                                icon={<DeleteOutlined/>}
-                                onClick={handleDelete}
-                                loading={deleting}
-                                permission="MENU:meta:table:DELETE"
-                            >
-                                删除
-                            </PermissionButton>
-                        </Space>
-                    )}
                 </div>
 
                 {/* 内容区域 */}

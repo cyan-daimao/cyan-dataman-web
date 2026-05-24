@@ -613,7 +613,7 @@ const DataWorkWorkspace: React.FC = () => {
 
         // 权限校验
         try {
-            const currentStr = localStorage.getItem(KEY.CURRENT);
+            const currentStr = sessionStorage.getItem(KEY.CURRENT) || localStorage.getItem(KEY.CURRENT);
             const passport = currentStr ? JSON.parse(currentStr).passport : '';
             const authResp = await authFilterSql({passport, sql: tab.sqlContent, engine: 'spark'});
             if (!authResp.data?.permitted) {
@@ -714,7 +714,7 @@ const DataWorkWorkspace: React.FC = () => {
         }
         // 权限校验
         try {
-            const currentStr = localStorage.getItem(KEY.CURRENT);
+            const currentStr = sessionStorage.getItem(KEY.CURRENT) || localStorage.getItem(KEY.CURRENT);
             const passport = currentStr ? JSON.parse(currentStr).passport : '';
             const explainSql = `EXPLAIN ${tab.sqlContent}`;
             const authResp = await authFilterSql({passport, sql: explainSql, engine: 'spark'});

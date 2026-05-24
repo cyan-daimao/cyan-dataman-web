@@ -6,7 +6,7 @@ import { login } from "../../api/LoginApi";
 import { currentEmployee } from "../../api/EmployeeApi";
 import { getUserFunctionPermissions } from "../../api/DataAuthApi";
 import { extractPermissionKeys } from "../../router/index";
-import { KEY, setStorage } from "../../utils/storage";
+import { KEY, setSessionStorage, setStorage } from "../../utils/storage";
 import './index.less';
 
 // 类型定义
@@ -38,6 +38,7 @@ const LoginPage: React.FC = () => {
             }
             const employeeDTO = await currentEmployee();
             setStorage(KEY.CURRENT, employeeDTO.data);
+            setSessionStorage(KEY.CURRENT, employeeDTO.data);
             // Round1: ready — 登录成功后立即刷新权限缓存
             try {
                 const passport = employeeDTO.data?.passport || '';
