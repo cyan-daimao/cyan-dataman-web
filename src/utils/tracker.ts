@@ -1,4 +1,5 @@
 import { dataCollectionRequest } from '@/api/Request';
+import dayjs from "dayjs";
 
 /**
  * 平台自身轻量埋点工具
@@ -9,7 +10,7 @@ import { dataCollectionRequest } from '@/api/Request';
 const APP_CODE = 'dataman_web';
 const MODULE_CLICK_EVENT_CODE = 'bigdata_module_click';
 const TERMINAL_TYPE = 'WEB';
-const ENVIRONMENT = import.meta.env.MODE === 'production' ? 'PROD' : 'TEST';
+const ENVIRONMENT = import.meta.env.MODE === 'prod' ? 'PROD' : 'TEST';
 
 /**
  * 生成简单唯一 ID
@@ -80,7 +81,7 @@ export function trackModuleClick(
     const payload = {
         appCode: APP_CODE,
         eventCode: MODULE_CLICK_EVENT_CODE,
-        eventTime: new Date().toISOString().replace('T', ' ').slice(0, 19),
+        eventTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
         requestId: generateId('req'),
         terminalType: TERMINAL_TYPE,
         environment: ENVIRONMENT,
