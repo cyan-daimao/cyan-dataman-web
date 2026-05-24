@@ -1,5 +1,5 @@
 import { datametricRequest } from './Request';
-import { ChartType, FilterOperator, OrderDirection, ChartDataDTO, MetricBiAnalysisCmd } from './DatabiApi';
+import { ChartDataDTO, MetricBiAnalysisCmd } from './DatabiApi';
 import { Response } from './Response';
 
 export interface MetricBiListItem {
@@ -27,6 +27,49 @@ export interface DimensionBiListItem {
   categoryName?: string;
 }
 
+export interface MetricAssociationSearchRequest {
+  metricCodes?: string[];
+  dimCodes?: string[];
+  metricName?: string;
+  subjectCode?: string;
+  metricType?: string;
+  dimName?: string;
+  categoryId?: string;
+  includeSelected?: boolean;
+}
+
+export interface MetricAssociationSearchResult {
+  metrics: MetricBiListItem[];
+  dimensions: DimensionBiListItem[];
+}
+
+export interface MetricAssociationGraphNode {
+  id: string;
+  code: string;
+  name: string;
+  nodeType: 'METRIC' | 'DIMENSION';
+  metricType?: string;
+  tableRef?: string;
+}
+
+export interface MetricAssociationGraphEdge {
+  source: string;
+  target: string;
+  relationType: string;
+  joinType?: string;
+  sourceColumn?: string;
+  targetColumn?: string;
+  sourceTable?: string;
+  targetTable?: string;
+  description?: string;
+}
+
+export interface MetricAssociationGraphResult {
+  center: MetricAssociationGraphNode;
+  nodes: MetricAssociationGraphNode[];
+  edges: MetricAssociationGraphEdge[];
+}
+
 export const metricBiApi = {
   execute: async (data: MetricBiAnalysisCmd): Promise<Response<ChartDataDTO>> =>
     datametricRequest.post('/api/v1/metrics/bi/analysis/execute', data),
@@ -43,6 +86,14 @@ export const metricBiListApi = {
 export const dimensionBiListApi = {
   list: async (params?: { name?: string; categoryId?: string }): Promise<Response<DimensionBiListItem[]>> =>
     datametricRequest.get('/api/v1/metrics/bi/dimensions', { params }),
+};
+
+export const metricAssociationApi = {
+  search: async (data: MetricAssociationSearchRequest): Promise<Response<MetricAssociationSearchResult>> =>
+    datametricRequest.post('/api/v1/metrics/bi/associations/search', data),
+
+  graph: async (metricCode: string): Promise<Response<MetricAssociationGraphResult>> =>
+    datametricRequest.get('/api/v1/metrics/bi/associations/graph', { params: { metricCode } }),
 };
 
 export interface DimensionValueItem {

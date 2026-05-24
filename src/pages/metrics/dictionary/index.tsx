@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
-    Card, Tree, Input, List, Tag, Spin, Empty, Drawer, Tabs, Typography, Button,
+    Card, Tree, Input, Tag, Spin, Empty, Drawer, Tabs, Typography, Button,
     Space, Segmented, Table, message, Switch, Row, Col, Pagination,
 } from 'antd';
 import {
     StarOutlined, StarFilled, FileTextOutlined,
-    BranchesOutlined, AppstoreOutlined, EyeOutlined, PlayCircleOutlined,
+    BranchesOutlined, AppstoreOutlined, PlayCircleOutlined,
 } from '@ant-design/icons';
 import {
     MetricDictionaryApi, MetricApi, MetricLineageApi,
@@ -13,9 +13,17 @@ import {
 } from '@/api/MetricApi';
 import { MetricSubjectApi, MetricSubject } from '@/api/MetricSubjectApi';
 import { executeSql } from '@/api/DatagawayApi';
+import MetricAssociationGraph from './MetricAssociationGraph';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
+
+type SqlResultRow = Record<string, unknown>;
+
+interface SqlExecutionResult {
+    costTimeMs?: number;
+    data?: SqlResultRow[];
+}
 
 const typeTagMap: Record<string, { color: string; label: string }> = {
     ATOMIC: { color: 'blue', label: '原子' },
@@ -50,8 +58,9 @@ const MetricsDictionary: React.FC = () => {
     const [sql, setSql] = useState<string>('');
     const [sqlLoading, setSqlLoading] = useState(false);
     const [trialLoading, setTrialLoading] = useState(false);
-    const [sqlResult, setSqlResult] = useState<any>(null);
+    const [sqlResult, setSqlResult] = useState<SqlExecutionResult | null>(null);
     const [showFavoriteOnly, setShowFavoriteOnly] = useState(false);
+    const [activeDetailTab, setActiveDetailTab] = useState('basic');
 
     const fetchSubjects = async () => {
         setSubjectLoading(true);
@@ -188,15 +197,16 @@ const MetricsDictionary: React.FC = () => {
             } else {
                 message.error(res.message || '试算失败');
             }
-        } catch (err: any) {
-            message.error(err?.message || 'SQL试算失败');
+        } catch (err: unknown) {
+            message.error(err instanceof Error ? err.message : 'SQL试算失败');
         } finally {
             setTrialLoading(false);
         }
     };
 
-    const openDetail = async (id: string) => {
+    const openDetail = async (id: string, tab = 'basic') => {
         setDrawerVisible(true);
+        setActiveDetailTab(tab);
         setDetailLoading(true);
         setLineageLoading(true);
         setSql('');
@@ -303,6 +313,7 @@ const MetricsDictionary: React.FC = () => {
             render: (_: unknown, record: DictionaryMetricDTO) => (
                 <Space>
                     <Button type="link" onClick={() => openDetail(record.id)}>详情</Button>
+                    <Button type="link" onClick={() => openDetail(record.id, 'association')}>图谱</Button>
                     <Button type="link" icon={record.isFavorite ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />} onClick={(e) => toggleFavorite(record, e)}>
                         {record.isFavorite ? '已收藏' : '收藏'}
                     </Button>
@@ -439,16 +450,16 @@ const MetricsDictionary: React.FC = () => {
             {/* 详情 Drawer */}
             <Drawer
                 title={detail ? `${detail.metricName} (${detail.metricCode})` : '指标详情'}
-                width={720}
+                width={activeDetailTab === 'association' ? 1100 : 720}
                 open={drawerVisible}
-                onClose={() => { setDrawerVisible(false); setDetail(null); setLineage(null); }}
+                onClose={() => { setDrawerVisible(false); setDetail(null); setLineage(null); setActiveDetailTab('basic'); }}
             >
                 {detailLoading ? (
                     <div style={{ textAlign: 'center', padding: 40 }}>
                         <Spin tip="加载中..." />
                     </div>
                 ) : detail ? (
-                    <Tabs defaultActiveKey="basic">
+                    <Tabs activeKey={activeDetailTab} onChange={setActiveDetailTab}>
                         <TabPane tab="基本信息" key="basic">
                             <Space direction="vertical" style={{ width: '100%' }} size="middle">
                                 <div>
@@ -539,7 +550,11 @@ const MetricsDictionary: React.FC = () => {
                                         <Text type="secondary">物理SQL</Text>
                                         <Button icon={<PlayCircleOutlined />} loading={trialLoading} onClick={() => handleTrial(detail)}>试算</Button>
                                     </Space>
-                                    {sql && (
+                                    {sqlLoading ? (
+                                        <div style={{ textAlign: 'center', padding: 24 }}>
+                                            <Spin size="small" />
+                                        </div>
+                                    ) : sql && (
                                         <pre style={{ background: '#f6f8fa', padding: 16, borderRadius: 6, overflow: 'auto' }}>
                                             {sql}
                                         </pre>
@@ -577,6 +592,9 @@ const MetricsDictionary: React.FC = () => {
                             ) : (
                                 <Empty description="暂无血缘数据" />
                             )}
+                        </TabPane>
+                        <TabPane tab="可关联图谱" key="association">
+                            <MetricAssociationGraph metricCode={detail.metricCode} />
                         </TabPane>
                     </Tabs>
                 ) : (

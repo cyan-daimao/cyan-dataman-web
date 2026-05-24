@@ -41,9 +41,8 @@ import {
 } from '@/api/DatabiApi';
 import {
     metricBiApi,
-    metricBiListApi,
-    dimensionBiListApi,
     dimensionValueApi,
+    metricAssociationApi,
     MetricBiListItem,
     DimensionBiListItem,
     DimensionValueItem,
@@ -86,27 +85,40 @@ const ChartAnalyzer: React.FC = () => {
     // 搜索状态
     const [metricSearch, setMetricSearch] = useState('');
     const [dimSearch, setDimSearch] = useState('');
+    const [metricSearchKeyword, setMetricSearchKeyword] = useState('');
+    const [dimSearchKeyword, setDimSearchKeyword] = useState('');
 
     // ========== 初始化加载指标/维度列表 ==========
     useEffect(() => {
+        let cancelled = false;
         setListLoading(true);
-        Promise.all([
-            metricBiListApi.list().then((res) => {
-                if (res.code === 200) {
-                    setMetricsList(res.data);
-                } else {
-                    message.error(res.message || '加载指标库失败');
-                }
-            }).catch(() => message.error('加载指标库失败')),
-            dimensionBiListApi.list().then((res) => {
-                if (res.code === 200) {
-                    setDimensionsList(res.data);
-                } else {
-                    message.error(res.message || '加载维度库失败');
-                }
-            }).catch(() => message.error('加载维度库失败')),
-        ]).finally(() => setListLoading(false));
-    }, []);
+        metricAssociationApi.search({
+            metricCodes: selectedMetrics.map((m) => m.metricCode),
+            dimCodes: selectedDimensions.map((d) => d.dimCode),
+            metricName: metricSearchKeyword || undefined,
+            dimName: dimSearchKeyword || undefined,
+            includeSelected: false,
+        }).then((res) => {
+            if (cancelled) return;
+            if (res.code === 200 && res.data) {
+                setMetricsList(res.data.metrics || []);
+                setDimensionsList(res.data.dimensions || []);
+            } else {
+                message.error(res.message || '加载可关联指标维度失败');
+            }
+        }).catch(() => {
+            if (!cancelled) {
+                message.error('加载可关联指标维度失败');
+            }
+        }).finally(() => {
+            if (!cancelled) {
+                setListLoading(false);
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedMetrics, selectedDimensions, metricSearchKeyword, dimSearchKeyword]);
 
     // ========== 加载图表配置（编辑模式） ==========
     useEffect(() => {
@@ -183,36 +195,12 @@ const ChartAnalyzer: React.FC = () => {
     }, [pendingMetricCmd, metricsList, dimensionsList]);
 
     // ========== 搜索 ==========
-    const doSearchMetrics = async (keyword: string) => {
-        setListLoading(true);
-        try {
-            const res = await metricBiListApi.list({ name: keyword || undefined });
-            if (res.code === 200) {
-                setMetricsList(res.data);
-            } else {
-                message.error(res.message || '搜索指标失败');
-            }
-        } catch {
-            message.error('搜索指标失败');
-        } finally {
-            setListLoading(false);
-        }
+    const doSearchMetrics = (keyword: string) => {
+        setMetricSearchKeyword(keyword);
     };
 
-    const doSearchDimensions = async (keyword: string) => {
-        setListLoading(true);
-        try {
-            const res = await dimensionBiListApi.list({ name: keyword || undefined });
-            if (res.code === 200) {
-                setDimensionsList(res.data);
-            } else {
-                message.error(res.message || '搜索维度失败');
-            }
-        } catch {
-            message.error('搜索维度失败');
-        } finally {
-            setListLoading(false);
-        }
+    const doSearchDimensions = (keyword: string) => {
+        setDimSearchKeyword(keyword);
     };
 
     // ========== 拖拽相关（指标模式） ==========
@@ -250,6 +238,29 @@ const ChartAnalyzer: React.FC = () => {
 
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
+    };
+
+    const pruneFieldConfigs = (metrics: MetricBiListItem[], dimensions: DimensionBiListItem[]) => {
+        const allowedFields = new Set([
+            ...metrics.map((m) => m.metricName),
+            ...dimensions.map((d) => d.dimName),
+        ]);
+        setFilters((prev) => prev.filter((f) => !f.field || allowedFields.has(f.field)));
+        setOrders((prev) => prev.filter((o) => !o.field || allowedFields.has(o.field)));
+    };
+
+    const removeSelectedMetric = (index: number) => {
+        const next = [...selectedMetrics];
+        next.splice(index, 1);
+        setSelectedMetrics(next);
+        pruneFieldConfigs(next, selectedDimensions);
+    };
+
+    const removeSelectedDimension = (index: number) => {
+        const next = [...selectedDimensions];
+        next.splice(index, 1);
+        setSelectedDimensions(next);
+        pruneFieldConfigs(selectedMetrics, next);
     };
 
     // ========== 构建请求体（指标模式） ==========
@@ -663,11 +674,7 @@ const ChartAnalyzer: React.FC = () => {
                                     <Tooltip title={`${m.metricName}${m.statFunc ? ` (${m.statFunc})` : ''}${m.tableRef ? ` · 来源：${m.tableRef}` : ''}`}>
                                         <Tag
                                             closable
-                                            onClose={() => {
-                                                const next = [...selectedMetrics];
-                                                next.splice(i, 1);
-                                                setSelectedMetrics(next);
-                                            }}
+                                            onClose={() => removeSelectedMetric(i)}
                                             style={{ backgroundColor: '#e6f7ff', borderColor: 'transparent' }}
                                         >
                                             {m.metricName}
@@ -713,11 +720,7 @@ const ChartAnalyzer: React.FC = () => {
                                 <Tooltip key={d.id} title={`${d.dimName}\n表：${d.tableName || '-'}\n字段：${d.columnName || '-'}\n显示字段：${d.displayColumn || '-'}`}>
                                     <Tag
                                         closable
-                                        onClose={() => {
-                                            const next = [...selectedDimensions];
-                                            next.splice(i, 1);
-                                            setSelectedDimensions(next);
-                                        }}
+                                        onClose={() => removeSelectedDimension(i)}
                                         style={{ backgroundColor: '#f6ffed', borderColor: 'transparent' }}
                                     >
                                         {d.dimName}
