@@ -38,11 +38,12 @@ const TagPage: React.FC = () => {
     };
 
     const columns = [
+        { title: '标签组', dataIndex: 'groupName', key: 'groupName', render: (value: string, record: TagDTO) => value || record.groupCode || '-' },
         { title: '编码', dataIndex: 'tagCode', key: 'tagCode' },
         { title: '名称', dataIndex: 'tagName', key: 'tagName' },
         { title: '状态', dataIndex: 'status', key: 'status', render: (value: string) => <Tag color={statusColor[value] || 'default'}>{value}</Tag> },
         { title: '命中人数', dataIndex: 'latestCount', key: 'latestCount', render: (value: number) => value ?? '-' },
-        { title: '命中值', dataIndex: 'tagValue', key: 'tagValue' },
+        { title: '默认标签值', dataIndex: 'valueName', key: 'valueName', render: (value: string, record: TagDTO) => value || record.valueCode || '-' },
         { title: '更新时间', dataIndex: 'updatedAt', key: 'updatedAt' },
         {
             title: '操作',
@@ -69,6 +70,12 @@ const TagPage: React.FC = () => {
                     <Descriptions bordered column={1} size="small">
                         <Descriptions.Item label="编码">{detail.tagCode}</Descriptions.Item>
                         <Descriptions.Item label="名称">{detail.tagName}</Descriptions.Item>
+                        <Descriptions.Item label="标签组">{detail.groupName || detail.groupCode || '-'}</Descriptions.Item>
+                        <Descriptions.Item label="标签值">
+                            <Space wrap>
+                                {(detail.values || []).map(item => <Tag key={item.id} color={item.defaultValue ? 'processing' : 'default'}>{item.valueName} ({item.valueCode})</Tag>)}
+                            </Space>
+                        </Descriptions.Item>
                         <Descriptions.Item label="状态">{detail.status}</Descriptions.Item>
                         <Descriptions.Item label="命中人数">{detail.latestCount ?? '-'}</Descriptions.Item>
                         <Descriptions.Item label="快照">{detail.latestSnapshotId || '-'}</Descriptions.Item>

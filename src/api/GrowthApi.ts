@@ -46,11 +46,15 @@ export interface AudienceDTO {
 
 export interface TagDTO {
     id: string;
+    groupId: string;
+    groupCode?: string;
+    groupName?: string;
     tagCode: string;
     tagName: string;
     tagDesc?: string;
     entityType: string;
-    tagValue: string;
+    valueCode?: string;
+    valueName?: string;
     status: string;
     latestTaskId?: string;
     latestSnapshotId?: string;
@@ -59,7 +63,30 @@ export interface TagDTO {
     createdAt?: string;
     updatedAt?: string;
     ruleJson?: string;
+    values?: TagValueDTO[];
     latestTask?: GrowthTaskDTO;
+}
+
+export interface TagGroupDTO {
+    id: string;
+    groupCode: string;
+    groupName: string;
+    groupDesc?: string;
+    status: string;
+    createBy?: string;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+export interface TagValueDTO {
+    id: string;
+    tagId: string;
+    valueCode: string;
+    valueName: string;
+    valueDesc?: string;
+    defaultValue?: boolean;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export interface AudienceCreateRequest {
@@ -69,11 +96,23 @@ export interface AudienceCreateRequest {
 }
 
 export interface TagCreateRequest {
+    groupId?: string;
+    groupCode?: string;
+    groupName?: string;
+    groupDesc?: string;
     tagCode: string;
     tagName: string;
     tagDesc?: string;
-    tagValue?: string;
+    valueCode?: string;
+    valueName?: string;
+    valueDesc?: string;
     selection: MetricAudienceSelectionCmd;
+}
+
+export interface TagGroupCreateRequest {
+    groupCode: string;
+    groupName: string;
+    groupDesc?: string;
 }
 
 export const growthSelectionApi = {
@@ -101,4 +140,11 @@ export const tagApi = {
         datagrowthRequest.get(`/api/v1/growth/tags/${id}`),
     run: async (id: string): Promise<Response<TagDTO>> =>
         datagrowthRequest.post(`/api/v1/growth/tags/${id}/run`),
+};
+
+export const tagGroupApi = {
+    create: async (data: TagGroupCreateRequest): Promise<Response<TagGroupDTO>> =>
+        datagrowthRequest.post('/api/v1/growth/tag-groups', data),
+    list: async (params?: { keyword?: string }): Promise<Response<TagGroupDTO[]>> =>
+        datagrowthRequest.get('/api/v1/growth/tag-groups', { params }),
 };

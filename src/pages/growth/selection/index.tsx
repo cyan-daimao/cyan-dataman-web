@@ -3,7 +3,7 @@ import { Button, Col, Descriptions, Form, Input, InputNumber, Modal, Row, Select
 import { PlayCircleOutlined, SaveOutlined, TagsOutlined, TeamOutlined } from '@ant-design/icons';
 import { DimensionBiListItem, MetricBiListItem, dimensionBiListApi, metricBiListApi } from '@/api/MetricBiApi';
 import { FilterOperator, MetricRef, DimensionRef, FilterRef } from '@/api/DatabiApi';
-import { MetricAudienceSelectionCmd, audienceApi, growthSelectionApi, tagApi } from '@/api/GrowthApi';
+import { MetricAudienceSelectionCmd, TagGroupDTO, audienceApi, growthSelectionApi, tagApi, tagGroupApi } from '@/api/GrowthApi';
 
 interface FilterRow {
     field?: string;
@@ -30,6 +30,7 @@ const splitValues = (value: string) => value.split(',').map(item => item.trim())
 const GrowthSelectionPage: React.FC = () => {
     const [metrics, setMetrics] = useState<MetricBiListItem[]>([]);
     const [dimensions, setDimensions] = useState<DimensionBiListItem[]>([]);
+    const [tagGroups, setTagGroups] = useState<TagGroupDTO[]>([]);
     const [metricCodes, setMetricCodes] = useState<string[]>([]);
     const [dimCodes, setDimCodes] = useState<string[]>([]);
     const [filters, setFilters] = useState<FilterRow[]>([]);
@@ -43,12 +44,13 @@ const GrowthSelectionPage: React.FC = () => {
     const [tagForm] = Form.useForm();
 
     useEffect(() => {
-        Promise.all([metricBiListApi.list(), dimensionBiListApi.list()])
-            .then(([metricRes, dimRes]) => {
+        Promise.all([metricBiListApi.list(), dimensionBiListApi.list(), tagGroupApi.list()])
+            .then(([metricRes, dimRes, groupRes]) => {
                 setMetrics(metricRes.data || []);
                 setDimensions(dimRes.data || []);
+                setTagGroups(groupRes.data || []);
             })
-            .catch(() => message.error('加载指标维度失败'));
+            .catch(() => message.error('加载指标维度或标签组失败'));
     }, []);
 
     const selectedMetrics = useMemo(() => metrics.filter(item => metricCodes.includes(item.metricCode)), [metrics, metricCodes]);
@@ -230,16 +232,56 @@ const GrowthSelectionPage: React.FC = () => {
             </Modal>
 
             <Modal title="创建标签" open={tagOpen} onOk={handleCreateTag} onCancel={() => setTagOpen(false)}>
-                <Form form={tagForm} layout="vertical" initialValues={{ tagValue: 'true' }}>
+                <Form form={tagForm} layout="vertical" initialValues={{ valueCode: 'hit', valueName: '命中' }}>
+                    <Form.Item name="groupId" label="标签组">
+                        <Select
+                            allowClear
+                            showSearch
+                            placeholder="选择已有标签组"
+                            optionFilterProp="label"
+                            options={tagGroups.map(item => ({ label: `${item.groupName} (${item.groupCode})`, value: item.id }))}
+                        />
+                    </Form.Item>
+                    <Row gutter={12}>
+                        <Col span={12}>
+                            <Form.Item name="groupCode" label="新标签组编码" rules={[({ getFieldValue }) => ({
+                                validator: async (_, value) => {
+                                    if (getFieldValue('groupId') || value) return;
+                                    throw new Error('请选择标签组或输入新标签组编码');
+                                },
+                            })]}>
+                                <Input />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="groupName" label="新标签组名称" rules={[({ getFieldValue }) => ({
+                                validator: async (_, value) => {
+                                    if (getFieldValue('groupId') || value) return;
+                                    throw new Error('请选择标签组或输入新标签组名称');
+                                },
+                            })]}>
+                                <Input />
+                            </Form.Item>
+                        </Col>
+                    </Row>
                     <Form.Item name="tagCode" label="标签编码" rules={[{ required: true, message: '请输入标签编码' }]}>
                         <Input />
                     </Form.Item>
                     <Form.Item name="tagName" label="标签名称" rules={[{ required: true, message: '请输入标签名称' }]}>
                         <Input />
                     </Form.Item>
-                    <Form.Item name="tagValue" label="命中值">
-                        <Input />
-                    </Form.Item>
+                    <Row gutter={12}>
+                        <Col span={12}>
+                            <Form.Item name="valueCode" label="标签值编码" rules={[{ required: true, message: '请输入标签值编码' }]}>
+                                <Input />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="valueName" label="标签值名称" rules={[{ required: true, message: '请输入标签值名称' }]}>
+                                <Input />
+                            </Form.Item>
+                        </Col>
+                    </Row>
                     <Form.Item name="tagDesc" label="描述">
                         <Input.TextArea rows={3} />
                     </Form.Item>
