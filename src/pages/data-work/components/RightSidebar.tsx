@@ -5,6 +5,7 @@ import {
     Divider,
     Form,
     Input,
+    InputNumber,
     Space,
     Switch,
     Tag,
@@ -67,6 +68,44 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     onActivePanelChange,
 }) => {
     const isNew = !jobId;
+    const parseFlinkConfig = () => {
+        const defaults = {
+            taskManagerMemoryGb: 2,
+            taskManagerCpu: 1,
+            parallelism: 4,
+        };
+        if (!task.configJson) return defaults;
+        try {
+            const config = JSON.parse(task.configJson);
+            return {
+                taskManagerMemoryGb: Number(config?.flink?.taskManagerMemoryGb) || defaults.taskManagerMemoryGb,
+                taskManagerCpu: Number(config?.flink?.taskManagerCpu) || defaults.taskManagerCpu,
+                parallelism: Number(config?.flink?.parallelism) || defaults.parallelism,
+            };
+        } catch {
+            return defaults;
+        }
+    };
+    const updateFlinkConfig = (patch: Partial<ReturnType<typeof parseFlinkConfig>>) => {
+        let current: Record<string, any> = {};
+        try {
+            current = task.configJson ? JSON.parse(task.configJson) : {};
+        } catch {
+            current = {};
+        }
+        const nextFlink = {
+            ...parseFlinkConfig(),
+            ...current.flink,
+            ...patch,
+        };
+        onTaskChange({
+            configJson: JSON.stringify({
+                ...current,
+                flink: nextFlink,
+            }),
+        });
+    };
+    const flinkConfig = parseFlinkConfig();
 
     const PropertyPanel = (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -215,16 +254,40 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                             {task.engineType === 'SPARK' ? 'SparkSQL' : 'FlinkSQL'}
                         </Tag>
                     </Form.Item>
-                    <Form.Item label="内存（GB）">
-                        <Input type="number" placeholder="2" defaultValue={2} />
+                    <Form.Item label="TaskManager 内存（GB）">
+                        <InputNumber
+                            min={1}
+                            precision={0}
+                            value={flinkConfig.taskManagerMemoryGb}
+                            style={{ width: '100%' }}
+                            onChange={(value) => updateFlinkConfig({ taskManagerMemoryGb: value || 1 })}
+                        />
                     </Form.Item>
-                    <Form.Item label="CPU 核数">
-                        <Input type="number" placeholder="1" defaultValue={1} />
+                    <Form.Item label="TaskManager CPU 核数">
+                        <InputNumber
+                            min={0.1}
+                            step={0.1}
+                            precision={1}
+                            value={flinkConfig.taskManagerCpu}
+                            style={{ width: '100%' }}
+                            onChange={(value) => updateFlinkConfig({ taskManagerCpu: value || 0.5 })}
+                        />
                     </Form.Item>
                     <Form.Item label="并行度">
-                        <Input type="number" placeholder="4" defaultValue={4} />
+                        <InputNumber
+                            min={1}
+                            precision={0}
+                            value={flinkConfig.parallelism}
+                            style={{ width: '100%' }}
+                            onChange={(value) => updateFlinkConfig({ parallelism: value || 1 })}
+                        />
                     </Form.Item>
                 </Form>
+            </div>
+            <div style={{ padding: '12px 16px', borderTop: '1px solid #f0f0f0', background: '#fafafa', flexShrink: 0 }}>
+                <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={onSave} block>
+                    保存运行配置
+                </Button>
             </div>
         </div>
     );

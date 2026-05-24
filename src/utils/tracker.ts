@@ -3,7 +3,7 @@ import dayjs from "dayjs";
 
 /**
  * 平台自身轻量埋点工具
- * 调用 /rpc/data-collection/collect/events 上报 platform_module_click 事件
+ * 调用 /rpc/data-collection/collect/events 上报 bigdata_module_click 事件
  * 不依赖登录态，请求失败不影响业务
  */
 
@@ -66,7 +66,7 @@ function getDebugToken(): string | undefined {
 }
 
 /**
- * 上报 platform_module_click 事件
+ * 上报 bigdata_module_click 事件
  * @param moduleCode 模块编码
  * @param moduleName 模块名称
  * @param routePath 路由路径
@@ -79,24 +79,31 @@ export function trackModuleClick(
     extra?: Record<string, string | undefined>
 ): void {
     const payload = {
-        appCode: APP_CODE,
-        eventCode: MODULE_CLICK_EVENT_CODE,
-        eventTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-        requestId: generateId('req'),
-        terminalType: TERMINAL_TYPE,
-        environment: ENVIRONMENT,
-        userId: getUserId(),
-        anonymousId: getAnonymousId(),
-        sessionId: getSessionId(),
-        pageCode: window.location.pathname,
-        debugToken: getDebugToken(),
-        properties: {
-            module_code: moduleCode,
-            module_name: moduleName,
-            route_path: routePath,
-            parent_module_code: extra?.parentModuleCode,
-            click_position: extra?.clickPosition,
-            source_page: extra?.sourcePage,
+        common: {
+            appCode: APP_CODE,
+            terminalType: TERMINAL_TYPE,
+            environment: ENVIRONMENT,
+            userId: getUserId(),
+            anonymousId: getAnonymousId(),
+            sessionId: getSessionId(),
+            pageCode: window.location.pathname,
+        },
+        action: {
+            eventCode: MODULE_CLICK_EVENT_CODE,
+            eventTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+            eventType: 'CLICK',
+            clickPosition: extra?.clickPosition,
+        },
+        business: {
+            moduleCode,
+            moduleName,
+            routePath,
+            parentModuleCode: extra?.parentModuleCode,
+        },
+        extra: {
+            requestId: generateId('req'),
+            debugToken: getDebugToken(),
+            sourcePage: extra?.sourcePage,
         },
     };
 

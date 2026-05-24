@@ -107,6 +107,25 @@ const DebugConsolePage: React.FC = () => {
     }
   };
 
+  const renderJsonBlock = (title: string, value?: string) => (
+    <div style={{ marginTop: 12 }}>
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>{title}</div>
+      <pre
+        style={{
+          background: '#f6f8fa',
+          padding: 12,
+          borderRadius: 6,
+          overflow: 'auto',
+          maxHeight: 220,
+          fontSize: 12,
+          lineHeight: 1.6,
+        }}
+      >
+        {formatJson(value || '{}')}
+      </pre>
+    </div>
+  );
+
   return (
     <div style={{ padding: '0 8px' }}>
       <Title level={4} style={{ marginBottom: 16 }}>Debug 控制台</Title>
@@ -210,19 +229,11 @@ const DebugConsolePage: React.FC = () => {
                     {validateStatusTag[selectedSample.validateStatus]?.label}
                   </Tag>
                 </div>
-                <pre
-                  style={{
-                    background: '#f6f8fa',
-                    padding: 12,
-                    borderRadius: 6,
-                    overflow: 'auto',
-                    maxHeight: 600,
-                    fontSize: 12,
-                    lineHeight: 1.6,
-                  }}
-                >
-                  {formatJson(selectedSample.payload)}
-                </pre>
+                {renderJsonBlock('common', selectedSample.common)}
+                {renderJsonBlock('action', selectedSample.action)}
+                {renderJsonBlock('business', selectedSample.business)}
+                {renderJsonBlock('extra', selectedSample.extra)}
+                {renderJsonBlock('payload', selectedSample.payload)}
                 {selectedSample.validateErrors && (
                   <div style={{ marginTop: 12 }}>
                     <div style={{ color: '#ff4d4f', fontWeight: 'bold', marginBottom: 4 }}>校验错误</div>

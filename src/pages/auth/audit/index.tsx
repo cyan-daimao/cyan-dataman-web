@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     Table,
+    type TableProps,
     Form,
     Select,
     DatePicker,
@@ -23,6 +24,25 @@ import {
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
+
+const formatAuditTimestamp = (value: unknown) => {
+    if (value === null || value === undefined || value === '') {
+        return '-';
+    }
+
+    if (Array.isArray(value)) {
+        const [year, month, day, hour = 0, minute = 0, second = 0] = value;
+        const date = dayjs(new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second)));
+        return date.isValid() ? date.format('YYYY-MM-DD HH:mm:ss') : '-';
+    }
+
+    if (typeof value === 'string') {
+        return value.replace('T', ' ').substring(0, 19);
+    }
+
+    const date = dayjs(value);
+    return date.isValid() ? date.format('YYYY-MM-DD HH:mm:ss') : '-';
+};
 
 const AuditPage: React.FC = () => {
     const [logs, setLogs] = useState<AuditLogDTO[]>([]);
@@ -83,7 +103,7 @@ const AuditPage: React.FC = () => {
         HIGH: 'red',
     };
 
-    const columns = [
+    const columns: TableProps<AuditLogDTO>['columns'] = [
         { title: '日志ID', dataIndex: 'id', key: 'id', width: 120 },
         { title: '用户', dataIndex: 'userName', key: 'userName', width: 100 },
         {
@@ -119,7 +139,7 @@ const AuditPage: React.FC = () => {
             dataIndex: 'timestamp',
             key: 'timestamp',
             width: 180,
-            render: (text: string) => text?.replace('T', ' ').substring(0, 19),
+            render: (text: unknown) => formatAuditTimestamp(text),
         },
     ];
 

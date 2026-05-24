@@ -27,7 +27,6 @@ import {
     deleteJob,
     publishJob,
     executePreviewJob,
-    startJobApplication,
 } from '@/api/DataworksApi.ts';
 import { executeSparkSql } from '@/api/DatagawayApi.ts';
 import { authFilterSql } from '@/api/DataAuthApi';
@@ -429,14 +428,11 @@ const DataWorkWorkspace: React.FC = () => {
         doCloseOtherTabs(tabId);
     }, [tabs, doCloseOtherTabs]);
 
-    // ========== 保存任务 ==========
-    const handleSave = useCallback(async () => {
-        const tab = tabs.find(t => t.tabId === activeTabId);
-        if (!tab) return;
-
+    // ========== 持久化任务 ==========
+    const persistTask = useCallback(async (tab: TabData): Promise<JobDTO | null> => {
         if (!tab.task.name.trim()) {
             message.warning('请输入任务名称');
-            return;
+            return null;
         }
         const body = {
             name: tab.task.name.trim(),
@@ -446,43 +442,54 @@ const DataWorkWorkspace: React.FC = () => {
             sqlContent: tab.sqlContent,
             configJson: tab.task.configJson,
         };
-        setSaving(true);
-        try {
-            let savedTask: JobDTO;
-            if (!tab.task.id) {
-                const resp = await createJob(body);
-                savedTask = resp.data;
-                message.success('任务创建成功');
-                setSidebarRefreshKey(prev => prev + 1);
-            } else {
-                const resp = await updateJob(tab.task.id, body);
-                savedTask = resp.data;
-                message.success('任务更新成功');
-                setSidebarRefreshKey(prev => prev + 1);
-            }
-            // 保存调度配置
-            if (savedTask.id && tab.schedule.cronExpression) {
-                await saveJobSchedule(savedTask.id, {
-                    cronExpression: tab.schedule.cronExpression,
-                    enabled: tab.schedule.enabled || false,
-                });
-            }
-            // 刷新当前任务状态
-            const freshTask = await getJob(savedTask.id);
-            const freshSchedule = await getJobSchedule(freshTask.id).catch(() => createEmptySchedule(freshTask.id));
-            setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+
+        let savedTask: JobDTO;
+        if (!tab.task.id) {
+            const resp = await createJob(body);
+            savedTask = resp.data;
+            message.success('任务创建成功');
+        } else {
+            const resp = await updateJob(tab.task.id, body);
+            savedTask = resp.data;
+            message.success('任务更新成功');
+        }
+        setSidebarRefreshKey(prev => prev + 1);
+
+        // 保存调度配置
+        if (savedTask.id && tab.schedule.cronExpression) {
+            await saveJobSchedule(savedTask.id, {
+                cronExpression: tab.schedule.cronExpression,
+                enabled: tab.schedule.enabled || false,
+            });
+        }
+
+        // 刷新当前任务状态，确保 configJson 以数据库为准回显
+        const freshTask = await getJob(savedTask.id);
+        const freshSchedule = await getJobSchedule(freshTask.id).catch(() => createEmptySchedule(freshTask.id));
+        setTabs(prev => prev.map(t => t.tabId === tab.tabId ? {
                 ...t,
                 task: freshTask,
                 sqlContent: freshTask.sqlContent || '',
                 schedule: freshSchedule || createEmptySchedule(freshTask.id),
                 isModified: false,
             } : t));
+        return freshTask;
+    }, []);
+
+    // ========== 保存任务 ==========
+    const handleSave = useCallback(async () => {
+        const tab = tabs.find(t => t.tabId === activeTabId);
+        if (!tab) return;
+
+        setSaving(true);
+        try {
+            await persistTask(tab);
         } catch {
             // 错误由拦截器处理
         } finally {
             setSaving(false);
         }
-    }, [tabs, activeTabId]);
+    }, [tabs, activeTabId, persistTask]);
 
     // ========== 发布任务 ==========
     const handlePublish = useCallback(async () => {
@@ -495,14 +502,25 @@ const DataWorkWorkspace: React.FC = () => {
         // 允许已发布任务再次发布（新版本发布）
         setPublishing(true);
         try {
-            const resp = await publishJob(tab.task.id);
+            let publishJobId = tab.task.id;
+            if (tab.isModified) {
+                setSaving(true);
+                let savedTask: JobDTO | null = null;
+                try {
+                    savedTask = await persistTask(tab);
+                } finally {
+                    setSaving(false);
+                }
+                if (!savedTask?.id) {
+                    return;
+                }
+                publishJobId = savedTask.id;
+            }
+            const resp = await publishJob(publishJobId);
             const publishedTask = resp.data;
             let startMessage = '';
             if (publishedTask.engineType === 'FLINK') {
-                const startResp = await startJobApplication(publishedTask.id);
-                startMessage = startResp.data.status === 'SUCCESS'
-                    ? '，Application Mode任务已启动'
-                    : `，Application Mode启动失败：${startResp.data.errorMessage || '未知错误'}`;
+                startMessage = '，Application Mode任务已启动';
             }
             message.success(`任务发布成功${startMessage}`);
             setTabs(prev => prev.map(t => t.tabId === activeTabId ? {

@@ -407,21 +407,10 @@ export const appApi = {
 // ==================== 事件上报 ====================
 
 export interface CollectEventRequest {
-    appCode: string;
-    debugToken?: string;
-    eventCode: string;
-    eventTime: string;
-    terminalType: string;
-    environment: string;
-    userId?: string;
-    anonymousId?: string;
-    sessionId?: string;
-    deviceId?: string;
-    sdkVersion?: string;
-    appVersion?: string;
-    pageCode?: string;
-    requestId?: string;
-    properties?: Record<string, unknown>;
+    common: Record<string, unknown>;
+    action: Record<string, unknown>;
+    business?: Record<string, unknown>;
+    extra?: Record<string, unknown>;
 }
 
 export interface CollectEventResponse {
@@ -480,6 +469,10 @@ export interface EventSampleDTO {
     appVersion: string;
     pageCode: string;
     requestId: string;
+    common: string;
+    action: string;
+    business: string;
+    extra: string;
     payload: string;
     validateStatus: string;
     validateErrors: string;
