@@ -44,21 +44,8 @@ const envURL: { [key: string]: { [key: string]: string } } = {
         dataworks: "http://8.130.24.136:9108/",
         dataauth: "http://8.130.24.136:9110/",
         datagrowth: "http://8.130.24.136:9111/",
-        "data-collection": "http://cyan-data-collection-prod.cyan.com/",
+        "data-collection": "http://8.130.24.136:9112/",
         dify: "http://8.130.24.136:20080",
-    },
-    // vite preview 默认使用 production mode
-    "production":  {
-        dataman: "http://cyan-dataman.cyan.com/",
-        employee: "http://cyan-employee.cyan.com/",
-        datagateway: "http://cyan-datagateway.cyan.com/",
-        datametric: "http://localhost:8080/",
-        databi: "http://localhost:8085",
-        dataworks: "http://localhost:8086",
-        dataauth: "http://localhost:8087",
-        datagrowth: "http://localhost:8089",
-        "data-collection": "http://cyan-data-collection.cyan.com/",
-        dify: "http://10.0.0.2:20080",
     },
 };
 
