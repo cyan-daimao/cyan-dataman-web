@@ -154,6 +154,9 @@ const TableDetailPage: React.FC = () => {
                 <DataLineage
                     tableName={tableData?.name || ''}
                     tableComment={tableData?.comment || ''}
+                    catalog={tableData?.table?.catalog}
+                    schema={tableData?.table?.schema}
+                    columns={tableData?.table?.columns}
                 />
             ),
         },

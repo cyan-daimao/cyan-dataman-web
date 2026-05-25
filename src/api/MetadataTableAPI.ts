@@ -250,6 +250,37 @@ export interface TableRelationsResponse {
     incoming: TableRelationDTO[];
 }
 
+// 字段血缘节点
+export interface MetadataLineageNodeDTO {
+    nodeKey: string;
+    nodeType: 'FIELD' | 'TABLE' | 'ETL_JOB' | 'METRIC';
+    nodeName: string;
+    serviceName?: string;
+    refId?: string;
+    tableRef?: string;
+    columnName?: string;
+    propertiesJson?: string;
+}
+
+// 字段血缘边
+export interface MetadataLineageEdgeDTO {
+    sourceKey: string;
+    targetKey: string;
+    edgeType: 'READS_FIELD' | 'WRITES_FIELD' | 'USES_FIELD' | 'DERIVES_METRIC';
+    serviceName?: string;
+    refId?: string;
+    propertiesJson?: string;
+}
+
+// 字段血缘查询结果
+export interface MetadataFieldLineageDTO {
+    fieldKey: string;
+    upstreamJobs: MetadataLineageNodeDTO[];
+    downstreamJobs: MetadataLineageNodeDTO[];
+    metrics: MetadataLineageNodeDTO[];
+    edges: MetadataLineageEdgeDTO[];
+}
+
 const parseAiSuggestStreamBlock = (block: string): AiRelationSuggestStreamEvent | null => {
     let eventName = 'message';
     const dataLines: string[] = [];
@@ -361,4 +392,16 @@ export const tableRelationApi = {
 
     delete: (id: string): Promise<ApiResponse<void>> =>
         datamanRequest.delete(`/api/v1/metadata/tables/relations/${id}`),
+};
+
+// 字段血缘 API
+export const metadataLineageApi = {
+    getFieldLineage: (params: {
+        catalog: string;
+        schema: string;
+        table: string;
+        column: string;
+        maxDepth?: number;
+    }): Promise<ApiResponse<MetadataFieldLineageDTO>> =>
+        datamanRequest.get('/api/v1/metadata/lineage/fields', {params}),
 };
