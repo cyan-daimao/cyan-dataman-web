@@ -56,7 +56,7 @@ interface TabData {
     tabId: string; // Tab 唯一标识（未保存任务用临时 ID）
     task: JobDTO;
     schedule: ScheduleConfigDTO;
-    sqlContent: string;
+    content: string;
     result: QueryResult | null;
     executionPlan: ExecutionPlan[] | null;
     error: string | null;
@@ -66,12 +66,43 @@ interface TabData {
 }
 
 const getEngineTypeByNodeType = (nodeType: JobDTO['nodeType']): JobDTO['engineType'] => {
-    return nodeType === 'FLINK_SQL' ? 'FLINK' : 'SPARK';
+    if (nodeType === 'FLINK_SQL' || nodeType === 'FLINK_BATCH') return 'FLINK';
+    if (nodeType === 'SHELL') return 'SHELL';
+    if (nodeType === 'PYTHON') return 'PYTHON';
+    return 'SPARK';
 };
 
 const getDefaultTaskNameByNodeType = (nodeType: JobDTO['nodeType']) => {
     if (nodeType === 'FLINK_SQL') return '未命名FlinkSQL任务';
+    if (nodeType === 'SPARK_BATCH') return '未命名Spark批任务';
+    if (nodeType === 'FLINK_BATCH') return '未命名Flink批任务';
+    if (nodeType === 'SHELL') return '未命名Shell任务';
+    if (nodeType === 'PYTHON') return '未命名Python任务';
     return '未命名SparkSQL任务';
+};
+
+const getNodeTypeLabel = (nodeType: JobDTO['nodeType'], engineType: JobDTO['engineType']) => {
+    if (nodeType === 'FLINK_SQL') return 'FlinkSQL';
+    if (nodeType === 'SPARK_BATCH') return 'Spark批任务';
+    if (nodeType === 'FLINK_BATCH') return 'Flink批任务';
+    if (nodeType === 'SHELL') return 'Shell';
+    if (nodeType === 'PYTHON') return 'Python';
+    if (nodeType === 'VIRTUAL') return '虚拟节点';
+    return engineType === 'FLINK' ? 'FlinkSQL' : 'SparkSQL';
+};
+
+const getNodeTypeColor = (nodeType: JobDTO['nodeType'], engineType: JobDTO['engineType']) => {
+    if (nodeType === 'SHELL') return 'cyan';
+    if (nodeType === 'PYTHON') return 'green';
+    if (nodeType === 'SPARK_BATCH') return 'geekblue';
+    if (nodeType === 'FLINK_BATCH') return 'magenta';
+    return engineType === 'SPARK' ? 'blue' : 'purple';
+};
+
+const getEditorLanguage = (nodeType: JobDTO['nodeType']): 'sql' | 'shell' | 'python' => {
+    if (nodeType === 'SHELL') return 'shell';
+    if (nodeType === 'PYTHON') return 'python';
+    return 'sql';
 };
 
 // 生成空任务
@@ -81,7 +112,7 @@ const createEmptyTask = (nodeType: JobDTO['nodeType'] = 'SPARK_SQL'): JobDTO => 
     description: '',
     engineType: getEngineTypeByNodeType(nodeType),
     nodeType,
-    sqlContent: '',
+    content: '',
     configJson: '',
     status: 'DRAFT',
 });
@@ -92,6 +123,7 @@ const createEmptySchedule = (jobId: string = ''): ScheduleConfigDTO => ({
     jobId,
     cronExpression: '',
     enabled: false,
+    schedulerType: 'AIRFLOW',
 });
 
 // 生成新 Tab
@@ -99,7 +131,7 @@ const createNewTab = (nodeType: JobDTO['nodeType'] = 'SPARK_SQL'): TabData => ({
     tabId: `new-${Date.now()}`,
     task: createEmptyTask(nodeType),
     schedule: createEmptySchedule(),
-    sqlContent: '',
+    content: '',
     result: null,
     executionPlan: null,
     error: null,
@@ -117,10 +149,14 @@ interface PersistedTab {
     tabId: string;
     task: JobDTO;
     schedule: ScheduleConfigDTO;
-    sqlContent: string;
+    content: string;
     isModified: boolean;
     resultActiveTab: string;
 }
+
+const normalizePersistedContent = (tab: PersistedTab & { sqlContent?: string; task?: JobDTO & { sqlContent?: string } }) => {
+    return tab.content ?? tab.task?.content ?? tab.sqlContent ?? tab.task?.sqlContent ?? '';
+};
 
 interface FlinkPreviewPayload {
     mock?: boolean;
@@ -198,8 +234,12 @@ const loadTabsFromStorage = (): { tabs: TabData[]; activeTabId: string } => {
                 .filter((p): p is PersistedTab => !!p && typeof p.tabId === 'string' && !!p.task)
                 .map((p) => ({
                     ...p,
+                    task: {
+                        ...p.task,
+                        content: p.task.content ?? (p.task as JobDTO & { sqlContent?: string }).sqlContent ?? '',
+                    },
                     schedule: p.schedule || createEmptySchedule(p.task.id),
-                    sqlContent: p.sqlContent ?? '',
+                    content: normalizePersistedContent(p),
                     resultActiveTab: p.resultActiveTab || 'result',
                     result: null,
                     executionPlan: null,
@@ -244,7 +284,7 @@ const DataWorkWorkspace: React.FC = () => {
             tabId: t.tabId,
             task: t.task,
             schedule: t.schedule,
-            sqlContent: t.sqlContent,
+            content: t.content,
             isModified: t.isModified,
             resultActiveTab: t.resultActiveTab,
         }));
@@ -345,7 +385,7 @@ const DataWorkWorkspace: React.FC = () => {
         setTabs(prev => prev.map(t => t.tabId === targetTabId ? {
             ...t,
             task,
-            sqlContent: task.sqlContent || '',
+            content: task.content || '',
             schedule,
             result: null,
             executionPlan: null,
@@ -439,7 +479,7 @@ const DataWorkWorkspace: React.FC = () => {
             description: tab.task.description,
             engineType: tab.task.engineType,
             nodeType: tab.task.nodeType || (tab.task.engineType === 'FLINK' ? 'FLINK_SQL' : 'SPARK_SQL'),
-            sqlContent: tab.sqlContent,
+            content: tab.content,
             configJson: tab.task.configJson,
         };
 
@@ -460,6 +500,7 @@ const DataWorkWorkspace: React.FC = () => {
             await saveJobSchedule(savedTask.id, {
                 cronExpression: tab.schedule.cronExpression,
                 enabled: tab.schedule.enabled || false,
+                schedulerType: tab.schedule.schedulerType || 'AIRFLOW',
             });
         }
 
@@ -469,7 +510,7 @@ const DataWorkWorkspace: React.FC = () => {
         setTabs(prev => prev.map(t => t.tabId === tab.tabId ? {
                 ...t,
                 task: freshTask,
-                sqlContent: freshTask.sqlContent || '',
+                content: freshTask.content || '',
                 schedule: freshSchedule || createEmptySchedule(freshTask.id),
                 isModified: false,
             } : t));
@@ -547,12 +588,12 @@ const DataWorkWorkspace: React.FC = () => {
         const tab = tabs.find(t => t.tabId === activeTabId);
         if (!tab) return;
 
-        if (!tab.sqlContent.trim()) {
-            message.warning('请输入SQL语句');
+        if (!tab.content.trim()) {
+            message.warning('请输入任务内容');
             return;
         }
 
-        if (tab.task.engineType === 'FLINK') {
+        if (tab.task.engineType !== 'SPARK' || tab.task.nodeType !== 'SPARK_SQL') {
             const nodeType = tab.task.nodeType || 'FLINK_SQL';
             setExecuting(true);
             setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
@@ -562,7 +603,7 @@ const DataWorkWorkspace: React.FC = () => {
                 error: null,
                 logs: [
                     `[${new Date().toLocaleString()}] INFO 开始执行 ${nodeType}: ${tab.task.name}`,
-                    `[${new Date().toLocaleString()}] INFO 当前为Session Mode临时运行，不生成正式Application任务`,
+                    `[${new Date().toLocaleString()}] INFO 当前为临时运行，不生成正式Application任务`,
                 ],
             } : t));
             try {
@@ -570,7 +611,7 @@ const DataWorkWorkspace: React.FC = () => {
                     name: tab.task.name,
                     engineType: tab.task.engineType,
                     nodeType,
-                    sqlContent: tab.sqlContent,
+                    content: tab.content,
                     configJson: tab.task.configJson,
                 });
                 const instance = resp.data;
@@ -587,8 +628,8 @@ const DataWorkWorkspace: React.FC = () => {
                             `[${new Date().toLocaleString()}] INFO 执行成功，返回 ${queryResult.rows.length} 行`,
                             `[${new Date().toLocaleString()}] INFO 耗时: ${queryResult.duration}ms`,
                         ] : []),
-                        `[${new Date().toLocaleString()}] INFO 执行SQL快照:`,
-                        ...(instance.sqlContent || '').split('\n').map(line => `    ${line}`),
+                        `[${new Date().toLocaleString()}] INFO 执行内容快照:`,
+                        ...(instance.content || '').split('\n').map(line => `    ${line}`),
                         ...(instance.errorMessage ? [`[${new Date().toLocaleString()}] ERROR ${instance.errorMessage}`] : []),
                     ],
                 } : t));
@@ -615,7 +656,7 @@ const DataWorkWorkspace: React.FC = () => {
         try {
             const currentStr = sessionStorage.getItem(KEY.CURRENT) || localStorage.getItem(KEY.CURRENT);
             const passport = currentStr ? JSON.parse(currentStr).passport : '';
-            const authResp = await authFilterSql({passport, sql: tab.sqlContent, engine: 'spark'});
+            const authResp = await authFilterSql({passport, sql: tab.content, engine: 'spark'});
             if (!authResp.data?.permitted) {
                 message.error(authResp.data?.reason || '无权执行该SQL');
                 return;
@@ -635,13 +676,13 @@ const DataWorkWorkspace: React.FC = () => {
         const startTime = Date.now();
         const newLogs: string[] = [
             `[${new Date().toLocaleString()}] INFO 开始执行 SparkSQL: ${tab.task.name}`,
-            `[${new Date().toLocaleString()}] INFO SQL 内容:`,
-            ...tab.sqlContent.split('\n').map(line => `    ${line}`),
+            `[${new Date().toLocaleString()}] INFO 任务内容:`,
+            ...tab.content.split('\n').map(line => `    ${line}`),
         ];
         setTabs(prev => prev.map(t => t.tabId === activeTabId ? {...t, logs: newLogs} : t));
 
         try {
-            const resp = await executeSparkSql(tab.sqlContent);
+            const resp = await executeSparkSql(tab.content);
             const record = resp.data;
             const cost = Date.now() - startTime;
             if (record.status === 'SUCCESS' && record.data) {
@@ -708,15 +749,19 @@ const DataWorkWorkspace: React.FC = () => {
         const tab = tabs.find(t => t.tabId === activeTabId);
         if (!tab) return;
 
-        if (!tab.sqlContent.trim()) {
+        if (!tab.content.trim()) {
             message.warning('请输入SQL语句');
+            return;
+        }
+        if (!tab.task.nodeType?.endsWith('_SQL')) {
+            message.warning('当前节点类型不支持执行计划');
             return;
         }
         // 权限校验
         try {
             const currentStr = sessionStorage.getItem(KEY.CURRENT) || localStorage.getItem(KEY.CURRENT);
             const passport = currentStr ? JSON.parse(currentStr).passport : '';
-            const explainSql = `EXPLAIN ${tab.sqlContent}`;
+            const explainSql = `EXPLAIN ${tab.content}`;
             const authResp = await authFilterSql({passport, sql: explainSql, engine: 'spark'});
             if (!authResp.data?.permitted) {
                 message.error(authResp.data?.reason || '无权执行该SQL');
@@ -732,7 +777,7 @@ const DataWorkWorkspace: React.FC = () => {
         } : t));
         try {
             const {executeSql} = await import('@/api/DatagawayApi');
-            const explainSql = `EXPLAIN ${tab.sqlContent}`;
+            const explainSql = `EXPLAIN ${tab.content}`;
             const resp = await executeSql(explainSql);
             const result = resp.data;
             const plan: ExecutionPlan[] = result.data.map((item: object, idx: number) => {
@@ -781,8 +826,12 @@ const DataWorkWorkspace: React.FC = () => {
     // ========== 格式化 SQL ==========
     const handleFormat = useCallback(() => {
         const tab = tabs.find(t => t.tabId === activeTabId);
-        if (!tab || !tab.sqlContent) return;
-        const formatted = tab.sqlContent
+        if (!tab || !tab.content) return;
+        if (!tab.task.nodeType?.endsWith('_SQL')) {
+            message.warning('当前节点类型不支持SQL格式化');
+            return;
+        }
+        const formatted = tab.content
             .replace(/\s+/g, ' ')
             .replace(/\s*,\s*/g, ',\n    ')
             .replace(/\s+(SELECT|FROM|WHERE|JOIN|LEFT JOIN|RIGHT JOIN|INNER JOIN|GROUP BY|HAVING|ORDER BY|LIMIT|UNION|WITH)/gi, '\n$1')
@@ -790,7 +839,7 @@ const DataWorkWorkspace: React.FC = () => {
             .trim();
         setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
             ...t,
-            sqlContent: formatted,
+            content: formatted,
             isModified: true,
         } : t));
         message.success('SQL已格式化');
@@ -802,7 +851,7 @@ const DataWorkWorkspace: React.FC = () => {
         const selectSQL = `SELECT * FROM ${fullTableName} LIMIT 100;`;
         setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
             ...t,
-            sqlContent: selectSQL,
+            content: selectSQL,
             isModified: true,
         } : t));
         if (table.columns) {
@@ -827,7 +876,7 @@ const DataWorkWorkspace: React.FC = () => {
             tabId: newTabId,
             task,
             schedule: createEmptySchedule(task.id),
-            sqlContent: task.sqlContent || '',
+            content: task.content || '',
             result: null,
             executionPlan: null,
             error: null,
@@ -844,10 +893,10 @@ const DataWorkWorkspace: React.FC = () => {
     const handleHistorySelect = useCallback((record: JobInstanceDTO) => {
         setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
             ...t,
-            sqlContent: record.sqlContent || t.sqlContent,
+            content: record.content || t.content,
             isModified: true,
         } : t));
-        message.info(`已加载历史 SQL: ${record.jobName}`);
+        message.info(`已加载历史内容: ${record.jobName}`);
     }, [activeTabId]);
 
     const workbenchTabItems = React.useMemo(() => tabs.map(t => ({
@@ -860,6 +909,10 @@ const DataWorkWorkspace: React.FC = () => {
     const newDropdownItems = [
         { key: 'SPARK_SQL', icon: <CodeOutlined />, label: 'SparkSQL' },
         { key: 'FLINK_SQL', icon: <ThunderboltOutlined />, label: 'FlinkSQL' },
+        { key: 'SPARK_BATCH', icon: <CodeOutlined />, label: 'Spark批任务' },
+        { key: 'FLINK_BATCH', icon: <ThunderboltOutlined />, label: 'Flink批任务' },
+        { key: 'SHELL', icon: <CodeOutlined />, label: 'Shell' },
+        { key: 'PYTHON', icon: <CodeOutlined />, label: 'Python' },
     ];
 
     const statusMeta: Record<JobDTO['status'], { color: string; text: string }> = {
@@ -869,6 +922,7 @@ const DataWorkWorkspace: React.FC = () => {
     };
 
     const currentStatus = statusMeta[activeTab.task.status] || statusMeta.DRAFT;
+    const activeIsSqlNode = !!activeTab.task.nodeType?.endsWith('_SQL');
 
     const toolbarButtons: ToolbarButton[] = [
         {
@@ -878,7 +932,7 @@ const DataWorkWorkspace: React.FC = () => {
             type: 'primary',
             loading: executing,
             onClick: handleExecute,
-            tooltip: '临时运行当前 SQL',
+            tooltip: '临时运行当前任务内容',
         },
         {
             key: 'save',
@@ -892,6 +946,7 @@ const DataWorkWorkspace: React.FC = () => {
             label: '格式化',
             icon: <FormatPainterOutlined />,
             onClick: handleFormat,
+            disabled: !activeIsSqlNode,
         },
         {
             key: 'clear',
@@ -952,8 +1007,8 @@ const DataWorkWorkspace: React.FC = () => {
                         }}>
                             {activeTab.task.name || '未命名任务'}
                         </span>
-                        <Tag color={activeTab.task.engineType === 'SPARK' ? 'blue' : 'purple'} style={{ marginInlineEnd: 0 }}>
-                            {activeTab.task.engineType === 'SPARK' ? 'SparkSQL' : 'FlinkSQL'}
+                        <Tag color={getNodeTypeColor(activeTab.task.nodeType, activeTab.task.engineType)} style={{ marginInlineEnd: 0 }}>
+                            {getNodeTypeLabel(activeTab.task.nodeType, activeTab.task.engineType)}
                         </Tag>
                         <Tag color={currentStatus.color} style={{ marginInlineEnd: 0 }}>
                             {currentStatus.text}
@@ -970,7 +1025,7 @@ const DataWorkWorkspace: React.FC = () => {
                 {/* 左侧边栏 */}
                 <div style={{ width: siderWidth, flex: `0 0 ${siderWidth}px`, height: '100%', position: 'relative', overflow: 'hidden' }}>
                     <LeftSidebar
-                        currentSql={activeTab.sqlContent}
+                        currentSql={activeTab.content}
                         currentTaskId={activeTab.task.id}
                         onTableSelect={handleTableSelect}
                         onTableListLoaded={setAvailableTables}
@@ -1001,7 +1056,7 @@ const DataWorkWorkspace: React.FC = () => {
                             <div style={{background: '#fff', flex: 1, minHeight: 0}}>
                                 <div style={{padding: 40, textAlign: 'center'}}>
                                     <Spin size="large" />
-                                    <div style={{color: '#999', fontSize: 14, marginTop: 16}}>SQL 编辑器初始化中...</div>
+                                    <div style={{color: '#999', fontSize: 14, marginTop: 16}}>编辑器初始化中...</div>
                                 </div>
                             </div>
                         ) : (
@@ -1009,10 +1064,11 @@ const DataWorkWorkspace: React.FC = () => {
                                 <div style={{height: editorHeight, flexShrink: 0, minHeight: 0, minWidth: 0, background: '#fff', overflow: 'hidden', display: 'flex', flexDirection: 'column'}}>
                                     <div style={{flex: 1, minHeight: 0, minWidth: 0}}>
                                         <SQLEditor
-                                            value={activeTab.sqlContent}
+                                            key={`${activeTab.tabId}-${getEditorLanguage(activeTab.task.nodeType)}`}
+                                            value={activeTab.content}
                                             onChange={(val) => setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
                                                 ...t,
-                                                sqlContent: val,
+                                                content: val,
                                                 isModified: true,
                                             } : t))}
                                             onExecute={handleExecute}
@@ -1020,8 +1076,9 @@ const DataWorkWorkspace: React.FC = () => {
                                             onFormat={handleFormat}
                                             tableColumnsCache={tableColumnsCache}
                                             availableTables={availableTables}
+                                            language={getEditorLanguage(activeTab.task.nodeType)}
                                             showRun={false}
-                                            showFormat={false}
+                                            showFormat={activeTab.task.nodeType?.endsWith('_SQL')}
                                         />
                                     </div>
                                 </div>

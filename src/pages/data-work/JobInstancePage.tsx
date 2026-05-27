@@ -442,7 +442,7 @@ const JobInstancePage: React.FC = () => {
                                 </div>
                             )}
                             <div>
-                                <Text type="secondary">SQL 内容</Text>
+                                <Text type="secondary">任务内容</Text>
                                 <pre style={{
                                     background: '#f6f8fa',
                                     borderRadius: 4,
@@ -451,7 +451,7 @@ const JobInstancePage: React.FC = () => {
                                     overflow: 'auto',
                                     maxHeight: 300,
                                 }}>
-                                    {detailInstance.sqlContent}
+                                    {detailInstance.content}
                                 </pre>
                             </div>
                             {detailInstance.resultData && (

@@ -18,12 +18,12 @@ import {
     CloseOutlined,
     DeleteOutlined,
 } from '@ant-design/icons';
-import { NodeType } from '@/api/DataworksApi.ts';
+import { EngineType, NodeType } from '@/api/DataworksApi.ts';
 
 interface TaskProps {
     name: string;
     description?: string;
-    engineType: 'SPARK' | 'FLINK';
+    engineType: EngineType;
     nodeType?: NodeType;
     configJson?: string;
 }
@@ -68,6 +68,21 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     onActivePanelChange,
 }) => {
     const isNew = !jobId;
+    const getNodeTypeLabel = () => {
+        if (task.nodeType === 'FLINK_SQL') return 'FlinkSQL';
+        if (task.nodeType === 'SPARK_BATCH') return 'Spark批任务';
+        if (task.nodeType === 'FLINK_BATCH') return 'Flink批任务';
+        if (task.nodeType === 'SHELL') return 'Shell';
+        if (task.nodeType === 'PYTHON') return 'Python';
+        return task.engineType === 'FLINK' ? 'FlinkSQL' : 'SparkSQL';
+    };
+    const getNodeTypeColor = () => {
+        if (task.nodeType === 'SHELL') return 'cyan';
+        if (task.nodeType === 'PYTHON') return 'green';
+        if (task.nodeType === 'SPARK_BATCH') return 'geekblue';
+        if (task.nodeType === 'FLINK_BATCH') return 'magenta';
+        return task.engineType === 'SPARK' ? 'blue' : 'purple';
+    };
     const parseFlinkConfig = () => {
         const defaults = {
             taskManagerMemoryGb: 2,
@@ -106,6 +121,45 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
         });
     };
     const flinkConfig = parseFlinkConfig();
+    const parseScriptConfig = () => {
+        const defaults = {
+            image: task.nodeType === 'PYTHON' ? 'python:3.11-slim' : 'busybox:1.36',
+            cpu: '0.5',
+            memory: '512Mi',
+            timeoutSeconds: 300,
+        };
+        if (!task.configJson) return defaults;
+        try {
+            const config = JSON.parse(task.configJson);
+            return {
+                image: String(config?.script?.image || defaults.image),
+                cpu: String(config?.script?.cpu || defaults.cpu),
+                memory: String(config?.script?.memory || defaults.memory),
+                timeoutSeconds: Number(config?.script?.timeoutSeconds) || defaults.timeoutSeconds,
+            };
+        } catch {
+            return defaults;
+        }
+    };
+    const updateScriptConfig = (patch: Partial<ReturnType<typeof parseScriptConfig>>) => {
+        let current: Record<string, any> = {};
+        try {
+            current = task.configJson ? JSON.parse(task.configJson) : {};
+        } catch {
+            current = {};
+        }
+        onTaskChange({
+            configJson: JSON.stringify({
+                ...current,
+                script: {
+                    ...parseScriptConfig(),
+                    ...current.script,
+                    ...patch,
+                },
+            }),
+        });
+    };
+    const scriptConfig = parseScriptConfig();
 
     const PropertyPanel = (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -250,38 +304,82 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
             <div style={{ flex: 1, overflow: 'auto', padding: '12px 16px' }}>
                 <Form layout="vertical" size="small">
                     <Form.Item label="执行引擎">
-                        <Tag color={task.engineType === 'SPARK' ? 'blue' : 'purple'}>
-                            {task.engineType === 'SPARK' ? 'SparkSQL' : 'FlinkSQL'}
+                        <Tag color={getNodeTypeColor()}>
+                            {getNodeTypeLabel()}
                         </Tag>
                     </Form.Item>
-                    <Form.Item label="TaskManager 内存（GB）">
-                        <InputNumber
-                            min={1}
-                            precision={0}
-                            value={flinkConfig.taskManagerMemoryGb}
-                            style={{ width: '100%' }}
-                            onChange={(value) => updateFlinkConfig({ taskManagerMemoryGb: value || 1 })}
-                        />
-                    </Form.Item>
-                    <Form.Item label="TaskManager CPU 核数">
-                        <InputNumber
-                            min={0.1}
-                            step={0.1}
-                            precision={1}
-                            value={flinkConfig.taskManagerCpu}
-                            style={{ width: '100%' }}
-                            onChange={(value) => updateFlinkConfig({ taskManagerCpu: value || 0.5 })}
-                        />
-                    </Form.Item>
-                    <Form.Item label="并行度">
-                        <InputNumber
-                            min={1}
-                            precision={0}
-                            value={flinkConfig.parallelism}
-                            style={{ width: '100%' }}
-                            onChange={(value) => updateFlinkConfig({ parallelism: value || 1 })}
-                        />
-                    </Form.Item>
+                    {(task.nodeType === 'FLINK_SQL' || task.nodeType === 'FLINK_BATCH') && (
+                        <>
+                            <Form.Item label="TaskManager 内存（GB）">
+                                <InputNumber
+                                    min={1}
+                                    precision={0}
+                                    value={flinkConfig.taskManagerMemoryGb}
+                                    style={{ width: '100%' }}
+                                    onChange={(value) => updateFlinkConfig({ taskManagerMemoryGb: value || 1 })}
+                                />
+                            </Form.Item>
+                            <Form.Item label="TaskManager CPU 核数">
+                                <InputNumber
+                                    min={0.1}
+                                    step={0.1}
+                                    precision={1}
+                                    value={flinkConfig.taskManagerCpu}
+                                    style={{ width: '100%' }}
+                                    onChange={(value) => updateFlinkConfig({ taskManagerCpu: value || 0.5 })}
+                                />
+                            </Form.Item>
+                            <Form.Item label="并行度">
+                                <InputNumber
+                                    min={1}
+                                    precision={0}
+                                    value={flinkConfig.parallelism}
+                                    style={{ width: '100%' }}
+                                    onChange={(value) => updateFlinkConfig({ parallelism: value || 1 })}
+                                />
+                            </Form.Item>
+                        </>
+                    )}
+                    {(task.nodeType === 'SHELL' || task.nodeType === 'PYTHON') && (
+                        <>
+                            <Form.Item label="运行镜像">
+                                <Input
+                                    value={scriptConfig.image}
+                                    onChange={(e) => updateScriptConfig({ image: e.target.value })}
+                                />
+                            </Form.Item>
+                            <Form.Item label="CPU 限制">
+                                <Input
+                                    value={scriptConfig.cpu}
+                                    onChange={(e) => updateScriptConfig({ cpu: e.target.value })}
+                                />
+                            </Form.Item>
+                            <Form.Item label="内存限制">
+                                <Input
+                                    value={scriptConfig.memory}
+                                    onChange={(e) => updateScriptConfig({ memory: e.target.value })}
+                                />
+                            </Form.Item>
+                            <Form.Item label="超时时间（秒）">
+                                <InputNumber
+                                    min={30}
+                                    precision={0}
+                                    value={scriptConfig.timeoutSeconds}
+                                    style={{ width: '100%' }}
+                                    onChange={(value) => updateScriptConfig({ timeoutSeconds: value || 300 })}
+                                />
+                            </Form.Item>
+                        </>
+                    )}
+                    {(task.nodeType === 'SPARK_BATCH' || task.nodeType === 'FLINK_BATCH') && (
+                        <Form.Item label="批任务配置">
+                            <Input.TextArea
+                                value={task.configJson || ''}
+                                rows={8}
+                                onChange={(e) => onTaskChange({ configJson: e.target.value })}
+                            />
+                        </Form.Item>
+                    )}
                 </Form>
             </div>
             <div style={{ padding: '12px 16px', borderTop: '1px solid #f0f0f0', background: '#fafafa', flexShrink: 0 }}>

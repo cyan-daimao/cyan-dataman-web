@@ -41,7 +41,7 @@ const TagPage: React.FC = () => {
         { title: '标签组', dataIndex: 'groupName', key: 'groupName', render: (value: string, record: TagDTO) => value || record.groupCode || '-' },
         { title: '编码', dataIndex: 'tagCode', key: 'tagCode' },
         { title: '名称', dataIndex: 'tagName', key: 'tagName' },
-        { title: '实体', dataIndex: 'entityType', key: 'entityType', render: (value: string, record: TagDTO) => `${value || '-'} / ${record.entityIdColumn || '-'}` },
+        { title: '实体', dataIndex: 'entityType', key: 'entityType', render: (value: string, record: TagDTO) => `${value || '-'} / ${record.entityIdDimCode || '-'}` },
         { title: '状态', dataIndex: 'status', key: 'status', render: (value: string) => <Tag color={statusColor[value] || 'default'}>{value}</Tag> },
         { title: '命中人数', dataIndex: 'latestCount', key: 'latestCount', render: (value: number) => value ?? '-' },
         { title: '默认标签值', dataIndex: 'valueName', key: 'valueName', render: (value: string, record: TagDTO) => value || record.valueCode || '-' },
@@ -73,6 +73,7 @@ const TagPage: React.FC = () => {
                         <Descriptions.Item label="名称">{detail.tagName}</Descriptions.Item>
                         <Descriptions.Item label="标签组">{detail.groupName || detail.groupCode || '-'}</Descriptions.Item>
                         <Descriptions.Item label="实体类型">{detail.entityType || '-'}</Descriptions.Item>
+                        <Descriptions.Item label="实体ID维度">{detail.entityIdDimCode || '-'}</Descriptions.Item>
                         <Descriptions.Item label="实体ID字段">{detail.entityIdColumn || '-'}</Descriptions.Item>
                         <Descriptions.Item label="标签值">
                             <Space wrap>

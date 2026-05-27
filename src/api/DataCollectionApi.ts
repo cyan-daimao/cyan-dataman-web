@@ -482,7 +482,8 @@ export interface EventSamplePageQuery {
     pageNo?: number;
     pageSize?: number;
     debugToken?: string;
-    userId?: string;
+    appCode?: string;
+    employeeId?: string;
     anonymousId?: string;
     deviceId?: string;
     eventCode?: string;

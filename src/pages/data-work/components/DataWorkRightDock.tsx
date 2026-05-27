@@ -23,7 +23,7 @@ interface DataWorkRightDockProps {
     onTaskChange: (task: Partial<{
         name: string;
         description?: string;
-        engineType: 'SPARK' | 'FLINK';
+        engineType: JobDTO['engineType'];
         nodeType?: JobDTO['nodeType'];
         configJson?: string;
     }>) => void;

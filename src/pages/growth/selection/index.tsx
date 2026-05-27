@@ -27,12 +27,14 @@ const operatorOptions = [
 
 const splitValues = (value: string) => value.split(',').map(item => item.trim()).filter(Boolean);
 const USER_ENTITY_TYPE = 'USER';
-const USER_ENTITY_ID_COLUMN = 'user_id';
 
 const entityTypeOptions = [
     { label: 'USER', value: 'USER' },
     { label: 'PRODUCT', value: 'PRODUCT' },
 ];
+
+const findDefaultEntityDimCode = (dimensions: DimensionBiListItem[], columnName: string) =>
+    dimensions.find(item => item.columnName?.toLowerCase() === columnName.toLowerCase())?.dimCode;
 
 const GrowthSelectionPage: React.FC = () => {
     const [metrics, setMetrics] = useState<MetricBiListItem[]>([]);
@@ -40,6 +42,7 @@ const GrowthSelectionPage: React.FC = () => {
     const [tagGroups, setTagGroups] = useState<TagGroupDTO[]>([]);
     const [metricCodes, setMetricCodes] = useState<string[]>([]);
     const [dimCodes, setDimCodes] = useState<string[]>([]);
+    const [entityIdDimCode, setEntityIdDimCode] = useState<string>();
     const [filters, setFilters] = useState<FilterRow[]>([]);
     const [limitValue, setLimitValue] = useState<number>(10000);
     const [estimatedCount, setEstimatedCount] = useState<number>();
@@ -54,7 +57,9 @@ const GrowthSelectionPage: React.FC = () => {
         Promise.all([metricBiListApi.list(), dimensionBiListApi.list(), tagGroupApi.list()])
             .then(([metricRes, dimRes, groupRes]) => {
                 setMetrics(metricRes.data || []);
-                setDimensions(dimRes.data || []);
+                const nextDimensions = dimRes.data || [];
+                setDimensions(nextDimensions);
+                setEntityIdDimCode(prev => prev || findDefaultEntityDimCode(nextDimensions, 'user_id'));
                 setTagGroups(groupRes.data || []);
             })
             .catch(() => message.error('加载指标维度或标签组失败'));
@@ -62,6 +67,11 @@ const GrowthSelectionPage: React.FC = () => {
 
     const selectedMetrics = useMemo(() => metrics.filter(item => metricCodes.includes(item.metricCode)), [metrics, metricCodes]);
     const selectedDimensions = useMemo(() => dimensions.filter(item => dimCodes.includes(item.dimCode)), [dimensions, dimCodes]);
+    const selectedEntityDimension = useMemo(() => dimensions.find(item => item.dimCode === entityIdDimCode), [dimensions, entityIdDimCode]);
+    const entityDimensionOptions = useMemo(() => dimensions.map(item => ({
+        label: `${item.dimName} (${item.dimCode}${item.columnName ? ` / ${item.columnName}` : ''})`,
+        value: item.dimCode,
+    })), [dimensions]);
 
     const fieldOptions = useMemo(() => {
         const dimensionOptions = selectedDimensions.map(item => ({ label: item.dimName, value: `D:${item.dimCode}` }));
@@ -74,7 +84,7 @@ const GrowthSelectionPage: React.FC = () => {
         ];
     }, [selectedDimensions, selectedMetrics]);
 
-    const buildSelection = (entityType = USER_ENTITY_TYPE, entityIdColumn = USER_ENTITY_ID_COLUMN): MetricAudienceSelectionCmd => {
+    const buildSelection = (entityType = USER_ENTITY_TYPE, nextEntityIdDimCode = entityIdDimCode): MetricAudienceSelectionCmd => {
         const metricRefs: MetricRef[] = selectedMetrics.map(item => ({
             metricCode: item.metricCode,
             alias: item.metricName,
@@ -96,7 +106,8 @@ const GrowthSelectionPage: React.FC = () => {
             });
         return {
             entityType,
-            entityIdColumn,
+            entityIdDimCode: nextEntityIdDimCode,
+            entityIdColumn: dimensions.find(item => item.dimCode === nextEntityIdDimCode)?.columnName,
             metrics: metricRefs,
             dimensions: dimensionRefs,
             filters: filterRefs,
@@ -105,8 +116,12 @@ const GrowthSelectionPage: React.FC = () => {
         };
     };
 
-    const validateSelection = () => {
+    const validateSelection = (requireEntityId = true) => {
         const selectedFilterRows = filters.filter(item => item.field);
+        if (requireEntityId && !entityIdDimCode) {
+            message.warning('请选择用户ID维度');
+            return false;
+        }
         if (selectedMetrics.length === 0) {
             if (!selectedFilterRows.some(item => item.field?.startsWith('D:'))) {
                 message.warning('无指标圈选至少需要一个维度过滤条件');
@@ -150,12 +165,27 @@ const GrowthSelectionPage: React.FC = () => {
     };
 
     const handleCreateTag = async () => {
-        if (!validateSelection()) return;
+        if (!validateSelection(false)) return;
         const values = await tagForm.validateFields();
-        await tagApi.create({ ...values, selection: buildSelection(values.entityType, values.entityIdColumn) });
+        await tagApi.create({
+            ...values,
+            entityIdColumn: dimensions.find(item => item.dimCode === values.entityIdDimCode)?.columnName,
+            selection: buildSelection(values.entityType, values.entityIdDimCode),
+        });
         message.success('标签已创建');
         setTagOpen(false);
         tagForm.resetFields();
+    };
+
+    const handleOpenTag = () => {
+        tagForm.resetFields();
+        tagForm.setFieldsValue({
+            entityType: USER_ENTITY_TYPE,
+            entityIdDimCode,
+            valueCode: 'hit',
+            valueName: '命中',
+        });
+        setTagOpen(true);
     };
 
     const filterColumns = [
@@ -196,7 +226,19 @@ const GrowthSelectionPage: React.FC = () => {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <Row gutter={16}>
-                <Col span={8}>
+                <Col span={5}>
+                    <Select
+                        allowClear
+                        showSearch
+                        value={entityIdDimCode}
+                        placeholder="用户ID维度"
+                        optionFilterProp="label"
+                        style={{ width: '100%' }}
+                        options={entityDimensionOptions}
+                        onChange={setEntityIdDimCode}
+                    />
+                </Col>
+                <Col span={6}>
                     <Select
                         mode="multiple"
                         allowClear
@@ -209,7 +251,7 @@ const GrowthSelectionPage: React.FC = () => {
                         onChange={handleMetricChange}
                     />
                 </Col>
-                <Col span={8}>
+                <Col span={6}>
                     <Select
                         mode="multiple"
                         allowClear
@@ -222,14 +264,14 @@ const GrowthSelectionPage: React.FC = () => {
                         onChange={setDimCodes}
                     />
                 </Col>
-                <Col span={4}>
+                <Col span={3}>
                     <InputNumber min={1} max={1000000} value={limitValue} style={{ width: '100%' }} onChange={(value) => setLimitValue(value || 10000)} />
                 </Col>
                 <Col span={4}>
                     <Space>
                         <Button icon={<PlayCircleOutlined />} type="primary" loading={loading} onClick={handleEstimate}>预估</Button>
                         <Button icon={<TeamOutlined />} onClick={() => setAudienceOpen(true)}>人群</Button>
-                        <Button icon={<TagsOutlined />} onClick={() => setTagOpen(true)}>标签</Button>
+                        <Button icon={<TagsOutlined />} onClick={handleOpenTag}>标签</Button>
                     </Space>
                 </Col>
             </Row>
@@ -248,7 +290,7 @@ const GrowthSelectionPage: React.FC = () => {
 
             <Descriptions bordered size="small" column={2}>
                 <Descriptions.Item label="预估人数">{estimatedCount ?? '-'}</Descriptions.Item>
-                <Descriptions.Item label="实体ID">{USER_ENTITY_ID_COLUMN}</Descriptions.Item>
+                <Descriptions.Item label="用户ID维度">{selectedEntityDimension ? `${selectedEntityDimension.dimName} / ${selectedEntityDimension.columnName}` : '-'}</Descriptions.Item>
                 <Descriptions.Item label="SQL" span={2}>
                     <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{countSql || '-'}</pre>
                 </Descriptions.Item>
@@ -265,17 +307,20 @@ const GrowthSelectionPage: React.FC = () => {
                 </Form>
             </Modal>
 
-            <Modal title="创建标签" open={tagOpen} onOk={handleCreateTag} onCancel={() => setTagOpen(false)}>
+            <Modal title="创建标签" open={tagOpen} onOk={handleCreateTag} onCancel={() => {
+                setTagOpen(false);
+                tagForm.resetFields();
+            }}>
                 <Form
                     form={tagForm}
                     layout="vertical"
-                    initialValues={{ entityType: 'USER', entityIdColumn: 'user_id', valueCode: 'hit', valueName: '命中' }}
+                    initialValues={{ entityType: 'USER', valueCode: 'hit', valueName: '命中' }}
                     onValuesChange={(changedValues) => {
                         if (changedValues.entityType === 'USER') {
-                            tagForm.setFieldValue('entityIdColumn', 'user_id');
+                            tagForm.setFieldValue('entityIdDimCode', findDefaultEntityDimCode(dimensions, 'user_id'));
                         }
                         if (changedValues.entityType === 'PRODUCT') {
-                            tagForm.setFieldValue('entityIdColumn', 'product_id');
+                            tagForm.setFieldValue('entityIdDimCode', findDefaultEntityDimCode(dimensions, 'product_id'));
                         }
                     }}
                 >
@@ -323,8 +368,13 @@ const GrowthSelectionPage: React.FC = () => {
                             </Form.Item>
                         </Col>
                         <Col span={12}>
-                            <Form.Item name="entityIdColumn" label="实体ID物理字段" rules={[{ required: true, message: '请输入实体ID物理字段' }]}>
-                                <Input placeholder="user_id / product_id" />
+                            <Form.Item name="entityIdDimCode" label="实体ID维度" rules={[{ required: true, message: '请选择实体ID维度' }]}>
+                                <Select
+                                    showSearch
+                                    placeholder="选择用户ID或商品ID维度"
+                                    optionFilterProp="label"
+                                    options={entityDimensionOptions}
+                                />
                             </Form.Item>
                         </Col>
                     </Row>

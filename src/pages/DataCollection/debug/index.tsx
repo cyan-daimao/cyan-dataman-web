@@ -33,7 +33,7 @@ const DebugConsolePage: React.FC = () => {
   const [data, setData] = useState<EventSampleDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [pageNo, setPageNo] = useState(1);
-  const [pageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
 
   const [filters, setFilters] = useState<EventSamplePageQuery>({});
@@ -139,25 +139,31 @@ const DebugConsolePage: React.FC = () => {
             style={{ width: 180 }}
           />
           <Input
-            placeholder="userId"
-            value={filters.userId || ''}
-            onChange={(e) => handleFilterChange({ userId: e.target.value })}
+            placeholder="app_code"
+            value={filters.appCode || ''}
+            onChange={(e) => handleFilterChange({ appCode: e.target.value })}
             style={{ width: 140 }}
           />
           <Input
-            placeholder="anonymousId"
+            placeholder="employee_id"
+            value={filters.employeeId || ''}
+            onChange={(e) => handleFilterChange({ employeeId: e.target.value })}
+            style={{ width: 140 }}
+          />
+          <Input
+            placeholder="anonymous_id"
             value={filters.anonymousId || ''}
             onChange={(e) => handleFilterChange({ anonymousId: e.target.value })}
             style={{ width: 160 }}
           />
           <Input
-            placeholder="deviceId"
+            placeholder="device_id"
             value={filters.deviceId || ''}
             onChange={(e) => handleFilterChange({ deviceId: e.target.value })}
             style={{ width: 160 }}
           />
           <Input
-            placeholder="eventCode"
+            placeholder="event_code"
             value={filters.eventCode || ''}
             onChange={(e) => handleFilterChange({ eventCode: e.target.value })}
             style={{ width: 160 }}
@@ -180,8 +186,8 @@ const DebugConsolePage: React.FC = () => {
             onChange={(dates) => {
               if (dates && dates[0] && dates[1]) {
                 handleFilterChange({
-                  startTime: dates[0].toISOString(),
-                  endTime: dates[1].toISOString(),
+                  startTime: dates[0].format('YYYY-MM-DD HH:mm:ss'),
+                  endTime: dates[1].format('YYYY-MM-DD HH:mm:ss'),
                 });
               } else {
                 handleFilterChange({ startTime: undefined, endTime: undefined });
@@ -205,9 +211,11 @@ const DebugConsolePage: React.FC = () => {
                   current: pageNo,
                   pageSize,
                   total,
-                  onChange: (p) => {
+                  showSizeChanger: true,
+                  onChange: (p, size) => {
                     setPageNo(p);
-                    fetchList(p);
+                    setPageSize(size);
+                    fetchList(p, { ...filters, pageSize: size });
                   },
                   showTotal: (t) => `共 ${t} 条`,
                 }}

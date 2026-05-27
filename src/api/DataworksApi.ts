@@ -4,6 +4,9 @@ import { AxiosRequestConfig } from "axios";
 
 // ==================== DTO 定义 ====================
 
+export type EngineType = 'SPARK' | 'FLINK' | 'SHELL' | 'PYTHON';
+export type SchedulerType = 'INTERNAL' | 'AIRFLOW';
+
 /**
  * 数据加工任务 DTO
  */
@@ -11,9 +14,9 @@ export interface DataWorkTaskDTO {
     id: string;
     name: string;
     description?: string;
-    engineType: 'SPARK' | 'FLINK';
+    engineType: EngineType;
     nodeType?: NodeType;
-    sqlContent: string;
+    content: string;
     configJson?: string;
     status: 'DRAFT' | 'ONLINE' | 'OFFLINE';
     createdBy?: string;
@@ -29,6 +32,7 @@ export interface ScheduleConfigDTO {
     jobId: string;
     cronExpression: string;
     enabled: boolean;
+    schedulerType?: SchedulerType;
     nextExecuteTime?: string;
     createdBy?: string;
     createdAt?: string;
@@ -43,8 +47,8 @@ export interface ExecutionRecordDTO {
     id: string;
     taskId: string;
     taskName: string;
-    engineType: 'SPARK' | 'FLINK';
-    sqlContent: string;
+    engineType: EngineType;
+    content: string;
     status: 'RUNNING' | 'SUCCESS' | 'FAILED';
     costTimeMs?: number;
     resultData?: string;
@@ -55,7 +59,7 @@ export interface ExecutionRecordDTO {
 /**
  * 数据加工节点类型
  */
-export type NodeType = 'SPARK_SQL' | 'FLINK_SQL' | 'PYTHON' | 'DATA_QUALITY' | 'VIRTUAL';
+export type NodeType = 'SPARK_SQL' | 'FLINK_SQL' | 'SPARK_BATCH' | 'FLINK_BATCH' | 'SHELL' | 'PYTHON' | 'DATA_QUALITY' | 'VIRTUAL';
 
 // ==================== 分页类型 ====================
 
@@ -142,7 +146,7 @@ export const getJobSchedule = async (jobId: string): Promise<ScheduleConfigDTO> 
 /**
  * 保存作业调度配置
  */
-export const saveJobSchedule = async (jobId: string, body: { cronExpression: string; enabled: boolean }): Promise<Response<ScheduleConfigDTO>> => {
+export const saveJobSchedule = async (jobId: string, body: { cronExpression: string; enabled: boolean; schedulerType?: SchedulerType }): Promise<Response<ScheduleConfigDTO>> => {
     return await dataworksRequest.put(`/api/v1/data-work/jobs/${jobId}/schedule`, body);
 };
 
@@ -195,9 +199,9 @@ export interface JobDTO {
     folderId?: number;
     name: string;
     description?: string;
-    engineType: 'SPARK' | 'FLINK';
+    engineType: EngineType;
     nodeType?: NodeType;
-    sqlContent: string;
+    content: string;
     configJson?: string;
     status: 'DRAFT' | 'ONLINE' | 'OFFLINE';
     createdBy?: string;
@@ -212,8 +216,8 @@ export interface JobInstanceDTO {
     id: string;
     jobId: string;
     jobName: string;
-    engineType: 'SPARK' | 'FLINK';
-    sqlContent: string;
+    engineType: EngineType;
+    content: string;
     status: 'RUNNING' | 'SUCCESS' | 'FAILED';
     costTimeMs?: number;
     resultData?: string;
@@ -223,6 +227,11 @@ export interface JobInstanceDTO {
     configMapName?: string;
     jobManagerPodName?: string;
     taskManagerPodNames?: string;
+    schedulerType?: SchedulerType;
+    schedulerDagId?: string;
+    schedulerDagRunId?: string;
+    schedulerTaskId?: string;
+    schedulerTryNumber?: number;
     createdBy?: string;
     createdAt?: string;
     updatedBy?: string;
@@ -258,9 +267,9 @@ export interface JobInstanceLogDTO {
  */
 export interface JobPreviewExecuteCmd {
     name?: string;
-    engineType: 'SPARK' | 'FLINK';
+    engineType: EngineType;
     nodeType: NodeType;
-    sqlContent: string;
+    content: string;
     configJson?: string;
 }
 

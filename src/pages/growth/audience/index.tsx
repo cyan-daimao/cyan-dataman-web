@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Descriptions, Drawer, Input, Space, Table, Tag, message } from 'antd';
 import { ReloadOutlined, SyncOutlined } from '@ant-design/icons';
-import { AudienceDTO, audienceApi } from '@/api/GrowthApi';
+import { AudienceDTO, MetricAudienceSelectionCmd, audienceApi } from '@/api/GrowthApi';
 
 const statusColor: Record<string, string> = {
     DRAFT: 'default',
@@ -9,6 +9,22 @@ const statusColor: Record<string, string> = {
     FAILED: 'error',
     RUNNING: 'processing',
     SUCCESS: 'success',
+};
+
+const parseSelection = (ruleJson?: string): Partial<MetricAudienceSelectionCmd> => {
+    if (!ruleJson) {
+        return {};
+    }
+    try {
+        return JSON.parse(ruleJson) as MetricAudienceSelectionCmd;
+    } catch {
+        return {};
+    }
+};
+
+const entityLabel = (record: AudienceDTO) => {
+    const selection = parseSelection(record.ruleJson);
+    return `${record.entityType || selection.entityType || 'USER'} / ${record.entityIdDimCode || selection.entityIdDimCode || '-'}`;
 };
 
 const AudiencePage: React.FC = () => {
@@ -39,7 +55,7 @@ const AudiencePage: React.FC = () => {
 
     const columns = [
         { title: '名称', dataIndex: 'audienceName', key: 'audienceName' },
-        { title: '实体', dataIndex: 'entityType', key: 'entityType', render: (value: string) => `${value || 'USER'} / user_id` },
+        { title: '实体', dataIndex: 'entityType', key: 'entityType', render: (_: string, record: AudienceDTO) => entityLabel(record) },
         { title: '状态', dataIndex: 'status', key: 'status', render: (value: string) => <Tag color={statusColor[value] || 'default'}>{value}</Tag> },
         { title: '人数', dataIndex: 'latestCount', key: 'latestCount', render: (value: number) => value ?? '-' },
         { title: '快照', dataIndex: 'latestSnapshotId', key: 'latestSnapshotId', render: (value: string) => value || '-' },
@@ -68,7 +84,8 @@ const AudiencePage: React.FC = () => {
                 {detail && (
                     <Descriptions bordered column={1} size="small">
                         <Descriptions.Item label="名称">{detail.audienceName}</Descriptions.Item>
-                        <Descriptions.Item label="实体">{detail.entityType || 'USER'} / user_id</Descriptions.Item>
+                        <Descriptions.Item label="实体">{entityLabel(detail)}</Descriptions.Item>
+                        <Descriptions.Item label="实体ID字段">{detail.entityIdColumn || parseSelection(detail.ruleJson).entityIdColumn || '-'}</Descriptions.Item>
                         <Descriptions.Item label="状态">{detail.status}</Descriptions.Item>
                         <Descriptions.Item label="人数">{detail.latestCount ?? '-'}</Descriptions.Item>
                         <Descriptions.Item label="快照">{detail.latestSnapshotId || '-'}</Descriptions.Item>

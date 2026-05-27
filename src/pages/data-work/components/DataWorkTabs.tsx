@@ -35,6 +35,26 @@ const createNodeMenuItems = [
         icon: <ThunderboltOutlined />,
         label: 'FlinkSQL',
     },
+    {
+        key: 'SPARK_BATCH',
+        icon: <CodeOutlined />,
+        label: 'Spark批任务',
+    },
+    {
+        key: 'FLINK_BATCH',
+        icon: <ThunderboltOutlined />,
+        label: 'Flink批任务',
+    },
+    {
+        key: 'SHELL',
+        icon: <CodeOutlined />,
+        label: 'Shell',
+    },
+    {
+        key: 'PYTHON',
+        icon: <CodeOutlined />,
+        label: 'Python',
+    },
 ];
 
 /**

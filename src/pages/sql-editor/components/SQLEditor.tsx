@@ -20,6 +20,8 @@ interface SQLEditorProps {
     tableColumnsCache?: Record<string, ColumnVO[]>;
     availableTables?: Array<{name: string; title: string}>;
     theme?: 'light' | 'dark';
+    /** Monaco语言模式 */
+    language?: 'sql' | 'shell' | 'python';
     /** 是否显示工具栏的运行按钮（默认 true） */
     showRun?: boolean;
     /** 是否显示工具栏的格式化按钮（默认 true） */
@@ -60,6 +62,7 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
     tableColumnsCache = {},
     availableTables = [],
     theme = 'light',
+    language = 'sql',
     showRun = true,
     showFormat = true,
 }) => {
@@ -337,7 +340,7 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
             <div style={{flex: 1, minHeight: 0}}>
                 <Editor
                     height="100%"
-                    defaultLanguage="sql"
+                    defaultLanguage={language}
                     defaultValue={value}
                     onChange={(val) => onChange(val || '')}
                     onMount={handleEditorDidMount}
