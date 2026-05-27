@@ -105,6 +105,14 @@ const getEditorLanguage = (nodeType: JobDTO['nodeType']): 'sql' | 'shell' | 'pyt
     return 'sql';
 };
 
+const isShellTask = (task: JobDTO) => task.engineType === 'SHELL' || task.nodeType === 'SHELL';
+
+const hasEnabledAirflowSchedule = (schedule: ScheduleConfigDTO) => (
+    (schedule.schedulerType || 'AIRFLOW') === 'AIRFLOW'
+    && schedule.enabled
+    && !!schedule.cronExpression?.trim()
+);
+
 // 生成空任务
 const createEmptyTask = (nodeType: JobDTO['nodeType'] = 'SPARK_SQL'): JobDTO => ({
     id: '',
@@ -540,6 +548,11 @@ const DataWorkWorkspace: React.FC = () => {
             message.warning('请先保存任务');
             return;
         }
+        if (isShellTask(tab.task) && !hasEnabledAirflowSchedule(tab.schedule)) {
+            setRightActivePanel('schedule');
+            message.warning('Shell任务发布前请填写Cron并启用Airflow调度');
+            return;
+        }
         // 允许已发布任务再次发布（新版本发布）
         setPublishing(true);
         try {
@@ -562,6 +575,8 @@ const DataWorkWorkspace: React.FC = () => {
             let startMessage = '';
             if (publishedTask.engineType === 'FLINK') {
                 startMessage = '，Application Mode任务已启动';
+            } else if (isShellTask(publishedTask)) {
+                startMessage = '，Airflow DAG将在调度器刷新后可见';
             }
             message.success(`任务发布成功${startMessage}`);
             setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
