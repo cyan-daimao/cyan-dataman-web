@@ -9,6 +9,7 @@ import {
     ShareAltOutlined,
     CodeOutlined,
     ThunderboltOutlined,
+    PauseCircleOutlined,
 } from '@ant-design/icons';
 import {loader} from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
@@ -109,11 +110,15 @@ const getEditorLanguage = (nodeType: JobDTO['nodeType']): 'sql' | 'shell' | 'pyt
     return 'sql';
 };
 
-const isShellTask = (task: JobDTO) => task.engineType === 'SHELL' || task.nodeType === 'SHELL';
+const isScriptTask = (task: JobDTO) => (
+    task.engineType === 'SHELL'
+    || task.engineType === 'PYTHON'
+    || task.nodeType === 'SHELL'
+    || task.nodeType === 'PYTHON'
+);
 
-const hasEnabledAirflowSchedule = (schedule: ScheduleConfigDTO) => (
+const hasAirflowSchedule = (schedule: ScheduleConfigDTO) => (
     (schedule.schedulerType || 'AIRFLOW') === 'AIRFLOW'
-    && schedule.enabled
     && !!schedule.cronExpression?.trim()
 );
 
@@ -312,6 +317,7 @@ const DataWorkWorkspace: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [executing, setExecuting] = useState(false);
     const [publishing, setPublishing] = useState(false);
+    const [scheduleSyncing, setScheduleSyncing] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
     const [dependencyJobOptions, setDependencyJobOptions] = useState<JobDTO[]>([]);
@@ -570,6 +576,43 @@ const DataWorkWorkspace: React.FC = () => {
         }
     }, [tabs, activeTabId, persistTask]);
 
+    // ========== 暂停/恢复调度 ==========
+    const handleToggleSchedule = useCallback(async () => {
+        const tab = tabs.find(t => t.tabId === activeTabId);
+        if (!tab?.task.id) {
+            message.warning('请先保存任务');
+            return;
+        }
+        if (!tab.schedule.cronExpression?.trim()) {
+            setRightActivePanel('schedule');
+            message.warning('请先填写Cron表达式');
+            return;
+        }
+        const nextEnabled = !tab.schedule.enabled;
+        setScheduleSyncing(true);
+        try {
+            const resp = await saveJobSchedule(tab.task.id, {
+                cronExpression: tab.schedule.cronExpression,
+                enabled: nextEnabled,
+                schedulerType: tab.schedule.schedulerType || 'AIRFLOW',
+            });
+            const nextSchedule = resp.data || {
+                ...tab.schedule,
+                enabled: nextEnabled,
+            };
+            setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
+                ...t,
+                schedule: nextSchedule,
+                isModified: false,
+            } : t));
+            message.success(nextEnabled ? '调度已启用' : '调度已暂停');
+        } catch {
+            // 错误由拦截器处理
+        } finally {
+            setScheduleSyncing(false);
+        }
+    }, [tabs, activeTabId]);
+
     // ========== 发布任务 ==========
     const handlePublish = useCallback(async () => {
         const tab = tabs.find(t => t.tabId === activeTabId);
@@ -578,9 +621,9 @@ const DataWorkWorkspace: React.FC = () => {
             message.warning('请先保存任务');
             return;
         }
-        if (isShellTask(tab.task) && !hasEnabledAirflowSchedule(tab.schedule)) {
+        if (isScriptTask(tab.task) && !hasAirflowSchedule(tab.schedule)) {
             setRightActivePanel('schedule');
-            message.warning('Shell任务发布前请填写Cron并启用Airflow调度');
+            message.warning('脚本任务发布前请填写Cron并配置Airflow调度');
             return;
         }
         // 允许已发布任务再次发布（新版本发布）
@@ -605,13 +648,17 @@ const DataWorkWorkspace: React.FC = () => {
             let startMessage = '';
             if (publishedTask.engineType === 'FLINK') {
                 startMessage = '，Application Mode任务已启动';
-            } else if (isShellTask(publishedTask)) {
-                startMessage = '，Airflow DAG将在调度器刷新后可见';
+            } else if (isScriptTask(publishedTask)) {
+                startMessage = '，Airflow DAG将在调度器刷新后可见并默认启用';
             }
             message.success(`任务发布成功${startMessage}`);
             setTabs(prev => prev.map(t => t.tabId === activeTabId ? {
                 ...t,
                 task: publishedTask,
+                schedule: isScriptTask(publishedTask) ? {
+                    ...t.schedule,
+                    enabled: true,
+                } : t.schedule,
                 logs: publishedTask.engineType === 'FLINK'
                     ? [
                         ...t.logs,
@@ -626,7 +673,7 @@ const DataWorkWorkspace: React.FC = () => {
         } finally {
             setPublishing(false);
         }
-    }, [tabs, activeTabId]);
+    }, [tabs, activeTabId, persistTask]);
 
     // ========== 执行任务 ==========
     const handleExecute = useCallback(async () => {
@@ -1014,6 +1061,14 @@ const DataWorkWorkspace: React.FC = () => {
             loading: publishing,
             disabled: !activeTab.task.id,
             onClick: handlePublish,
+        },
+        {
+            key: 'toggle-schedule',
+            label: activeTab.schedule.enabled ? '暂停调度' : '启用调度',
+            icon: activeTab.schedule.enabled ? <PauseCircleOutlined /> : <ThunderboltOutlined />,
+            loading: scheduleSyncing,
+            disabled: !activeTab.task.id || !activeTab.schedule.cronExpression,
+            onClick: handleToggleSchedule,
         },
         {
             key: 'share',
