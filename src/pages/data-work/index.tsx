@@ -23,10 +23,13 @@ import {
     updateJob,
     getJob,
     getJobSchedule,
+    getJobDependencies,
+    saveJobDependencies,
     saveJobSchedule,
     deleteJob,
     publishJob,
     executePreviewJob,
+    pageJobs,
 } from '@/api/DataworksApi.ts';
 import { executeSparkSql } from '@/api/DatagawayApi.ts';
 import { authFilterSql } from '@/api/DataAuthApi';
@@ -56,6 +59,7 @@ interface TabData {
     tabId: string; // Tab 唯一标识（未保存任务用临时 ID）
     task: JobDTO;
     schedule: ScheduleConfigDTO;
+    upstreamJobIds: string[];
     content: string;
     result: QueryResult | null;
     executionPlan: ExecutionPlan[] | null;
@@ -139,6 +143,7 @@ const createNewTab = (nodeType: JobDTO['nodeType'] = 'SPARK_SQL'): TabData => ({
     tabId: `new-${Date.now()}`,
     task: createEmptyTask(nodeType),
     schedule: createEmptySchedule(),
+    upstreamJobIds: [],
     content: '',
     result: null,
     executionPlan: null,
@@ -157,6 +162,7 @@ interface PersistedTab {
     tabId: string;
     task: JobDTO;
     schedule: ScheduleConfigDTO;
+    upstreamJobIds?: string[];
     content: string;
     isModified: boolean;
     resultActiveTab: string;
@@ -247,6 +253,7 @@ const loadTabsFromStorage = (): { tabs: TabData[]; activeTabId: string } => {
                         content: p.task.content ?? (p.task as JobDTO & { sqlContent?: string }).sqlContent ?? '',
                     },
                     schedule: p.schedule || createEmptySchedule(p.task.id),
+                    upstreamJobIds: p.upstreamJobIds || [],
                     content: normalizePersistedContent(p),
                     resultActiveTab: p.resultActiveTab || 'result',
                     result: null,
@@ -292,6 +299,7 @@ const DataWorkWorkspace: React.FC = () => {
             tabId: t.tabId,
             task: t.task,
             schedule: t.schedule,
+            upstreamJobIds: t.upstreamJobIds,
             content: t.content,
             isModified: t.isModified,
             resultActiveTab: t.resultActiveTab,
@@ -306,13 +314,14 @@ const DataWorkWorkspace: React.FC = () => {
     const [publishing, setPublishing] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
+    const [dependencyJobOptions, setDependencyJobOptions] = useState<JobDTO[]>([]);
 
     // ========== 布局状态 ==========
     const [siderWidth, setSiderWidth] = useState(260);
     const [rightSiderWidth, setRightSiderWidth] = useState(320);
-    const [rightActivePanel, setRightActivePanel] = useState<'property' | 'schedule' | 'version' | 'settings' | null>('property');
+    const [rightActivePanel, setRightActivePanel] = useState<'property' | 'schedule' | 'dependency' | 'version' | 'settings' | null>('property');
 
-    const handleRightPanelChange = useCallback((panel: 'property' | 'schedule' | 'version' | 'settings' | null) => {
+    const handleRightPanelChange = useCallback((panel: 'property' | 'schedule' | 'dependency' | 'version' | 'settings' | null) => {
         setRightActivePanel(prev => {
             if (panel === null) return null;
             return prev === panel ? null : panel;
@@ -327,6 +336,12 @@ const DataWorkWorkspace: React.FC = () => {
     // ========== 数据源状态 ==========
     const [tableColumnsCache, setTableColumnsCache] = useState<TableColumnsCache>({});
     const [availableTables, setAvailableTables] = useState<Array<{name: string; title: string}>>([]);
+
+    useEffect(() => {
+        pageJobs({ current: 1, size: 500 })
+            .then(page => setDependencyJobOptions(page.data || []))
+            .catch(() => setDependencyJobOptions([]));
+    }, [sidebarRefreshKey]);
 
     // ========== 拖拽处理 ==========
     const handleSiderMouseDown = useCallback((e: React.MouseEvent) => {
@@ -382,10 +397,17 @@ const DataWorkWorkspace: React.FC = () => {
     // ========== 加载任务到 Tab ==========
     const loadTaskToTab = useCallback(async (task: JobDTO, targetTabId: string) => {
         let schedule = createEmptySchedule(task.id);
+        let upstreamJobIds: string[] = [];
         if (task.id) {
             try {
                 const sched = await getJobSchedule(task.id);
                 if (sched) schedule = sched;
+            } catch {
+                // ignore
+            }
+            try {
+                const dependency = await getJobDependencies(task.id);
+                upstreamJobIds = (dependency?.upstreamJobs || []).map(job => job.id);
             } catch {
                 // ignore
             }
@@ -395,6 +417,7 @@ const DataWorkWorkspace: React.FC = () => {
             task,
             content: task.content || '',
             schedule,
+            upstreamJobIds,
             result: null,
             executionPlan: null,
             error: null,
@@ -511,15 +534,22 @@ const DataWorkWorkspace: React.FC = () => {
                 schedulerType: tab.schedule.schedulerType || 'AIRFLOW',
             });
         }
+        if (savedTask.id) {
+            await saveJobDependencies(savedTask.id, {
+                upstreamJobIds: tab.upstreamJobIds || [],
+            });
+        }
 
         // 刷新当前任务状态，确保 configJson 以数据库为准回显
         const freshTask = await getJob(savedTask.id);
         const freshSchedule = await getJobSchedule(freshTask.id).catch(() => createEmptySchedule(freshTask.id));
+        const freshDependency = await getJobDependencies(freshTask.id).catch(() => null);
         setTabs(prev => prev.map(t => t.tabId === tab.tabId ? {
                 ...t,
                 task: freshTask,
                 content: freshTask.content || '',
                 schedule: freshSchedule || createEmptySchedule(freshTask.id),
+                upstreamJobIds: (freshDependency?.upstreamJobs || []).map(job => job.id),
                 isModified: false,
             } : t));
         return freshTask;
@@ -891,6 +921,7 @@ const DataWorkWorkspace: React.FC = () => {
             tabId: newTabId,
             task,
             schedule: createEmptySchedule(task.id),
+            upstreamJobIds: [],
             content: task.content || '',
             result: null,
             executionPlan: null,
@@ -1130,6 +1161,8 @@ const DataWorkWorkspace: React.FC = () => {
                 <DataWorkRightDock
                     task={activeTab.task}
                     schedule={activeTab.schedule}
+                    dependencyJobOptions={dependencyJobOptions}
+                    upstreamJobIds={activeTab.upstreamJobIds || []}
                     activePanel={rightActivePanel}
                     panelWidth={rightSiderWidth}
                     isDragging={isDraggingRightSider}
@@ -1144,6 +1177,11 @@ const DataWorkWorkspace: React.FC = () => {
                     onScheduleChange={(nextSchedule) => setTabs(prev => prev.map(tab => tab.tabId === activeTabId ? {
                         ...tab,
                         schedule: {...tab.schedule, ...nextSchedule},
+                        isModified: true,
+                    } : tab))}
+                    onDependencyChange={(upstreamJobIds) => setTabs(prev => prev.map(tab => tab.tabId === activeTabId ? {
+                        ...tab,
+                        upstreamJobIds,
                         isModified: true,
                     } : tab))}
                     onSave={handleSave}

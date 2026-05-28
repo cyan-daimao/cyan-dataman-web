@@ -24,6 +24,7 @@ import {
     PlayCircleOutlined,
     StopOutlined,
     FileTextOutlined,
+    CopyOutlined,
 } from '@ant-design/icons';
 import {
     JobInstanceDTO,
@@ -39,6 +40,39 @@ import {
 } from '@/api/DataworksApi';
 
 const { Text } = Typography;
+
+type LogViewMode = 'INSTANCE_OUTPUT' | 'REMOTE_LOG';
+
+const isScriptInstance = (instance?: JobInstanceDTO | null) => {
+    return instance?.engineType === 'SHELL' || instance?.engineType === 'PYTHON';
+};
+
+const buildScriptLogData = (instance: JobInstanceDTO): JobInstanceLogDTO => {
+    const resultData = instance.resultData || '';
+    const errorMessage = instance.errorMessage || '';
+    const logs = resultData && errorMessage
+        ? `${resultData}\n\n[ERROR]\n${errorMessage}`
+        : resultData || errorMessage;
+
+    return {
+        instanceId: instance.id,
+        deploymentName: instance.applicationName || '',
+        namespace: instance.applicationNamespace || '',
+        role: 'ALL',
+        tailLines: 0,
+        pods: [],
+        logs,
+        message: instance.status === 'FAILED' ? '脚本执行失败' : '脚本输出',
+    };
+};
+
+const sortInstancesByCreatedAtDesc = (data: JobInstanceDTO[]) => {
+    return [...data].sort((left, right) => {
+        const leftTime = left.createdAt ? new Date(left.createdAt).getTime() : 0;
+        const rightTime = right.createdAt ? new Date(right.createdAt).getTime() : 0;
+        return rightTime - leftTime;
+    });
+};
 
 /**
  * 作业实例列表页面
@@ -66,6 +100,9 @@ const JobInstancePage: React.FC = () => {
     const [logRole, setLogRole] = useState<JobLogRole>('ALL');
     const [logTailLines, setLogTailLines] = useState(500);
     const [logError, setLogError] = useState<string | null>(null);
+    const [logViewMode, setLogViewMode] = useState<LogViewMode>('INSTANCE_OUTPUT');
+    const instanceOutputMode = logViewMode === 'INSTANCE_OUTPUT' && isScriptInstance(detailInstance);
+    const remoteLogMode = logViewMode === 'REMOTE_LOG';
 
     // 加载作业信息
     const loadJob = useCallback(async () => {
@@ -88,7 +125,7 @@ const JobInstancePage: React.FC = () => {
                 size: size,
                 status: status,
             });
-            setInstances(resp.data || []);
+            setInstances(sortInstancesByCreatedAtDesc(resp.data || []));
             setTotal(Number(resp.total) || 0);
         } catch {
             // 错误由拦截器处理
@@ -111,9 +148,13 @@ const JobInstancePage: React.FC = () => {
         setDetailDrawerOpen(true);
         setLogData(null);
         setLogError(null);
+        setLogViewMode('INSTANCE_OUTPUT');
         try {
             const data = await getJobInstance(instanceId);
             setDetailInstance(data);
+            if (isScriptInstance(data)) {
+                setLogData(buildScriptLogData(data));
+            }
         } catch {
             setDetailDrawerOpen(false);
         } finally {
@@ -141,6 +182,23 @@ const JobInstancePage: React.FC = () => {
         }
     };
 
+    // 加载脚本实例日志
+    const loadScriptInstanceLogs = async (instanceId: string) => {
+        setLogLoading(true);
+        setLogError(null);
+        try {
+            const data = await getJobInstance(instanceId);
+            setDetailInstance(data);
+            setLogData(buildScriptLogData(data));
+        } catch (e: any) {
+            const errMsg = e?.message || '获取脚本输出失败';
+            setLogData(null);
+            setLogError(errMsg);
+        } finally {
+            setLogLoading(false);
+        }
+    };
+
     // 查看日志
     const handleViewLogs = async (record: JobInstanceDTO) => {
         setDetailLoading(true);
@@ -148,6 +206,7 @@ const JobInstancePage: React.FC = () => {
         setDetailInstance(record);
         setLogData(null);
         setLogError(null);
+        setLogViewMode('REMOTE_LOG');
         try {
             const data = await getJobInstance(record.id);
             setDetailInstance(data);
@@ -178,6 +237,18 @@ const JobInstancePage: React.FC = () => {
             loadInstances(current, pageSize, statusFilter);
         } catch {
             // 错误由拦截器处理
+        }
+    };
+
+    // 复制日志内容
+    const handleCopyLogs = async () => {
+        const logs = logData?.logs || '';
+        if (!logs) return;
+        try {
+            await navigator.clipboard.writeText(logs);
+            message.success('日志已复制');
+        } catch {
+            message.error('复制失败');
         }
     };
 
@@ -351,13 +422,55 @@ const JobInstancePage: React.FC = () => {
 
             {/* 详情 Drawer */}
             <Drawer
-                title="实例详情"
+                title={remoteLogMode ? '运行日志' : '实例详情'}
                 width={600}
                 open={detailDrawerOpen}
                 onClose={() => setDetailDrawerOpen(false)}
             >
                 <Spin spinning={detailLoading}>
-                    {detailInstance && (
+                    {detailInstance && remoteLogMode ? (
+                        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                                <Button
+                                    size="small"
+                                    icon={<CopyOutlined />}
+                                    disabled={!logData?.logs}
+                                    onClick={handleCopyLogs}
+                                >
+                                    复制
+                                </Button>
+                                <Button
+                                    size="small"
+                                    icon={<ReloadOutlined />}
+                                    loading={logLoading}
+                                    onClick={() => loadInstanceLogs(detailInstance.id, logRole, logTailLines)}
+                                >
+                                    刷新
+                                </Button>
+                            </div>
+                            <Spin spinning={logLoading}>
+                                {logError ? (
+                                    <Alert type="error" showIcon message={logError} />
+                                ) : logData?.logs ? (
+                                    <pre style={{
+                                        background: '#111827',
+                                        color: '#e5e7eb',
+                                        borderRadius: 4,
+                                        padding: 12,
+                                        fontSize: 12,
+                                        overflow: 'auto',
+                                        maxHeight: 'calc(100vh - 180px)',
+                                        whiteSpace: 'pre-wrap',
+                                        wordBreak: 'break-word',
+                                    }}>
+                                        {logData.logs}
+                                    </pre>
+                                ) : (
+                                    <Empty description="暂无日志" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                                )}
+                            </Spin>
+                        </Space>
+                    ) : detailInstance && (
                         <Space direction="vertical" style={{ width: '100%' }} size="large">
                             <div>
                                 <Text type="secondary">实例ID</Text>
@@ -477,37 +590,50 @@ const JobInstancePage: React.FC = () => {
                                     gap: 12,
                                     marginBottom: 8,
                                 }}>
-                                    <Text type="secondary">运行日志</Text>
+                                    <Text type="secondary">
+                                        {instanceOutputMode ? '脚本输出' : '运行日志'}
+                                    </Text>
                                     <Space size="small">
-                                        <Select
-                                            size="small"
-                                            value={logRole}
-                                            style={{ width: 132 }}
-                                            options={[
-                                                { label: '全部', value: 'ALL' },
-                                                { label: 'JobManager', value: 'JOB_MANAGER' },
-                                                { label: 'TaskManager', value: 'TASK_MANAGER' },
-                                            ]}
-                                            onChange={(value: JobLogRole) => {
-                                                setLogRole(value);
-                                                if (detailInstance) {
-                                                    loadInstanceLogs(detailInstance.id, value, logTailLines);
-                                                }
-                                            }}
-                                        />
-                                        <InputNumber
-                                            size="small"
-                                            min={1}
-                                            max={5000}
-                                            value={logTailLines}
-                                            style={{ width: 96 }}
-                                            onChange={(value) => setLogTailLines(value || 500)}
-                                        />
+                                        {!instanceOutputMode && (
+                                            <>
+                                                <Select
+                                                    size="small"
+                                                    value={logRole}
+                                                    style={{ width: 132 }}
+                                                    options={[
+                                                        { label: '全部', value: 'ALL' },
+                                                        { label: 'JobManager', value: 'JOB_MANAGER' },
+                                                        { label: 'TaskManager', value: 'TASK_MANAGER' },
+                                                    ]}
+                                                    onChange={(value: JobLogRole) => {
+                                                        setLogRole(value);
+                                                        if (detailInstance) {
+                                                            loadInstanceLogs(detailInstance.id, value, logTailLines);
+                                                        }
+                                                    }}
+                                                />
+                                                <InputNumber
+                                                    size="small"
+                                                    min={1}
+                                                    max={5000}
+                                                    value={logTailLines}
+                                                    style={{ width: 96 }}
+                                                    onChange={(value) => setLogTailLines(value || 500)}
+                                                />
+                                            </>
+                                        )}
                                         <Button
                                             size="small"
                                             icon={<ReloadOutlined />}
                                             loading={logLoading}
-                                            onClick={() => detailInstance && loadInstanceLogs(detailInstance.id, logRole, logTailLines)}
+                                            onClick={() => {
+                                                if (!detailInstance) return;
+                                                if (logViewMode === 'INSTANCE_OUTPUT' && isScriptInstance(detailInstance)) {
+                                                    loadScriptInstanceLogs(detailInstance.id);
+                                                    return;
+                                                }
+                                                loadInstanceLogs(detailInstance.id, logRole, logTailLines);
+                                            }}
                                         >
                                             刷新
                                         </Button>
@@ -520,11 +646,19 @@ const JobInstancePage: React.FC = () => {
                                         <>
                                             <div style={{ marginBottom: 8 }}>
                                                 <Space size={4} wrap>
-                                                    <Tag>{logData.namespace || '-'}</Tag>
-                                                    <Tag color="purple">{logData.deploymentName || '-'}</Tag>
-                                                    <Tag color={logData.pods?.length ? 'blue' : 'default'}>
-                                                        {logData.message || `Pod ${logData.pods?.length || 0} 个`}
-                                                    </Tag>
+                                                    {instanceOutputMode ? (
+                                                        <Tag color={detailInstance?.status === 'FAILED' ? 'error' : 'blue'}>
+                                                            {logData.message || '脚本输出'}
+                                                        </Tag>
+                                                    ) : (
+                                                        <>
+                                                            <Tag>{logData.namespace || '-'}</Tag>
+                                                            <Tag color="purple">{logData.deploymentName || '-'}</Tag>
+                                                            <Tag color={logData.pods?.length ? 'blue' : 'default'}>
+                                                                {logData.message || `Pod ${logData.pods?.length || 0} 个`}
+                                                            </Tag>
+                                                        </>
+                                                    )}
                                                 </Space>
                                             </div>
                                             {logData.logs ? (
@@ -542,11 +676,17 @@ const JobInstancePage: React.FC = () => {
                                                     {logData.logs}
                                                 </pre>
                                             ) : (
-                                                <Empty description="暂无日志" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                                                <Empty
+                                                    description={instanceOutputMode ? '暂无脚本输出' : '暂无日志'}
+                                                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                                />
                                             )}
                                         </>
                                     ) : (
-                                        <Empty description="点击刷新加载日志" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                                        <Empty
+                                            description={instanceOutputMode ? '点击刷新加载脚本输出' : '点击刷新加载日志'}
+                                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                        />
                                     )}
                                 </Spin>
                             </div>

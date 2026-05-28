@@ -263,6 +263,34 @@ export interface JobInstanceLogDTO {
 }
 
 /**
+ * 作业依赖 DTO
+ */
+export interface JobDependencyDTO {
+    jobId: string;
+    upstreamJobs: JobDTO[];
+    downstreamJobs: JobDTO[];
+}
+
+/**
+ * 作业血缘 DTO
+ */
+export interface JobLineageDTO {
+    jobId: string;
+    nodes: Array<{
+        jobId: string;
+        jobName: string;
+        engineType: EngineType;
+        nodeType?: NodeType;
+        status: 'DRAFT' | 'ONLINE' | 'OFFLINE';
+    }>;
+    edges: Array<{
+        upstreamJobId: string;
+        downstreamJobId: string;
+        dependencyType: 'SCHEDULE';
+    }>;
+}
+
+/**
  * 临时执行作业请求
  */
 export interface JobPreviewExecuteCmd {
@@ -359,7 +387,7 @@ export const getJobInstance = async (id: string): Promise<JobInstanceDTO> => {
 };
 
 /**
- * 获取实例K8s Pod日志
+ * 获取实例日志
  */
 export const getJobInstanceLogs = async (
     id: string,
@@ -367,6 +395,29 @@ export const getJobInstanceLogs = async (
 ): Promise<JobInstanceLogDTO> => {
     const config: AxiosRequestConfig = { params: query };
     const resp = await dataworksRequest.get(`/api/v1/data-work/instances/${id}/logs`, config);
+    return resp.data;
+};
+
+/**
+ * 获取作业依赖
+ */
+export const getJobDependencies = async (jobId: string): Promise<JobDependencyDTO> => {
+    const resp = await dataworksRequest.get(`/api/v1/data-work/jobs/${jobId}/dependencies`);
+    return resp.data;
+};
+
+/**
+ * 保存作业依赖
+ */
+export const saveJobDependencies = async (jobId: string, body: { upstreamJobIds: string[] }): Promise<Response<JobDependencyDTO>> => {
+    return await dataworksRequest.put(`/api/v1/data-work/jobs/${jobId}/dependencies`, body);
+};
+
+/**
+ * 获取作业血缘
+ */
+export const getJobLineage = async (jobId: string): Promise<JobLineageDTO> => {
+    const resp = await dataworksRequest.get(`/api/v1/data-work/jobs/${jobId}/lineage`);
     return resp.data;
 };
 

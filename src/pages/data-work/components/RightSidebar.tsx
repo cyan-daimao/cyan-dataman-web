@@ -10,6 +10,7 @@ import {
     Switch,
     Tag,
     Popconfirm,
+    Select,
 } from 'antd';
 import {
     SaveOutlined,
@@ -17,6 +18,7 @@ import {
     ThunderboltOutlined,
     CloseOutlined,
     DeleteOutlined,
+    ApartmentOutlined,
 } from '@ant-design/icons';
 import { EngineType, NodeType } from '@/api/DataworksApi.ts';
 
@@ -33,14 +35,25 @@ interface ScheduleProps {
     enabled?: boolean;
 }
 
-type PanelType = 'property' | 'schedule' | 'version' | 'settings' | null;
+interface DependencyJobOption {
+    id: string;
+    name: string;
+    engineType: EngineType;
+    nodeType?: NodeType;
+    status: 'DRAFT' | 'ONLINE' | 'OFFLINE';
+}
+
+type PanelType = 'property' | 'schedule' | 'dependency' | 'version' | 'settings' | null;
 
 interface RightSidebarProps {
     jobId?: string;
     task: TaskProps;
     schedule: ScheduleProps;
+    dependencyJobOptions?: DependencyJobOption[];
+    upstreamJobIds?: string[];
     onTaskChange: (task: Partial<TaskProps>) => void;
     onScheduleChange: (schedule: ScheduleProps) => void;
+    onDependencyChange?: (upstreamJobIds: string[]) => void;
     onSave: () => void;
     onExecute: () => void;
     onDelete?: () => void;
@@ -56,8 +69,11 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     jobId,
     task,
     schedule,
+    dependencyJobOptions = [],
+    upstreamJobIds = [],
     onTaskChange,
     onScheduleChange,
+    onDependencyChange,
     onSave,
     onExecute,
     onDelete,
@@ -281,6 +297,43 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
         </div>
     );
 
+    const DependencyPanel = (
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 14, flexShrink: 0 }}>
+                依赖配置
+            </div>
+            <div style={{ flex: 1, overflow: 'auto', padding: '12px 16px' }}>
+                <Form layout="vertical" size="small">
+                    <Form.Item
+                        label={<span><ApartmentOutlined style={{ marginRight: 6 }} />上游任务</span>}
+                    >
+                        <Select
+                            mode="multiple"
+                            allowClear
+                            showSearch
+                            placeholder="请选择上游任务"
+                            disabled={isNew}
+                            value={upstreamJobIds}
+                            onChange={(values) => onDependencyChange?.(values)}
+                            optionFilterProp="label"
+                            options={dependencyJobOptions
+                                .filter(option => option.id !== jobId)
+                                .map(option => ({
+                                    value: option.id,
+                                    label: `${option.name} (${option.status})`,
+                                }))}
+                        />
+                    </Form.Item>
+                </Form>
+            </div>
+            <div style={{ padding: '12px 16px', borderTop: '1px solid #f0f0f0', background: '#fafafa', flexShrink: 0 }}>
+                <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={onSave} block>
+                    保存依赖配置
+                </Button>
+            </div>
+        </div>
+    );
+
     const VersionPanel = (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 14, flexShrink: 0 }}>
@@ -393,6 +446,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     const panelContent: Record<string, React.ReactNode> = {
         property: PropertyPanel,
         schedule: SchedulePanel,
+        dependency: DependencyPanel,
         version: VersionPanel,
         settings: SettingsPanel,
     };

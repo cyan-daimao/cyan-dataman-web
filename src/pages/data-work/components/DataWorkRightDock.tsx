@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button, Tooltip } from 'antd';
 import {
+    ApartmentOutlined,
     BranchesOutlined,
     FileTextOutlined,
     SettingOutlined,
@@ -9,11 +10,13 @@ import {
 import { JobDTO, ScheduleConfigDTO } from '@/api/DataworksApi.ts';
 import RightSidebar from './RightSidebar';
 
-type RightPanelType = 'property' | 'schedule' | 'version' | 'settings' | null;
+type RightPanelType = 'property' | 'schedule' | 'dependency' | 'version' | 'settings' | null;
 
 interface DataWorkRightDockProps {
     task: JobDTO;
     schedule: ScheduleConfigDTO;
+    dependencyJobOptions: JobDTO[];
+    upstreamJobIds: string[];
     activePanel: RightPanelType;
     panelWidth: number;
     isDragging: boolean;
@@ -28,6 +31,7 @@ interface DataWorkRightDockProps {
         configJson?: string;
     }>) => void;
     onScheduleChange: (schedule: { cronExpression?: string; enabled?: boolean }) => void;
+    onDependencyChange: (upstreamJobIds: string[]) => void;
     onSave: () => void;
     onExecute: () => void;
     onDelete: () => void;
@@ -42,6 +46,7 @@ const panelButtons: Array<{
 }> = [
     { key: 'property', icon: <FileTextOutlined />, title: '属性' },
     { key: 'schedule', icon: <ThunderboltOutlined />, title: '调度配置' },
+    { key: 'dependency', icon: <ApartmentOutlined />, title: '依赖配置' },
     { key: 'version', icon: <BranchesOutlined />, title: '版本' },
     { key: 'settings', icon: <SettingOutlined />, title: '运行配置' },
 ];
@@ -52,6 +57,8 @@ const panelButtons: Array<{
 const DataWorkRightDock: React.FC<DataWorkRightDockProps> = ({
     task,
     schedule,
+    dependencyJobOptions,
+    upstreamJobIds,
     activePanel,
     panelWidth,
     isDragging,
@@ -60,6 +67,7 @@ const DataWorkRightDock: React.FC<DataWorkRightDockProps> = ({
     deleting,
     onTaskChange,
     onScheduleChange,
+    onDependencyChange,
     onSave,
     onExecute,
     onDelete,
@@ -95,8 +103,11 @@ const DataWorkRightDock: React.FC<DataWorkRightDockProps> = ({
                             cronExpression: schedule.cronExpression,
                             enabled: schedule.enabled,
                         }}
+                        dependencyJobOptions={dependencyJobOptions}
+                        upstreamJobIds={upstreamJobIds}
                         onTaskChange={onTaskChange}
                         onScheduleChange={onScheduleChange}
+                        onDependencyChange={onDependencyChange}
                         onSave={onSave}
                         onExecute={onExecute}
                         onDelete={onDelete}
