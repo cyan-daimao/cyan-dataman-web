@@ -232,6 +232,11 @@ export interface JobInstanceDTO {
     schedulerDagRunId?: string;
     schedulerTaskId?: string;
     schedulerTryNumber?: number;
+    runtimeJobName?: string;
+    logObjectKey?: string;
+    startedAt?: string;
+    finishedAt?: string;
+    callbackAt?: string;
     createdBy?: string;
     createdAt?: string;
     updatedBy?: string;
@@ -447,4 +452,155 @@ export const publishJob = async (id: string): Promise<Response<JobDTO>> => {
  */
 export const offlineJob = async (id: string): Promise<Response<JobDTO>> => {
     return await dataworksRequest.put(`/api/v1/data-work/jobs/${id}/offline`);
+};
+
+// ==================== Workflow API ====================
+
+export interface WorkflowDTO {
+    id: string;
+    name: string;
+    description?: string;
+    dagId?: string;
+    status: 'DRAFT' | 'ONLINE' | 'OFFLINE';
+    createdBy?: string;
+    createdAt?: string;
+    updatedBy?: string;
+    updatedAt?: string;
+}
+
+export interface WorkflowDefinitionDTO {
+    workflowId: string;
+    nodes: WorkflowNodeDTO[];
+    edges: WorkflowEdgeDTO[];
+}
+
+export interface WorkflowNodeDTO {
+    id: string;
+    workflowId?: string;
+    nodeCode: string;
+    nodeName: string;
+    engineType: EngineType;
+    nodeType: NodeType;
+    content: string;
+    positionX?: number;
+    positionY?: number;
+    configJson?: string;
+}
+
+export interface WorkflowEdgeDTO {
+    id?: string;
+    workflowId?: string;
+    upstreamNodeId?: string;
+    upstreamNodeCode?: string;
+    downstreamNodeId?: string;
+    downstreamNodeCode?: string;
+    dependencyType?: 'SCHEDULE' | 'SCHEDULE_SAME_CYCLE';
+}
+
+export interface WorkflowScheduleDTO {
+    id?: string;
+    workflowId?: string;
+    cronExpression: string;
+    enabled: boolean;
+    schedulerType?: SchedulerType;
+    nextExecuteTime?: string;
+}
+
+export interface WorkflowDependencyDTO {
+    workflowId: string;
+    upstreamWorkflows: WorkflowDTO[];
+    downstreamWorkflows: WorkflowDTO[];
+    dependencyType?: 'SCHEDULE_SAME_CYCLE';
+}
+
+export interface AirflowDagRunDTO {
+    dagId: string;
+    dagRunId: string;
+    state: string;
+    logicalDate?: string;
+    startDate?: string;
+    endDate?: string;
+}
+
+export interface AirflowTaskInstanceDTO {
+    dagId: string;
+    dagRunId: string;
+    taskId: string;
+    state: string;
+    tryNumber?: number;
+    startDate?: string;
+    endDate?: string;
+}
+
+export const pageWorkflows = async (query: { name?: string; status?: string; current?: number; size?: number }): Promise<Page<WorkflowDTO>> => {
+    const config: AxiosRequestConfig = { params: query };
+    const resp = await dataworksRequest.get('/api/v1/data-work/workflows', config);
+    return resp.data;
+};
+
+export const getWorkflow = async (id: string): Promise<WorkflowDTO> => {
+    const resp = await dataworksRequest.get(`/api/v1/data-work/workflows/${id}`);
+    return resp.data;
+};
+
+export const createWorkflow = async (body: { name: string; description?: string }): Promise<Response<WorkflowDTO>> => {
+    return await dataworksRequest.post('/api/v1/data-work/workflows', body);
+};
+
+export const updateWorkflow = async (id: string, body: { name: string; description?: string }): Promise<Response<WorkflowDTO>> => {
+    return await dataworksRequest.put(`/api/v1/data-work/workflows/${id}`, body);
+};
+
+export const deleteWorkflow = async (id: string): Promise<Response<void>> => {
+    return await dataworksRequest.delete(`/api/v1/data-work/workflows/${id}`);
+};
+
+export const getWorkflowDefinition = async (id: string): Promise<WorkflowDefinitionDTO> => {
+    const resp = await dataworksRequest.get(`/api/v1/data-work/workflows/${id}/definition`);
+    return resp.data;
+};
+
+export const saveWorkflowDefinition = async (id: string, body: { nodes: Array<Omit<WorkflowNodeDTO, 'id' | 'workflowId'> & { id?: string }>; edges: WorkflowEdgeDTO[] }): Promise<Response<WorkflowDefinitionDTO>> => {
+    return await dataworksRequest.put(`/api/v1/data-work/workflows/${id}/definition`, body);
+};
+
+export const getWorkflowSchedule = async (id: string): Promise<WorkflowScheduleDTO> => {
+    const resp = await dataworksRequest.get(`/api/v1/data-work/workflows/${id}/schedule`);
+    return resp.data;
+};
+
+export const saveWorkflowSchedule = async (id: string, body: { cronExpression: string; enabled: boolean; schedulerType?: SchedulerType }): Promise<Response<WorkflowScheduleDTO>> => {
+    return await dataworksRequest.put(`/api/v1/data-work/workflows/${id}/schedule`, body);
+};
+
+export const getWorkflowDependencies = async (id: string): Promise<WorkflowDependencyDTO> => {
+    const resp = await dataworksRequest.get(`/api/v1/data-work/workflows/${id}/dependencies`);
+    return resp.data;
+};
+
+export const saveWorkflowDependencies = async (id: string, body: { upstreamWorkflowIds: string[] }): Promise<Response<WorkflowDependencyDTO>> => {
+    return await dataworksRequest.put(`/api/v1/data-work/workflows/${id}/dependencies`, body);
+};
+
+export const publishWorkflow = async (id: string): Promise<Response<WorkflowDTO>> => {
+    return await dataworksRequest.put(`/api/v1/data-work/workflows/${id}/publish`);
+};
+
+export const offlineWorkflow = async (id: string): Promise<Response<WorkflowDTO>> => {
+    return await dataworksRequest.put(`/api/v1/data-work/workflows/${id}/offline`);
+};
+
+export const triggerWorkflowDagRun = async (id: string): Promise<Response<unknown>> => {
+    return await dataworksRequest.post(`/api/v1/data-work/workflows/${id}/dag-runs`);
+};
+
+export const listWorkflowDagRuns = async (id: string, query: { limit?: number; offset?: number }): Promise<AirflowDagRunDTO[]> => {
+    const config: AxiosRequestConfig = { params: query };
+    const resp = await dataworksRequest.get(`/api/v1/data-work/workflows/${id}/dag-runs`, config);
+    return resp.data;
+};
+
+export const listWorkflowTaskInstances = async (id: string, dagRunId: string): Promise<AirflowTaskInstanceDTO[]> => {
+    const resp = await dataworksRequest.get(`/api/v1/data-work/workflows/${id}/dag-runs/${encodeURIComponent(dagRunId)}/task-instances`);
+    return resp.data;
 };

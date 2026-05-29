@@ -26,6 +26,7 @@ const MetricsAiChat = React.lazy(() => import((`@/pages/metrics/ai-chat/index.ts
 const SQLEditor = React.lazy(() => import((`@/pages/sql-editor/index.tsx`)))
 const DataWork = React.lazy(() => import((`@/pages/data-work/index.tsx`)))
 const JobInstancePage = React.lazy(() => import((`@/pages/data-work/JobInstancePage.tsx`)))
+const WorkflowCanvasPage = React.lazy(() => import((`@/pages/data-work/WorkflowCanvasPage.tsx`)))
 
 
 // 业务数据库模块
@@ -279,11 +280,14 @@ const routes = createBrowserRouter([
                 path: "sql-editor",
                 element: <SQLEditor/>,
             }, {
-                path: "data-work",
-                element: <DataWork/>,
-            }, {
                 path: "data-work/jobs/:jobId/instances",
                 element: <JobInstancePage/>,
+            }, {
+                path: "data-work/workflows/:workflowId",
+                element: <WorkflowCanvasPage/>,
+            }, {
+                path: "data-work",
+                element: <DataWork/>,
             }, {
                 path: "bi",
                 element: <BiLayout/>,

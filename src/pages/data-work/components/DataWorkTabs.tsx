@@ -1,7 +1,9 @@
 import React from 'react';
 import { Button, Dropdown, Tooltip } from 'antd';
-import { CloseOutlined, CodeOutlined, FileAddOutlined, FileTextOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { CloseOutlined, CodeOutlined, FileAddOutlined, FileTextOutlined, ProjectOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { JobDTO } from '@/api/DataworksApi.ts';
+
+export type DataWorkCreateType = JobDTO['nodeType'] | 'WORKFLOW';
 
 interface DataWorkTabItem {
     tabId: string;
@@ -15,7 +17,7 @@ interface DataWorkTabsProps {
     onActiveChange: (tabId: string) => void;
     onClose: (tabId: string) => void;
     onCloseOthers: (tabId: string) => void;
-    onNew: (nodeType?: JobDTO['nodeType']) => void;
+    onNew: (nodeType?: DataWorkCreateType) => void;
 }
 
 const getStatusColor = (status?: JobDTO['status']) => {
@@ -54,6 +56,14 @@ const createNodeMenuItems = [
         key: 'PYTHON',
         icon: <CodeOutlined />,
         label: 'Python',
+    },
+    {
+        type: 'divider' as const,
+    },
+    {
+        key: 'WORKFLOW',
+        icon: <ProjectOutlined />,
+        label: '工作流',
     },
 ];
 
@@ -171,7 +181,7 @@ const DataWorkTabs: React.FC<DataWorkTabsProps> = ({
             <Dropdown
                 menu={{
                     items: createNodeMenuItems,
-                    onClick: ({ key }) => onNew(key as JobDTO['nodeType']),
+                    onClick: ({ key }) => onNew(key as DataWorkCreateType),
                 }}
                 trigger={['click']}
                 placement="bottomLeft"

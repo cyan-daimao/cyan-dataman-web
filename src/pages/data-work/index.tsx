@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {message, Spin, Modal, Tag} from 'antd';
+import { useNavigate } from 'react-router-dom';
 import {
     PlayCircleOutlined,
     SaveOutlined,
@@ -10,6 +11,7 @@ import {
     CodeOutlined,
     ThunderboltOutlined,
     PauseCircleOutlined,
+    ProjectOutlined,
 } from '@ant-design/icons';
 import {loader} from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
@@ -39,6 +41,7 @@ import {QueryResult, ExecutionPlan} from '@/pages/sql-editor/types';
 import LeftSidebar from './components/LeftSidebar';
 import DataWorkRightDock from './components/DataWorkRightDock';
 import {WorkbenchTabs, WorkbenchToolbar, ToolbarButton} from '@/pages/workbench/components';
+import { DataWorkCreateType } from './components/DataWorkTabs';
 
 // 预加载 Monaco
 loader.config({monaco});
@@ -122,6 +125,8 @@ const hasAirflowSchedule = (schedule: ScheduleConfigDTO) => (
     && !!schedule.cronExpression?.trim()
 );
 
+const DEFAULT_CRON_EXPRESSION = '0 */10 * * * ?';
+
 // 生成空任务
 const createEmptyTask = (nodeType: JobDTO['nodeType'] = 'SPARK_SQL'): JobDTO => ({
     id: '',
@@ -138,10 +143,21 @@ const createEmptyTask = (nodeType: JobDTO['nodeType'] = 'SPARK_SQL'): JobDTO => 
 const createEmptySchedule = (jobId: string = ''): ScheduleConfigDTO => ({
     id: '',
     jobId,
-    cronExpression: '',
+    cronExpression: DEFAULT_CRON_EXPRESSION,
     enabled: false,
     schedulerType: 'AIRFLOW',
 });
+
+const normalizeSchedule = (schedule: ScheduleConfigDTO | undefined, jobId: string = ''): ScheduleConfigDTO => {
+    const emptySchedule = createEmptySchedule(jobId);
+    return {
+        ...emptySchedule,
+        ...schedule,
+        jobId: schedule?.jobId || jobId,
+        cronExpression: schedule?.cronExpression?.trim() || DEFAULT_CRON_EXPRESSION,
+        schedulerType: schedule?.schedulerType || 'AIRFLOW',
+    };
+};
 
 // 生成新 Tab
 const createNewTab = (nodeType: JobDTO['nodeType'] = 'SPARK_SQL'): TabData => ({
@@ -257,7 +273,7 @@ const loadTabsFromStorage = (): { tabs: TabData[]; activeTabId: string } => {
                         ...p.task,
                         content: p.task.content ?? (p.task as JobDTO & { sqlContent?: string }).sqlContent ?? '',
                     },
-                    schedule: p.schedule || createEmptySchedule(p.task.id),
+                    schedule: normalizeSchedule(p.schedule, p.task.id),
                     upstreamJobIds: p.upstreamJobIds || [],
                     content: normalizePersistedContent(p),
                     resultActiveTab: p.resultActiveTab || 'result',
@@ -283,6 +299,7 @@ const loadTabsFromStorage = (): { tabs: TabData[]; activeTabId: string } => {
 let tempIdCounter = 0;
 
 const DataWorkWorkspace: React.FC = () => {
+    const navigate = useNavigate();
     // ========== Monaco 初始化 ==========
     const [editorInitializing, setEditorInitializing] = useState(true);
     useEffect(() => {
@@ -407,7 +424,7 @@ const DataWorkWorkspace: React.FC = () => {
         if (task.id) {
             try {
                 const sched = await getJobSchedule(task.id);
-                if (sched) schedule = sched;
+                if (sched) schedule = normalizeSchedule(sched, task.id);
             } catch {
                 // ignore
             }
@@ -434,12 +451,16 @@ const DataWorkWorkspace: React.FC = () => {
     }, []);
 
     // ========== 新建任务（新开 Tab）==========
-    const handleNewTask = useCallback((nodeType: JobDTO['nodeType'] = 'SPARK_SQL') => {
+    const handleNewTask = useCallback((nodeType: DataWorkCreateType = 'SPARK_SQL') => {
+        if (nodeType === 'WORKFLOW') {
+            navigate('/data-work/workflows/new');
+            return;
+        }
         const newTab = createNewTab(nodeType);
         newTab.tabId = `new-${Date.now()}-${++tempIdCounter}`;
         setTabs(prev => [...prev, newTab]);
         setActiveTabId(newTab.tabId);
-    }, []);
+    }, [navigate]);
 
     // ========== 关闭 Tab ==========
     const doCloseTab = useCallback((tabId: string) => {
@@ -554,7 +575,7 @@ const DataWorkWorkspace: React.FC = () => {
                 ...t,
                 task: freshTask,
                 content: freshTask.content || '',
-                schedule: freshSchedule || createEmptySchedule(freshTask.id),
+                schedule: normalizeSchedule(freshSchedule, freshTask.id),
                 upstreamJobIds: (freshDependency?.upstreamJobs || []).map(job => job.id),
                 isModified: false,
             } : t));
@@ -1006,6 +1027,7 @@ const DataWorkWorkspace: React.FC = () => {
         { key: 'FLINK_BATCH', icon: <ThunderboltOutlined />, label: 'Flink批任务' },
         { key: 'SHELL', icon: <CodeOutlined />, label: 'Shell' },
         { key: 'PYTHON', icon: <CodeOutlined />, label: 'Python' },
+        { key: 'WORKFLOW', icon: <ProjectOutlined />, label: '工作流' },
     ];
 
     const statusMeta: Record<JobDTO['status'], { color: string; text: string }> = {
@@ -1090,7 +1112,7 @@ const DataWorkWorkspace: React.FC = () => {
                 onCloseOthers={handleCloseOtherTabs}
                 showNewDropdown
                 newDropdownItems={newDropdownItems}
-                onNewDropdownSelect={(key) => handleNewTask(key as JobDTO['nodeType'])}
+                onNewDropdownSelect={(key) => handleNewTask(key as DataWorkCreateType)}
                 newButtonTooltip="新建任务"
             />
 

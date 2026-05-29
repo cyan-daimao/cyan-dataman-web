@@ -23,7 +23,7 @@ import {
     ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { JobDTO, pageJobs, pageAllJobInstances } from '@/api/DataworksApi.ts';
+import { JobDTO, pageJobs, pageAllJobInstances, pageWorkflows, WorkflowDTO } from '@/api/DataworksApi.ts';
 import { pageJobInstances, JobInstanceDTO } from '@/api/DataworksApi.ts';
 import Sidebar, { TableInfoWithColumns } from '@/pages/sql-editor/components/Sidebar';
 
@@ -37,7 +37,7 @@ interface LeftSidebarProps {
     onTableListLoaded?: (tables: Array<{ name: string; title: string }>) => void;
     onTaskSelect: (task: JobDTO) => void;
     onHistorySelect?: (record: JobInstanceDTO) => void;
-    onNewTask: (nodeType?: JobDTO['nodeType']) => void;
+    onNewTask: (nodeType?: JobDTO['nodeType'] | 'WORKFLOW') => void;
     refreshTrigger?: number;
 }
 
@@ -45,9 +45,10 @@ interface LeftSidebarProps {
 interface TreeNode {
     key: string;
     title: string;
-    type: 'folder' | 'task';
+    type: 'folder' | 'job' | 'workflow';
     children?: TreeNode[];
     task?: JobDTO;
+    workflow?: WorkflowDTO;
     icon?: React.ReactNode;
 }
 
@@ -67,6 +68,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
     // 任务列表状态
     const [taskLoading, setTaskLoading] = useState(false);
     const [tasks, setTasks] = useState<JobDTO[]>([]);
+    const [workflows, setWorkflows] = useState<WorkflowDTO[]>([]);
     const [taskSearch, setTaskSearch] = useState('');
 
     // 执行历史状态
@@ -104,18 +106,34 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
             icon: <CodeOutlined />,
             label: 'Python',
         },
+        {
+            type: 'divider' as const,
+        },
+        {
+            key: 'WORKFLOW',
+            icon: <ProjectOutlined />,
+            label: '工作流',
+        },
     ];
 
     // 加载任务列表
     const loadTasks = useCallback(async (name?: string) => {
         setTaskLoading(true);
         try {
-            const resp = await pageJobs({
-                current: 1,
-                size: 50,
-                name: name || undefined,
-            });
-            setTasks(resp.data || []);
+            const [jobResult, workflowResult] = await Promise.allSettled([
+                pageJobs({
+                    current: 1,
+                    size: 50,
+                    name: name || undefined,
+                }),
+                pageWorkflows({
+                    current: 1,
+                    size: 50,
+                    name: name || undefined,
+                }),
+            ]);
+            setTasks(jobResult.status === 'fulfilled' ? jobResult.value.data || [] : []);
+            setWorkflows(workflowResult.status === 'fulfilled' ? workflowResult.value.data || [] : []);
         } catch {
             // 错误由拦截器处理
         } finally {
@@ -164,54 +182,64 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
         }
     }, [refreshTrigger, loadTasks, taskSearch]);
 
-    // 将任务列表转换为目录树（按状态分组）
+    const workspaceItems = [
+        ...tasks.map(task => ({
+            id: task.id,
+            name: task.name,
+            status: task.status,
+            type: 'job' as const,
+            task,
+        })),
+        ...workflows.map(workflow => ({
+            id: workflow.id,
+            name: workflow.name,
+            status: workflow.status,
+            type: 'workflow' as const,
+            workflow,
+        })),
+    ];
+
+    const buildWorkspaceChildren = (status: JobDTO['status']): TreeNode[] => workspaceItems
+        .filter(item => item.status === status)
+        .map(item => ({
+            key: `${item.type}-${item.id}`,
+            title: item.name,
+            type: item.type,
+            task: item.task,
+            workflow: item.workflow,
+        }));
+
+    // 将工作空间对象转换为目录树（按状态分组）
     const taskTreeData: TreeNode[] = [
         {
             key: 'dev',
-            title: `开发中的作业 (${tasks.filter(t => t.status === 'DRAFT').length})`,
+            title: `开发中的作业 (${workspaceItems.filter(t => t.status === 'DRAFT').length})`,
             type: 'folder',
-            children: tasks
-                .filter(t => t.status === 'DRAFT')
-                .map(t => ({
-                    key: t.id,
-                    title: t.name,
-                    type: 'task' as const,
-                    task: t,
-                })),
+            children: buildWorkspaceChildren('DRAFT'),
         },
         {
             key: 'online',
-            title: `生产发布 (${tasks.filter(t => t.status === 'ONLINE').length})`,
+            title: `生产发布 (${workspaceItems.filter(t => t.status === 'ONLINE').length})`,
             type: 'folder',
-            children: tasks
-                .filter(t => t.status === 'ONLINE')
-                .map(t => ({
-                    key: t.id,
-                    title: t.name,
-                    type: 'task' as const,
-                    task: t,
-                })),
+            children: buildWorkspaceChildren('ONLINE'),
         },
         {
             key: 'offline',
-            title: `已下线 (${tasks.filter(t => t.status === 'OFFLINE').length})`,
+            title: `已下线 (${workspaceItems.filter(t => t.status === 'OFFLINE').length})`,
             type: 'folder',
-            children: tasks
-                .filter(t => t.status === 'OFFLINE')
-                .map(t => ({
-                    key: t.id,
-                    title: t.name,
-                    type: 'task' as const,
-                    task: t,
-                })),
+            children: buildWorkspaceChildren('OFFLINE'),
         },
     ];
 
     // 处理树节点选择
     const handleTreeSelect = (_selectedKeys: React.Key[], info: Parameters<NonNullable<React.ComponentProps<typeof Tree>['onSelect']>>[1]) => {
         const node = info.node as unknown as TreeNode;
-        if (node.type === 'task' && node.task) {
+        if (node.type === 'job' && node.task) {
             onTaskSelect(node.task);
+            return;
+        }
+        if (node.type === 'workflow' && node.workflow) {
+            navigate(`/data-work/workflows/${node.workflow.id}`);
         }
     };
 
@@ -221,6 +249,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
             if (node.key === 'dev') return <FolderOutlined style={{ color: '#faad14', fontSize: 14 }} />;
             if (node.key === 'online') return <FolderOutlined style={{ color: '#52c41a', fontSize: 14 }} />;
             return <FolderOutlined style={{ color: '#999', fontSize: 14 }} />;
+        }
+        if (node.type === 'workflow') {
+            if (node.workflow?.status === 'ONLINE') return <ProjectOutlined style={{ color: '#52c41a', fontSize: 14 }} />;
+            if (node.workflow?.status === 'OFFLINE') return <ProjectOutlined style={{ color: '#999', fontSize: 14 }} />;
+            return <ProjectOutlined style={{ color: '#1890ff', fontSize: 14 }} />;
         }
         if (node.task) {
             if (node.task.status === 'DRAFT') return <FileOutlined style={{ color: '#1890ff', fontSize: 14 }} />;
@@ -233,7 +266,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
     // 自定义树节点标题：统一渲染 icon + title，确保在同一行
     const titleRender = (nodeData: TreeNode) => {
         const node = nodeData as TreeNode;
-        if (node.type === 'task' && node.task) {
+        if ((node.type === 'job' && node.task) || (node.type === 'workflow' && node.workflow)) {
             return (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 4 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
@@ -241,18 +274,23 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {node.title}
                         </span>
+                        {node.type === 'workflow' && (
+                            <Tag color="processing" style={{ marginInlineStart: 2, marginInlineEnd: 0 }}>工作流</Tag>
+                        )}
                     </div>
-                    <Button
-                        type="text"
-                        size="small"
-                        style={{ padding: '0 4px', minWidth: 20, height: 20, flexShrink: 0 }}
-                        icon={<LinkOutlined style={{ fontSize: 11 }} />}
-                        title="查看实例"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/data-work/jobs/${node.task!.id}/instances`);
-                        }}
-                    />
+                    {node.type === 'job' && (
+                        <Button
+                            type="text"
+                            size="small"
+                            style={{ padding: '0 4px', minWidth: 20, height: 20, flexShrink: 0 }}
+                            icon={<LinkOutlined style={{ fontSize: 11 }} />}
+                            title="查看实例"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/data-work/jobs/${node.task!.id}/instances`);
+                            }}
+                        />
+                    )}
                 </div>
             );
         }
@@ -284,7 +322,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
                             <Dropdown
                                 menu={{
                                     items: createNodeMenuItems,
-                                    onClick: ({ key }) => onNewTask(key as JobDTO['nodeType']),
+                                    onClick: ({ key }) => onNewTask(key as JobDTO['nodeType'] | 'WORKFLOW'),
                                 }}
                                 trigger={['click']}
                                 placement="bottomRight"
@@ -306,12 +344,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
                     </div>
                     <div style={{ flex: 1, overflow: 'auto', padding: '8px 10px' }}>
                         <Spin spinning={taskLoading}>
-                            {tasks.length > 0 ? (
+                            {workspaceItems.length > 0 ? (
                                 <Tree
                                     treeData={taskTreeData}
                                     defaultExpandAll
                                     onSelect={handleTreeSelect}
-                                    selectedKeys={currentTaskId ? [currentTaskId] : []}
+                                    selectedKeys={currentTaskId ? [`job-${currentTaskId}`] : []}
                                     style={{ fontSize: 13 }}
                                     titleRender={titleRender}
                                 />
