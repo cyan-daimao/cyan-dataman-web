@@ -3,6 +3,7 @@ import { Select, Space, message } from 'antd';
 import { MetadataTableSelectorApi, MetadataColumnDTO } from '@/api/MetricConfigApi';
 
 export interface MetadataTableSelectorValue {
+  tableId?: string;
   dsName?: string;
   dbName?: string;
   tblName?: string;
@@ -22,7 +23,11 @@ const MetadataTableSelector: React.FC<MetadataTableSelectorProps> = ({ value, on
   const [columnsLoading, setColumnsLoading] = useState(false);
 
   const current = value || {};
+  const currentTableId = current.tableId || '';
   const currentTableName = current.tblName || '';
+  const selectedTable = currentTableId
+    ? tableOptions.find(t => t.id === currentTableId)
+    : tableOptions.find(t => t.name === currentTableName);
 
   // 加载数仓表列表
   useEffect(() => {
@@ -44,9 +49,9 @@ const MetadataTableSelector: React.FC<MetadataTableSelectorProps> = ({ value, on
       .finally(() => setTableLoading(false));
   }, []);
 
-  // 根据当前表名加载字段列表
+  // 根据当前表加载字段列表
   useEffect(() => {
-    const selected = tableOptions.find(t => t.name === currentTableName);
+    const selected = selectedTable;
     if (!selected) {
       setColumns([]);
       onColumnsChange?.([]);
@@ -69,14 +74,15 @@ const MetadataTableSelector: React.FC<MetadataTableSelectorProps> = ({ value, on
         onColumnsChange?.([]);
       })
       .finally(() => setColumnsLoading(false));
-  }, [currentTableName, tableOptions, onColumnsChange]);
+  }, [currentTableId, currentTableName, selectedTable, onColumnsChange]);
 
-  const handleTableChange = (tableName: string | undefined) => {
-    const selected = tableOptions.find(t => t.name === tableName);
+  const handleTableChange = (tableId: string | undefined) => {
+    const selected = tableOptions.find(t => t.id === tableId);
     onChange?.({
+      tableId: selected?.id || '',
       dsName: selected?.catalog || '',
       dbName: selected?.schema || '',
-      tblName: tableName || '',
+      tblName: selected?.name || '',
       colName: '',
     });
   };
@@ -90,15 +96,15 @@ const MetadataTableSelector: React.FC<MetadataTableSelectorProps> = ({ value, on
       <Select
         showSearch
         placeholder="选择数仓表"
-        value={currentTableName}
+        value={selectedTable?.id}
         onChange={handleTableChange}
         loading={tableLoading}
         style={{ width: '100%' }}
         allowClear
         optionFilterProp="label"
         options={tableOptions.map(t => ({
-          value: t.name,
-          label: `${t.name} - ${t.comment}`,
+          value: t.id,
+          label: `${[t.catalog, t.schema, t.name].filter(Boolean).join('.')} - ${t.comment || t.name}`,
         }))}
       />
       <Select

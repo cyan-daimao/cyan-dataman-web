@@ -4,7 +4,7 @@ const { Sider } = Layout;
 import {CaretRightOutlined, DatabaseOutlined, FileSearchOutlined, FormatPainterOutlined, ReloadOutlined, MenuFoldOutlined, MenuUnfoldOutlined} from '@ant-design/icons';
 import {WorkbenchTabs, WorkbenchToolbar, ToolbarButton} from '@/pages/workbench/components';
 import Sidebar from './components/Sidebar';
-import SQLEditor from './components/SQLEditor';
+import SQLEditor, {type SQLEditorRef} from './components/SQLEditor';
 import ResultPanel from './components/ResultPanel';
 import {ExecutionPlan, QueryHistory, QueryResult} from './types';
 import {ColumnVO} from '../../api/MetadataTableAPI';
@@ -108,6 +108,7 @@ const SQLEditorPage: React.FC = () => {
     const [siderCollapsed, setSiderCollapsed] = useState(false);
     const prevSiderWidthRef = useRef(280);
     const containerRef = useRef<HTMLDivElement>(null);
+    const sqlEditorRef = useRef<SQLEditorRef>(null);
     
     // 使用 ref 保存最新的 activeTab，避免闭包问题
     const activeTabRef = useRef(activeTab);
@@ -465,7 +466,7 @@ const SQLEditorPage: React.FC = () => {
             label: '运行',
             icon: <CaretRightOutlined />,
             type: 'primary',
-            onClick: () => handleExecute(),
+            onClick: () => handleExecute(sqlEditorRef.current?.getExecuteSQL()),
             tooltip: '执行选中内容或全部 (Ctrl+Enter)',
         },
         {
@@ -558,6 +559,7 @@ const SQLEditorPage: React.FC = () => {
                         />
                         <div style={{flex: 1, minHeight: 0}}>
                             <SQLEditor
+                                ref={sqlEditorRef}
                                 value={currentTab?.sql || ''}
                                 onChange={handleSQLChange}
                                 onExecute={handleExecute}

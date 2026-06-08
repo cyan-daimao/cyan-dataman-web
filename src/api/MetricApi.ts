@@ -144,11 +144,38 @@ export interface MetricDetail {
 
 export interface MetricAtomicExt {
     statFunc: StatFunc;
-    dsName: string;
-    dbName: string;
-    tblName: string;
-    colName: string;
+    dsName?: string;
+    dbName?: string;
+    tblName?: string;
+    colName?: string;
     filterCondition?: FilterCondition[];
+    fieldBindings?: MetricFieldBindingDTO[];
+}
+
+export interface MetricFieldBindingDTO {
+    id?: string;
+    metricId?: string;
+    catalogName?: string;
+    schemaName: string;
+    tableName: string;
+    columnName?: string;
+    sourceExpr?: string;
+    filterCondition?: FilterCondition[];
+    primaryBinding?: boolean;
+    sortOrder?: number;
+    updatedAt?: string;
+}
+
+export interface MetricFieldBindingCmd {
+    id?: string;
+    catalogName?: string;
+    schemaName: string;
+    tableName: string;
+    columnName?: string;
+    sourceExpr?: string;
+    filterCondition?: FilterCondition[];
+    primaryBinding?: boolean;
+    sortOrder?: number;
 }
 
 export interface MetricDerivedExt {
@@ -192,11 +219,12 @@ export interface AtomicMetricCmd {
     bizCaliber: string;
     techCaliber?: string;
     statFunc: StatFunc;
-    dsName: string;
-    dbName: string;
-    tblName: string;
-    colName: string;
+    dsName?: string;
+    dbName?: string;
+    tblName?: string;
+    colName?: string;
     filterCondition?: FilterCondition[];
+    fieldBindings?: MetricFieldBindingCmd[];
     subjectCode: string;
     securityLevel?: string;
     owner?: string;
@@ -360,6 +388,26 @@ export const MetricApi = {
      */
     updateAtomic: async (id: string, data: AtomicMetricCmd): Promise<ApiResponse<MetricDTO>> => {
         return datametricRequest.put(`${BASE}/atomic/${id}`, data);
+    },
+
+    listFieldBindings: async (id: string): Promise<ApiResponse<MetricFieldBindingDTO[]>> => {
+        return datametricRequest.get(`${BASE}/${id}/field-bindings`);
+    },
+
+    saveFieldBinding: async (id: string, data: MetricFieldBindingCmd): Promise<ApiResponse<MetricFieldBindingDTO>> => {
+        return datametricRequest.post(`${BASE}/${id}/field-bindings`, data);
+    },
+
+    updateFieldBinding: async (id: string, bindingId: string, data: MetricFieldBindingCmd): Promise<ApiResponse<MetricFieldBindingDTO>> => {
+        return datametricRequest.put(`${BASE}/${id}/field-bindings/${bindingId}`, data);
+    },
+
+    deleteFieldBinding: async (id: string, bindingId: string): Promise<ApiResponse<void>> => {
+        return datametricRequest.delete(`${BASE}/${id}/field-bindings/${bindingId}`);
+    },
+
+    setPrimaryFieldBinding: async (id: string, bindingId: string): Promise<ApiResponse<void>> => {
+        return datametricRequest.put(`${BASE}/${id}/field-bindings/${bindingId}/primary`);
     },
 
     /**

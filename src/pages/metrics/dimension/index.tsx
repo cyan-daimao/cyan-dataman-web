@@ -10,12 +10,12 @@ import {
 import type { MenuProps } from 'antd';
 import {
     DimensionApi, DimensionDTO, DimensionCmd, DimType, DataType, DimensionPageQuery,
-    MetadataTableSelectorApi, MetadataColumnDTO, DimensionKind, DimensionSourceType,
+    DimensionKind,
 } from '@/api/MetricConfigApi';
-import { executeSparkSql } from '@/api/DatagawayApi';
 import {
     DimensionCategoryApi, DimensionCategory, DimensionCategoryCmd,
 } from '@/api/DimensionCategoryApi';
+import DimensionDetailDrawer from './DimensionDetailDrawer';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -49,12 +49,6 @@ const dimensionKindColorMap: Record<string, string> = {
     DEGENERATE: 'green',
     HIERARCHY: 'purple',
     DERIVED: 'orange',
-};
-
-const sourceTypeMap: Record<string, string> = {
-    COLUMN: '物理字段',
-    JSON_PATH: 'JSON 路径',
-    EXPRESSION: 'SQL 表达式',
 };
 
 const dimTypeColorMap: Record<string, string> = {
@@ -309,137 +303,31 @@ const DimensionModal: React.FC<DimensionModalProps> = ({ open, editing, treeData
     const [form] = Form.useForm();
     const dimType = Form.useWatch('dimType', form);
     const dimensionKind = (Form.useWatch('dimensionKind', form) || DimensionKind.NORMAL) as DimensionKind;
-    const sourceType = (Form.useWatch('sourceType', form) || DimensionSourceType.COLUMN) as DimensionSourceType;
-    const tableName = Form.useWatch('tableName', form);
-    const sourceTable = Form.useWatch('sourceTable', form);
-    const columnName = Form.useWatch('columnName', form);
-    const sourceExpr = Form.useWatch('sourceExpr', form);
-    const [dimTableOptions, setDimTableOptions] = useState<{ id: string; name: string; schema?: string; catalog?: string; comment: string }[]>([]);
-    const [sourceTableOptions, setSourceTableOptions] = useState<{ id: string; name: string; schema?: string; catalog?: string; comment: string }[]>([]);
-    const [dimTableLoading, setDimTableLoading] = useState(false);
-    const [tableColumns, setTableColumns] = useState<MetadataColumnDTO[]>([]);
-    const [tableColumnsLoading, setTableColumnsLoading] = useState(false);
-    const [dimValueList, setDimValueList] = useState<Array<{ code: string; name?: string }>>([]);
-    const [dimValueLoading, setDimValueLoading] = useState(false);
-    const [dimValueKeyword, setDimValueKeyword] = useState('');
-    const usesSourceTable = dimensionKind === DimensionKind.DEGENERATE
-        || (dimensionKind === DimensionKind.DERIVED && !!sourceTable);
-    const activeTableName = usesSourceTable ? sourceTable : tableName;
-    const activeTableOptions = usesSourceTable ? sourceTableOptions : dimTableOptions;
-    const canPreviewValues = !!activeTableName && (sourceType !== DimensionSourceType.EXPRESSION
-        ? !!columnName
-        : !!sourceExpr);
-
-    const buildQualifiedTableName = useCallback((item: { name: string; schema?: string; catalog?: string }) => {
-        if (item.catalog && item.schema) return `${item.catalog}.${item.schema}.${item.name}`;
-        if (item.schema) return `${item.schema}.${item.name}`;
-        return item.name;
-    }, []);
-
-    // 根据 tableName 查找对应的 tableId
-    const findTableIdByName = useCallback((name: string | undefined): string | undefined => {
-        if (!name) return undefined;
-        return [...dimTableOptions, ...sourceTableOptions]
-            .find(opt => opt.name === name || buildQualifiedTableName(opt) === name)?.id;
-    }, [dimTableOptions, sourceTableOptions, buildQualifiedTableName]);
-
-    // 加载字段列表
-    const loadTableColumns = useCallback(async (name: string | undefined) => {
-        const tableId = findTableIdByName(name);
-        if (!tableId) {
-            setTableColumns([]);
-            return;
-        }
-        setTableColumnsLoading(true);
-        try {
-            const res = await MetadataTableSelectorApi.columns(tableId);
-            if (res.code === 200 && res.data) {
-                setTableColumns(res.data);
-            } else {
-                setTableColumns([]);
-            }
-        } catch {
-            message.error('加载字段列表失败');
-            setTableColumns([]);
-        } finally {
-            setTableColumnsLoading(false);
-        }
-    }, [findTableIdByName]);
-
-    // 监听 tableName 变化，自动加载字段列表
-    useEffect(() => {
-        if (open) {
-            loadTableColumns(activeTableName);
-        }
-    }, [activeTableName, open, loadTableColumns]);
 
     useEffect(() => {
-        if (open) {
-            if (editing) {
-                form.setFieldsValue({
-                    dimCode: editing.dimCode,
-                    dimName: editing.dimName,
-                    dimType: editing.dimType,
-                    dimensionKind: editing.dimensionKind || DimensionKind.NORMAL,
-                    dataType: editing.dataType,
-                    categoryId: editing.categoryId,
-                    schemaName: editing.schemaName,
-                    tableName: editing.tableName,
-                    columnName: editing.columnName,
-                    displayColumn: editing.displayColumn,
-                    sourceType: editing.sourceType || DimensionSourceType.COLUMN,
-                    sourceExpr: editing.sourceExpr,
-                    sourceTable: editing.sourceTable,
-                    hierarchyCode: editing.hierarchyCode,
-                    hierarchyName: editing.hierarchyName,
-                    parentDimCode: editing.parentDimCode,
-                    hierarchyLevel: editing.hierarchyLevel,
-                    sortOrder: editing.sortOrder,
-                    dimValues: editing.dimValues,
-                    description: editing.description,
-                });
-            } else {
-                form.resetFields();
-                form.setFieldsValue({
-                    dimensionKind: DimensionKind.NORMAL,
-                    sourceType: DimensionSourceType.COLUMN,
-                    sortOrder: 0,
-                });
-            }
-            // 加载维表列表
-            setDimTableLoading(true);
-            Promise.all([
-                MetadataTableSelectorApi.list({ layerCode: 'DIM' }),
-                MetadataTableSelectorApi.list(),
-            ])
-                .then(([dimRes, allRes]) => {
-                    if (dimRes.code === 200 && dimRes.data) {
-                        const list = (dimRes.data.data || []).map((item) => ({
-                            id: item.id,
-                            name: item.name,
-                            schema: item.table?.schema,
-                            catalog: item.table?.catalog,
-                            comment: item.comment || item.table?.comment || '',
-                        }));
-                        setDimTableOptions(list);
-                    }
-                    if (allRes.code === 200 && allRes.data) {
-                        const list = (allRes.data.data || []).map((item) => ({
-                            id: item.id,
-                            name: item.name,
-                            schema: item.table?.schema,
-                            catalog: item.table?.catalog,
-                            comment: item.comment || item.table?.comment || '',
-                        }));
-                        setSourceTableOptions(list);
-                    }
-                })
-                .catch(() => {
-                    message.error('加载数仓表列表失败');
-                })
-                .finally(() => {
-                    setDimTableLoading(false);
-                });
+        if (!open) return;
+        if (editing) {
+            form.setFieldsValue({
+                dimCode: editing.dimCode,
+                dimName: editing.dimName,
+                dimType: editing.dimType,
+                dimensionKind: editing.dimensionKind || DimensionKind.NORMAL,
+                dataType: editing.dataType,
+                categoryId: editing.categoryId,
+                hierarchyCode: editing.hierarchyCode,
+                hierarchyName: editing.hierarchyName,
+                parentDimCode: editing.parentDimCode,
+                hierarchyLevel: editing.hierarchyLevel,
+                sortOrder: editing.sortOrder,
+                dimValues: editing.dimValues,
+                description: editing.description,
+            });
+        } else {
+            form.resetFields();
+            form.setFieldsValue({
+                dimensionKind: DimensionKind.NORMAL,
+                sortOrder: 0,
+            });
         }
     }, [open, editing, form]);
 
@@ -456,71 +344,6 @@ const DimensionModal: React.FC<DimensionModalProps> = ({ open, editing, treeData
         }));
     };
 
-    const handleSyncEnums = () => {
-        if (!activeTableName) {
-            message.warning('请先选择可查询表');
-            return;
-        }
-        const columnName = form.getFieldValue('columnName');
-        if (!columnName) {
-            message.warning('请先选择关联字段');
-            return;
-        }
-        message.info('同步枚举值功能即将上线，敬请期待');
-    };
-
-    const loadDimensionValues = async () => {
-        const currentColumnName = form.getFieldValue('columnName');
-        const displayColumn = form.getFieldValue('displayColumn');
-        const currentSourceExpr = form.getFieldValue('sourceExpr');
-        const valueExpr = sourceType === DimensionSourceType.EXPRESSION
-            ? currentSourceExpr
-            : currentColumnName ? `\`${currentColumnName}\`` : '';
-        if (!activeTableName || !valueExpr) {
-            message.warning('请先选择可查询表并配置字段或表达式');
-            return;
-        }
-        const tableInfo = activeTableOptions.find(opt => opt.name === activeTableName || buildQualifiedTableName(opt) === activeTableName);
-        if (!tableInfo || !tableInfo.schema) {
-            message.warning('未找到表的 schema 信息');
-            return;
-        }
-        setDimValueLoading(true);
-        try {
-            const parts = tableInfo.catalog
-                ? [tableInfo.catalog, tableInfo.schema, tableInfo.name]
-                : [tableInfo.schema, tableInfo.name];
-            const tableRef = parts.map(p => `\`${p}\``).join('.');
-
-            const cols = [`${valueExpr} AS value`];
-            if (displayColumn && sourceType !== DimensionSourceType.EXPRESSION) cols.push(`\`${displayColumn}\` AS label`);
-
-            let sql = `SELECT DISTINCT ${cols.join(', ')} FROM ${tableRef}`;
-            if (dimValueKeyword && displayColumn) {
-                sql += ` WHERE \`${displayColumn}\` LIKE '%${dimValueKeyword.replace(/'/g, "''")}%' `;
-            }
-            sql += ' LIMIT 100';
-
-            const res = await executeSparkSql(sql);
-            if (res.code === 200 && res.data) {
-                const rows = (res.data.data || []) as Record<string, unknown>[];
-                const list = rows.map((row) => ({
-                    code: String(row.value ?? row[Object.keys(row)[0]] ?? ''),
-                    name: displayColumn ? String(row.label ?? row[Object.keys(row)[1]] ?? '') : undefined,
-                }));
-                setDimValueList(list);
-            } else {
-                message.error(res.data?.errorMessage || res.message || '查询失败');
-                setDimValueList([]);
-            }
-        } catch (e) {
-            message.error(e instanceof Error ? e.message : '加载维度值失败');
-            setDimValueList([]);
-        } finally {
-            setDimValueLoading(false);
-        }
-    };
-
     const handleSubmit = (values: DimensionCmd) => {
         const kind = values.dimensionKind || DimensionKind.NORMAL;
         const payload: DimensionCmd = {
@@ -529,32 +352,18 @@ const DimensionModal: React.FC<DimensionModalProps> = ({ open, editing, treeData
             sortOrder: values.sortOrder ?? 0,
         };
         if (kind === DimensionKind.NORMAL) {
-            payload.sourceType = DimensionSourceType.COLUMN;
-            payload.sourceTable = undefined;
-            payload.sourceExpr = undefined;
             payload.hierarchyCode = undefined;
             payload.hierarchyName = undefined;
             payload.parentDimCode = undefined;
             payload.hierarchyLevel = undefined;
         }
-        if (kind === DimensionKind.HIERARCHY) {
-            payload.sourceType = DimensionSourceType.COLUMN;
-            payload.sourceTable = undefined;
-            payload.sourceExpr = undefined;
-        }
         if (kind === DimensionKind.DEGENERATE) {
-            payload.tableName = undefined;
-            payload.schemaName = undefined;
-            payload.displayColumn = undefined;
             payload.hierarchyCode = undefined;
             payload.hierarchyName = undefined;
             payload.parentDimCode = undefined;
             payload.hierarchyLevel = undefined;
         }
         if (kind === DimensionKind.DERIVED) {
-            payload.sourceType = DimensionSourceType.EXPRESSION;
-            payload.columnName = undefined;
-            payload.displayColumn = undefined;
             payload.hierarchyCode = undefined;
             payload.hierarchyName = undefined;
             payload.parentDimCode = undefined;
@@ -570,11 +379,9 @@ const DimensionModal: React.FC<DimensionModalProps> = ({ open, editing, treeData
             onOk={() => form.submit()}
             onCancel={onCancel}
             destroyOnClose
-            width={960}
+            width={720}
         >
-            <Row gutter={24} style={{ minHeight: 560 }}>
-                <Col span={14}>
-                    <Form form={form} onFinish={handleSubmit} layout="vertical">
+            <Form form={form} onFinish={handleSubmit} layout="vertical">
                         <Form.Item name="dimCode" label="维度编码">
                             <Input placeholder={editing ? undefined : '不填则系统自动生成'} disabled={!!editing} />
                         </Form.Item>
@@ -589,20 +396,7 @@ const DimensionModal: React.FC<DimensionModalProps> = ({ open, editing, treeData
                             </Select>
                         </Form.Item>
                         <Form.Item name="dimensionKind" label="维度实现类型" rules={[{ required: true, message: '请选择维度实现类型' }]}>
-                            <Select
-                                placeholder="选择维度实现类型"
-                                onChange={(value: DimensionKind) => {
-                                    if (value === DimensionKind.NORMAL || value === DimensionKind.HIERARCHY) {
-                                        form.setFieldsValue({ sourceType: DimensionSourceType.COLUMN, sourceTable: undefined, sourceExpr: undefined });
-                                    }
-                                    if (value === DimensionKind.DEGENERATE) {
-                                        form.setFieldsValue({ sourceType: DimensionSourceType.COLUMN, tableName: undefined, schemaName: undefined, displayColumn: undefined });
-                                    }
-                                    if (value === DimensionKind.DERIVED) {
-                                        form.setFieldsValue({ sourceType: DimensionSourceType.EXPRESSION, columnName: undefined, displayColumn: undefined });
-                                    }
-                                }}
-                            >
+                            <Select placeholder="选择维度实现类型">
                                 {Object.values(DimensionKind).map(t => (
                                     <Select.Option key={t} value={t}>{dimensionKindMap[t]}</Select.Option>
                                 ))}
@@ -623,136 +417,6 @@ const DimensionModal: React.FC<DimensionModalProps> = ({ open, editing, treeData
                                 treeDefaultExpandAll
                             />
                         </Form.Item>
-                        {(dimensionKind === DimensionKind.NORMAL || dimensionKind === DimensionKind.HIERARCHY || dimensionKind === DimensionKind.DERIVED) && (
-                            <>
-                                <Form.Item
-                                    name="tableName"
-                                    label={dimensionKind === DimensionKind.DERIVED ? '绑定维表（可选）' : '关联维表'}
-                                    rules={dimensionKind === DimensionKind.NORMAL || dimensionKind === DimensionKind.HIERARCHY
-                                        ? [{ required: true, message: '请选择关联维表' }]
-                                        : undefined}
-                                >
-                                    <Select
-                                        showSearch
-                                        placeholder={dimensionKind === DimensionKind.DERIVED ? '可选：表达式基于维表时选择' : '选择关联维表'}
-                                        allowClear
-                                        loading={dimTableLoading}
-                                        optionFilterProp="label"
-                                        options={dimTableOptions.map(item => ({
-                                            value: item.name,
-                                            label: `${item.name}${item.comment ? ' - ' + item.comment : ''}`,
-                                        }))}
-                                        onChange={(value) => {
-                                            const selected = dimTableOptions.find(opt => opt.name === value);
-                                            form.setFieldValue('schemaName', selected?.schema || '');
-                                            if (dimensionKind === DimensionKind.DERIVED && value) {
-                                                form.setFieldValue('sourceTable', undefined);
-                                            }
-                                        }}
-                                    />
-                                </Form.Item>
-                                <Form.Item name="schemaName" label="维表 Schema">
-                                    <Input placeholder="选择维表后自动填充，也可手动修改" />
-                                </Form.Item>
-                            </>
-                        )}
-                        {(dimensionKind === DimensionKind.DEGENERATE || dimensionKind === DimensionKind.DERIVED) && (
-                            <Form.Item
-                                name="sourceTable"
-                                label={dimensionKind === DimensionKind.DERIVED ? '绑定事实表（可选）' : '来源事实表'}
-                                rules={dimensionKind === DimensionKind.DEGENERATE
-                                    ? [{ required: true, message: '请选择来源事实表' }]
-                                    : [
-                                        ({ getFieldValue }) => ({
-                                            validator(_, value) {
-                                                if (dimensionKind !== DimensionKind.DERIVED || value || getFieldValue('tableName')) {
-                                                    return Promise.resolve();
-                                                }
-                                                return Promise.reject(new Error('派生维度必须绑定事实表或维表'));
-                                            },
-                                        }),
-                                    ]}
-                            >
-                                <Select
-                                    showSearch
-                                    placeholder={dimensionKind === DimensionKind.DERIVED ? '可选：表达式基于事实表时选择' : '选择来源事实表'}
-                                    allowClear
-                                    loading={dimTableLoading}
-                                    optionFilterProp="label"
-                                    options={sourceTableOptions.map(item => ({
-                                        value: buildQualifiedTableName(item),
-                                        label: `${buildQualifiedTableName(item)}${item.comment ? ' - ' + item.comment : ''}`,
-                                    }))}
-                                    onChange={(value) => {
-                                        if (dimensionKind === DimensionKind.DERIVED && value) {
-                                            form.setFieldsValue({ tableName: undefined, schemaName: undefined });
-                                        }
-                                    }}
-                                />
-                            </Form.Item>
-                        )}
-                        {(dimensionKind === DimensionKind.DEGENERATE || dimensionKind === DimensionKind.DERIVED) && (
-                            <Form.Item name="sourceType" label="来源类型" rules={[{ required: true, message: '请选择来源类型' }]}>
-                                <Select
-                                    placeholder="选择来源类型"
-                                    disabled={dimensionKind === DimensionKind.DERIVED}
-                                    options={Object.values(DimensionSourceType).map(t => ({
-                                        value: t,
-                                        label: sourceTypeMap[t],
-                                    }))}
-                                />
-                            </Form.Item>
-                        )}
-                        {sourceType !== DimensionSourceType.EXPRESSION && (
-                            <Form.Item
-                                name="columnName"
-                                label={dimensionKind === DimensionKind.DEGENERATE ? '事实表字段' : '关联字段'}
-                                rules={[{ required: dimensionKind !== DimensionKind.DERIVED, message: '请选择字段' }]}
-                            >
-                                <Select
-                                    showSearch
-                                    placeholder={activeTableName ? '选择字段' : '请先选择可查询表'}
-                                    allowClear
-                                    disabled={!activeTableName || tableColumnsLoading}
-                                    loading={tableColumnsLoading}
-                                    optionFilterProp="label"
-                                    options={tableColumns.map(col => ({
-                                        value: col.col,
-                                        label: `${col.col}${col.comment ? ' - ' + col.comment : ''}`,
-                                    }))}
-                                />
-                            </Form.Item>
-                        )}
-                        {(sourceType === DimensionSourceType.JSON_PATH || sourceType === DimensionSourceType.EXPRESSION) && (
-                            <Form.Item
-                                name="sourceExpr"
-                                label={sourceType === DimensionSourceType.JSON_PATH ? 'JSON Path' : 'SQL 表达式'}
-                                rules={[{ required: sourceType === DimensionSourceType.EXPRESSION, message: '请输入来源表达式' }]}
-                            >
-                                <TextArea
-                                    rows={3}
-                                    placeholder={sourceType === DimensionSourceType.JSON_PATH
-                                        ? '$.properties.user_level'
-                                        : "如：CASE WHEN `age` < 18 THEN '未成年' ELSE '成年' END"}
-                                />
-                            </Form.Item>
-                        )}
-                        {(dimensionKind === DimensionKind.NORMAL || dimensionKind === DimensionKind.HIERARCHY) && (
-                            <Form.Item name="displayColumn" label="显示字段">
-                                <Select
-                                    showSearch
-                                    placeholder={activeTableName ? '选择 BI 展示时用的名称字段（如 name）' : '请先选择关联维表'}
-                                    allowClear
-                                    disabled={!activeTableName || tableColumnsLoading}
-                                    loading={tableColumnsLoading}
-                                    optionFilterProp="label"
-                                    options={tableColumns.map(col => ({
-                                        value: col.col,
-                                        label: `${col.col}${col.comment ? ' - ' + col.comment : ''}`,
-                                    }))}
-                                />
-                            </Form.Item>
-                        )}
                         {dimensionKind === DimensionKind.HIERARCHY && (
                             <Row gutter={12}>
                                 <Col span={12}>
@@ -792,12 +456,6 @@ const DimensionModal: React.FC<DimensionModalProps> = ({ open, editing, treeData
                                             style={{ flex: 1 }}
                                         />
                                     </Form.Item>
-                                    <Button
-                                        disabled={!tableName}
-                                        onClick={handleSyncEnums}
-                                    >
-                                        同步枚举值
-                                    </Button>
                                 </div>
                             </Form.Item>
                         )}
@@ -805,50 +463,6 @@ const DimensionModal: React.FC<DimensionModalProps> = ({ open, editing, treeData
                             <TextArea rows={2} placeholder="描述该维度的业务含义" />
                         </Form.Item>
                     </Form>
-                </Col>
-                <Col span={10}>
-                    <Card
-                        title="维度值预览"
-                        size="small"
-                        // style={{ height: 580 }}
-                        extra={
-                            <Button
-                                type="primary"
-                                size="small"
-                                onClick={loadDimensionValues}
-                                loading={dimValueLoading}
-                                disabled={!canPreviewValues}
-                            >
-                                加载维度值
-                            </Button>
-                        }
-                    >
-                        <Input.Search
-                            placeholder="搜索维度值名称"
-                            allowClear
-                            size="small"
-                            value={dimValueKeyword}
-                            onChange={(e) => setDimValueKeyword(e.target.value)}
-                            onSearch={loadDimensionValues}
-                            style={{ marginBottom: 12 }}
-                        />
-                        <div style={{ height: 680, overflow: 'auto' }}>
-                            <Table
-                                size="small"
-                                loading={dimValueLoading}
-                                dataSource={dimValueList}
-                                rowKey="code"
-                                pagination={false}
-                                columns={[
-                                    { title: '编码', dataIndex: 'code', key: 'code', ellipsis: true },
-                                    { title: '名称', dataIndex: 'name', key: 'name', ellipsis: true },
-                                ]}
-                                locale={{ emptyText: '点击「加载维度值」获取数据' }}
-                            />
-                        </div>
-                    </Card>
-                </Col>
-            </Row>
         </Modal>
     );
 };
@@ -870,6 +484,9 @@ const DimensionPage: React.FC = () => {
     const [dimensionLoading, setDimensionLoading] = useState(false);
     const [dimensionModalOpen, setDimensionModalOpen] = useState(false);
     const [editingDimension, setEditingDimension] = useState<DimensionDTO | null>(null);
+    const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
+    const [detailDimensionId, setDetailDimensionId] = useState<string | null>(null);
+    const [bindingStatus, setBindingStatus] = useState<Record<string, boolean>>({});
     const [pageNum, setPageNum] = useState(1);
     const [pageSize] = useState(20);
     const [total, setTotal] = useState(0);
@@ -915,6 +532,15 @@ const DimensionPage: React.FC = () => {
             if (res.code === 200 && res.data) {
                 setDimensions(res.data.list);
                 setTotal(res.data.total);
+                const pairs = await Promise.all(res.data.list.map(async item => {
+                    try {
+                        const bindingRes = await DimensionApi.listFieldBindings(item.id);
+                        return [item.id, Boolean(bindingRes.data && bindingRes.data.length > 0)] as const;
+                    } catch {
+                        return [item.id, false] as const;
+                    }
+                }));
+                setBindingStatus(Object.fromEntries(pairs));
             }
         } catch {
             message.error('获取维度列表失败');
@@ -1002,7 +628,7 @@ const DimensionPage: React.FC = () => {
                 message.success('更新成功');
             } else {
                 await DimensionApi.create(values);
-                message.success('创建成功');
+                message.success('创建成功，可在详情中配置字段绑定');
             }
             setDimensionModalOpen(false);
             setEditingDimension(null);
@@ -1032,6 +658,11 @@ const DimensionPage: React.FC = () => {
         setDimensionModalOpen(true);
     };
 
+    const handleOpenDetail = (record: DimensionDTO) => {
+        setDetailDimensionId(record.id);
+        setDetailDrawerOpen(true);
+    };
+
     const columns = [
         { title: '维度编码', dataIndex: 'dimCode', key: 'dimCode'},
         { title: '维度名称', dataIndex: 'dimName', key: 'dimName' },
@@ -1059,21 +690,11 @@ const DimensionPage: React.FC = () => {
             render: (v: DataType) => dataTypeMap[v] || v,
         },
         {
-            title: '关联维表',
-            key: 'tableRef',
-            render: (_: unknown, record: DimensionDTO) => {
-                if (record.sourceTable) {
-                    const field = record.columnName || record.sourceExpr;
-                    return field ? `${record.sourceTable}.${field}` : record.sourceTable;
-                }
-                if (!record.tableName) return record.sourceExpr || '-';
-                const tableRef = record.schemaName
-                    ? `${record.schemaName}.${record.tableName}`
-                    : record.tableName;
-                return record.columnName
-                    ? `${tableRef}.${record.columnName}`
-                    : tableRef;
-            },
+            title: '绑定状态',
+            key: 'bindingStatus',
+            render: (_: unknown, record: DimensionDTO) => (
+                bindingStatus[record.id] ? <Tag color="green">已绑定</Tag> : <Tag color="orange">未绑定</Tag>
+            ),
         },
         {
             title: '层级',
@@ -1091,6 +712,9 @@ const DimensionPage: React.FC = () => {
             fixed: 'right',
             render: (_: unknown, record: DimensionDTO) => (
                 <Space>
+                    <Button type="link" onClick={() => handleOpenDetail(record)}>
+                        详情
+                    </Button>
                     <Button
                         type="link"
                         icon={<EditOutlined />}
@@ -1175,6 +799,13 @@ const DimensionPage: React.FC = () => {
                 treeData={categoryTree}
                 onCancel={() => { setDimensionModalOpen(false); setEditingDimension(null); }}
                 onSave={handleSaveDimension}
+            />
+
+            <DimensionDetailDrawer
+                open={detailDrawerOpen}
+                dimensionId={detailDimensionId}
+                onClose={() => { setDetailDrawerOpen(false); setDetailDimensionId(null); }}
+                onChanged={() => fetchDimensions(pageNum)}
             />
         </div>
     );

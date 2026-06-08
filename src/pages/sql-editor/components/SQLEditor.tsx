@@ -1,4 +1,4 @@
-import {useRef, useCallback, useEffect} from 'react';
+import {forwardRef, useRef, useCallback, useEffect, useImperativeHandle} from 'react';
 import Editor, {Monaco} from '@monaco-editor/react';
 import {Button, message, Space, Tooltip} from 'antd';
 import {
@@ -28,6 +28,10 @@ interface SQLEditorProps {
     showFormat?: boolean;
 }
 
+export interface SQLEditorRef {
+    getExecuteSQL: () => string;
+}
+
 // SQL 关键字
 const SQL_KEYWORDS = [
     'SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN',
@@ -53,7 +57,7 @@ const SQL_FUNCTIONS = [
     'ROW_NUMBER', 'RANK', 'DENSE_RANK', 'LAG', 'LEAD'
 ];
 
-const SQLEditor: React.FC<SQLEditorProps> = ({
+const SQLEditor = forwardRef<SQLEditorRef, SQLEditorProps>(({
     value,
     onChange,
     onExecute,
@@ -65,7 +69,7 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
     language = 'sql',
     showRun = true,
     showFormat = true,
-}) => {
+}, ref) => {
     const isDark = theme === 'dark';
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const editorRef = useRef<any>(null);
@@ -93,11 +97,16 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
         if (!editor) return value;
         
         const selection = editor.getSelection();
-        const selectedText = editor.getModel().getValueInRange(selection);
+        const model = editor.getModel();
+        const selectedText = selection && model ? model.getValueInRange(selection) : '';
         
         // 如果有选中内容，返回选中内容；否则返回全部内容
-        return selectedText?.trim() || value;
+        return selectedText?.trim() || editor.getValue();
     }, [value]);
+
+    useImperativeHandle(ref, () => ({
+        getExecuteSQL,
+    }), [getExecuteSQL]);
 
     // 执行 SQL
     const handleExecute = useCallback(() => {
@@ -364,6 +373,8 @@ const SQLEditor: React.FC<SQLEditorProps> = ({
             </div>
         </div>
     );
-};
+});
+
+SQLEditor.displayName = 'SQLEditor';
 
 export default SQLEditor;

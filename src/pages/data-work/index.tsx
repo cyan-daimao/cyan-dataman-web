@@ -15,7 +15,7 @@ import {
 } from '@ant-design/icons';
 import {loader} from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
-import SQLEditor from '@/pages/sql-editor/components/SQLEditor';
+import SQLEditor, {type SQLEditorRef} from '@/pages/sql-editor/components/SQLEditor';
 import DataWorkResultPanel from './components/DataWorkResultPanel';
 import {ColumnVO} from '@/api/MetadataTableAPI.ts';
 import {
@@ -312,6 +312,7 @@ const DataWorkWorkspace: React.FC = () => {
     const initialState = React.useMemo(() => loadTabsFromStorage(), []);
     const [tabs, setTabs] = useState<TabData[]>(initialState.tabs);
     const [activeTabId, setActiveTabId] = useState<string>(initialState.activeTabId);
+    const sqlEditorRef = useRef<SQLEditorRef>(null);
 
     const activeTab = tabs.find(t => t.tabId === activeTabId) || tabs[0];
 
@@ -697,11 +698,14 @@ const DataWorkWorkspace: React.FC = () => {
     }, [tabs, activeTabId, persistTask]);
 
     // ========== 执行任务 ==========
-    const handleExecute = useCallback(async () => {
+    const handleExecute = useCallback(async (sqlToExecute?: string) => {
         const tab = tabs.find(t => t.tabId === activeTabId);
         if (!tab) return;
 
-        if (!tab.content.trim()) {
+        const isSqlNode = !!tab.task.nodeType?.endsWith('_SQL');
+        const executionContent = isSqlNode ? (sqlToExecute || tab.content) : tab.content;
+
+        if (!executionContent.trim()) {
             message.warning('请输入任务内容');
             return;
         }
@@ -724,7 +728,7 @@ const DataWorkWorkspace: React.FC = () => {
                     name: tab.task.name,
                     engineType: tab.task.engineType,
                     nodeType,
-                    content: tab.content,
+                    content: executionContent,
                     configJson: tab.task.configJson,
                 });
                 const instance = resp.data;
@@ -769,7 +773,7 @@ const DataWorkWorkspace: React.FC = () => {
         try {
             const currentStr = sessionStorage.getItem(KEY.CURRENT) || localStorage.getItem(KEY.CURRENT);
             const passport = currentStr ? JSON.parse(currentStr).passport : '';
-            const authResp = await authFilterSql({passport, sql: tab.content, engine: 'spark'});
+            const authResp = await authFilterSql({passport, sql: executionContent, engine: 'spark'});
             if (!authResp.data?.permitted) {
                 message.error(authResp.data?.reason || '无权执行该SQL');
                 return;
@@ -790,12 +794,12 @@ const DataWorkWorkspace: React.FC = () => {
         const newLogs: string[] = [
             `[${new Date().toLocaleString()}] INFO 开始执行 SparkSQL: ${tab.task.name}`,
             `[${new Date().toLocaleString()}] INFO 任务内容:`,
-            ...tab.content.split('\n').map(line => `    ${line}`),
+            ...executionContent.split('\n').map(line => `    ${line}`),
         ];
         setTabs(prev => prev.map(t => t.tabId === activeTabId ? {...t, logs: newLogs} : t));
 
         try {
-            const resp = await executeSparkSql(tab.content);
+            const resp = await executeSparkSql(executionContent);
             const record = resp.data;
             const cost = Date.now() - startTime;
             if (record.status === 'SUCCESS' && record.data) {
@@ -1046,7 +1050,7 @@ const DataWorkWorkspace: React.FC = () => {
             icon: <PlayCircleOutlined />,
             type: 'primary',
             loading: executing,
-            onClick: handleExecute,
+            onClick: () => handleExecute(activeIsSqlNode ? sqlEditorRef.current?.getExecuteSQL() : undefined),
             tooltip: '临时运行当前任务内容',
         },
         {
@@ -1187,6 +1191,7 @@ const DataWorkWorkspace: React.FC = () => {
                                 <div style={{height: editorHeight, flexShrink: 0, minHeight: 0, minWidth: 0, background: '#fff', overflow: 'hidden', display: 'flex', flexDirection: 'column'}}>
                                     <div style={{flex: 1, minHeight: 0, minWidth: 0}}>
                                         <SQLEditor
+                                            ref={sqlEditorRef}
                                             key={`${activeTab.tabId}-${getEditorLanguage(activeTab.task.nodeType)}`}
                                             value={activeTab.content}
                                             onChange={(val) => setTabs(prev => prev.map(t => t.tabId === activeTabId ? {

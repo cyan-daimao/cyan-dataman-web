@@ -6,11 +6,10 @@ import {
   MetricApi, MetricListItem, MetricType, StatFunc, AtomicMetricCmd,
   DerivedMetricCmd, CompositeMetricCmd,
 } from '@/api/MetricApi';
-import { ModifierApi, ModifierDTO, TimePeriodApi, TimePeriodDTO, DimensionApi, DimensionDTO, DimType, MetadataColumnDTO } from '@/api/MetricConfigApi';
+import { ModifierApi, ModifierDTO, TimePeriodApi, TimePeriodDTO, DimensionApi, DimensionDTO, DimType } from '@/api/MetricConfigApi';
 import { MetricSubjectApi, MetricSubject } from '@/api/MetricSubjectApi';
 import { listEmployees, EmployeeDTO, currentEmployee } from '@/api/EmployeeApi';
 
-import MetadataTableSelector from './MetadataTableSelector';
 import SqlPreviewPanel from './SqlPreviewPanel';
 
 const { TextArea } = Input;
@@ -44,7 +43,6 @@ const MetricDefinitionFormModal: React.FC<MetricDefinitionFormModalProps> = ({
   const [modifiers, setModifiers] = useState<ModifierDTO[]>([]);
   const [dimensions, setDimensions] = useState<DimensionDTO[]>([]);
   const [refMetrics, setRefMetrics] = useState<MetricListItem[]>([]);
-  const [sourceColumns, setSourceColumns] = useState<MetadataColumnDTO[]>([]);
 
   const [saving, setSaving] = useState(false);
 
@@ -109,13 +107,6 @@ const MetricDefinitionFormModal: React.FC<MetricDefinitionFormModalProps> = ({
             form.setFieldsValue({
               ...base,
               statFunc: detail.atomic.statFunc,
-              dsSelector: {
-                dsName: detail.atomic.dsName,
-                dbName: detail.atomic.dbName,
-                tblName: detail.atomic.tblName,
-                colName: detail.atomic.colName,
-              },
-              filterCondition: detail.atomic.filterCondition || [],
             });
           } else if (detail.metricType === MetricType.DERIVED && detail.derived) {
             form.setFieldsValue({
@@ -144,7 +135,10 @@ const MetricDefinitionFormModal: React.FC<MetricDefinitionFormModalProps> = ({
       });
     } else {
       // 新建模式，默认负责人和密级
-      form.setFieldsValue({ owner: currentUser, securityLevel: 'L1' });
+      form.setFieldsValue({
+        owner: currentUser,
+        securityLevel: 'L1',
+      });
     }
   }, [visible, metricType, editingId, currentUser, form, initialValues]);
 
@@ -176,11 +170,6 @@ const MetricDefinitionFormModal: React.FC<MetricDefinitionFormModalProps> = ({
         const cmd: AtomicMetricCmd = {
           ...base,
           statFunc: values.statFunc,
-          dsName: values.dsSelector.dsName,
-          dbName: values.dsSelector.dbName,
-          tblName: values.dsSelector.tblName,
-          colName: values.dsSelector.colName,
-          filterCondition: values.filterCondition,
         };
         if (editingId) {
           await MetricApi.updateAtomic(editingId, cmd);
@@ -214,7 +203,7 @@ const MetricDefinitionFormModal: React.FC<MetricDefinitionFormModalProps> = ({
         }
       }
 
-      message.success('保存成功');
+      message.success(editingId ? '保存成功' : '保存成功，可在详情中配置字段绑定');
       form.resetFields();
       onSuccess();
     } finally {
@@ -289,53 +278,6 @@ const MetricDefinitionFormModal: React.FC<MetricDefinitionFormModalProps> = ({
                     {Object.values(StatFunc).map(f => <Option key={f} value={f}>{f}</Option>)}
                   </Select>
                 </Form.Item>
-                <Form.Item
-                  name="dsSelector"
-                  label="数据来源"
-                  rules={[{ required: true, validator: (_, val) => val?.dsName && val?.dbName && val?.tblName && val?.colName ? Promise.resolve() : Promise.reject(new Error('请选择数仓表和字段')) }]}
-                >
-                  <MetadataTableSelector onColumnsChange={setSourceColumns} />
-                </Form.Item>
-                <Form.List name="filterCondition">
-                  {(fields, { add, remove }) => (
-                    <>
-                      {fields.map(({ key, name, ...restField }) => (
-                        <Row key={key} gutter={8} align="middle">
-                          <Col span={7}>
-                            <Form.Item {...restField} name={[name, 'field']} rules={[{ required: true }]}>
-                              <Select
-                                placeholder="选择字段"
-                                showSearch
-                                optionFilterProp="label"
-                                options={sourceColumns.map(c => ({ value: c.col, label: c.col + (c.comment ? ` - ${c.comment}` : '') }))}
-                              />
-                            </Form.Item>
-                          </Col>
-                          <Col span={5}>
-                            <Form.Item {...restField} name={[name, 'op']} rules={[{ required: true }]}>
-                              <Select placeholder="运算符">
-                                <Option value="=">=</Option>
-                                <Option value="!=">!=</Option>
-                                <Option value=">">&gt;</Option>
-                                <Option value="<">&lt;</Option>
-                                <Option value="IN">IN</Option>
-                              </Select>
-                            </Form.Item>
-                          </Col>
-                          <Col span={9}>
-                            <Form.Item {...restField} name={[name, 'value']} rules={[{ required: true }]}>
-                              <Input placeholder="值" />
-                            </Form.Item>
-                          </Col>
-                          <Col span={3}>
-                            <Button type="link" danger onClick={() => remove(name)}>删除</Button>
-                          </Col>
-                        </Row>
-                      ))}
-                      <Button type="dashed" onClick={() => add()} block>添加过滤条件</Button>
-                    </>
-                  )}
-                </Form.List>
               </>
             )}
 

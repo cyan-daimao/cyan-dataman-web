@@ -106,6 +106,7 @@ export interface DimensionDTO {
     hierarchyLevel?: number;
     sortOrder?: number;
     description?: string;
+    fieldBindings?: DimensionFieldBindingDTO[];
 }
 
 export interface DimensionCmd {
@@ -129,6 +130,37 @@ export interface DimensionCmd {
     hierarchyLevel?: number;
     sortOrder?: number;
     description?: string;
+    fieldBindings?: DimensionFieldBindingCmd[];
+}
+
+export interface DimensionFieldBindingDTO {
+    id?: string;
+    dimId?: string;
+    tableRole: 'FACT' | 'DIMENSION';
+    catalogName?: string;
+    schemaName: string;
+    tableName: string;
+    columnName?: string;
+    displayColumn?: string;
+    sourceType?: DimensionSourceType;
+    sourceExpr?: string;
+    primaryBinding?: boolean;
+    sortOrder?: number;
+    updatedAt?: string;
+}
+
+export interface DimensionFieldBindingCmd {
+    id?: string;
+    tableRole: 'FACT' | 'DIMENSION';
+    catalogName?: string;
+    schemaName: string;
+    tableName: string;
+    columnName?: string;
+    displayColumn?: string;
+    sourceType?: DimensionSourceType;
+    sourceExpr?: string;
+    primaryBinding?: boolean;
+    sortOrder?: number;
 }
 
 export interface DimensionPageQuery extends PageQuery {
@@ -327,6 +359,26 @@ export const DimensionApi = {
      */
     update: async (id: string, data: DimensionCmd): Promise<ApiResponse<DimensionDTO>> => {
         return datametricRequest.put(`${BASE}/dimensions/${id}`, data);
+    },
+
+    listFieldBindings: async (id: string): Promise<ApiResponse<DimensionFieldBindingDTO[]>> => {
+        return datametricRequest.get(`${BASE}/dimensions/${id}/field-bindings`);
+    },
+
+    saveFieldBinding: async (id: string, data: DimensionFieldBindingCmd): Promise<ApiResponse<DimensionFieldBindingDTO>> => {
+        return datametricRequest.post(`${BASE}/dimensions/${id}/field-bindings`, data);
+    },
+
+    updateFieldBinding: async (id: string, bindingId: string, data: DimensionFieldBindingCmd): Promise<ApiResponse<DimensionFieldBindingDTO>> => {
+        return datametricRequest.put(`${BASE}/dimensions/${id}/field-bindings/${bindingId}`, data);
+    },
+
+    deleteFieldBinding: async (id: string, bindingId: string): Promise<ApiResponse<void>> => {
+        return datametricRequest.delete(`${BASE}/dimensions/${id}/field-bindings/${bindingId}`);
+    },
+
+    setPrimaryFieldBinding: async (id: string, bindingId: string): Promise<ApiResponse<void>> => {
+        return datametricRequest.put(`${BASE}/dimensions/${id}/field-bindings/${bindingId}/primary`);
     },
 
     /**

@@ -3,7 +3,7 @@ import {Layout, message, Spin} from 'antd';
 import {CaretRightOutlined, DatabaseOutlined, FileSearchOutlined, FormatPainterOutlined, ReloadOutlined} from '@ant-design/icons';
 import {WorkbenchTabs, WorkbenchToolbar, ToolbarButton} from '@/pages/workbench/components';
 import Sidebar from './components/Sidebar';
-import SQLEditor from '@/pages/sql-editor/components/SQLEditor';
+import SQLEditor, {type SQLEditorRef} from '@/pages/sql-editor/components/SQLEditor';
 import ResultPanel from '@/pages/sql-editor/components/ResultPanel';
 import {ExecutionPlan, QueryHistory, QueryResult} from '@/pages/sql-editor/types';
 import {sqlExecuteApi, Column} from '@/api/DSApi';
@@ -110,6 +110,7 @@ const BusinessDsSqlPage: React.FC = () => {
     const [isDraggingSider, setIsDraggingSider] = useState(false);
     const [isDraggingEditor, setIsDraggingEditor] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+    const sqlEditorRef = useRef<SQLEditorRef>(null);
 
     const activeTabRef = useRef(activeTab);
     useEffect(() => {
@@ -426,7 +427,7 @@ const BusinessDsSqlPage: React.FC = () => {
             label: '运行',
             icon: <CaretRightOutlined />,
             type: 'primary',
-            onClick: () => handleExecute(),
+            onClick: () => handleExecute(sqlEditorRef.current?.getExecuteSQL()),
             tooltip: '执行选中内容或全部 (Ctrl+Enter)',
         },
         {
@@ -538,6 +539,7 @@ const BusinessDsSqlPage: React.FC = () => {
                             {/* SQL 编辑器 */}
                             <div style={{height: editorHeight, minHeight: 250, borderBottom: '1px solid #f0f0f0'}}>
                                 <SQLEditor
+                                    ref={sqlEditorRef}
                                     value={currentTab.sql}
                                     onChange={handleSQLChange}
                                     onExecute={handleExecute}

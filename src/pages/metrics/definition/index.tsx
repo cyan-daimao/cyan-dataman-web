@@ -17,6 +17,7 @@ import { ApiResponse } from '@/api/Response';
 import { PageResult } from '@/api/Response';
 import { listEmployees, currentEmployee } from '@/api/EmployeeApi';
 import MetricDefinitionFormModal from './components/MetricDefinitionFormModal';
+import MetricDetailDrawer from './components/MetricDetailDrawer';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -42,6 +43,7 @@ const MetricsDefinition: React.FC = () => {
     const [total, setTotal] = useState(0);
     const [filters, setFilters] = useState({ metricName: '', metricType: undefined as MetricType | undefined, subjectCode: undefined as string | undefined, status: undefined as MetricStatus | undefined });
     const [subjects, setSubjects] = useState<MetricSubject[]>([]);
+    const [bindingStatus, setBindingStatus] = useState<Record<string, boolean>>({});
 
     // Modal 状态
     const [modalVisible, setModalVisible] = useState(false);
@@ -54,6 +56,8 @@ const MetricsDefinition: React.FC = () => {
     const [historyList, setHistoryList] = useState<MetricVersionItem[]>([]);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [currentHistoryMetric, setCurrentHistoryMetric] = useState<MetricListItem | null>(null);
+    const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
+    const [detailMetricId, setDetailMetricId] = useState<string | null>(null);
 
     const [currentUser, setCurrentUser] = useState<string>('');
 
@@ -81,6 +85,20 @@ const MetricsDefinition: React.FC = () => {
             if (res.code === 200 && res.data) {
                 setData(res.data.list);
                 setTotal(res.data.total);
+                const atomicMetrics = res.data.list.filter(item => item.metricType === MetricType.ATOMIC);
+                if (atomicMetrics.length > 0) {
+                    const pairs = await Promise.all(atomicMetrics.map(async item => {
+                        try {
+                            const bindingRes = await MetricApi.listFieldBindings(item.id);
+                            return [item.id, Boolean(bindingRes.data && bindingRes.data.length > 0)] as const;
+                        } catch {
+                            return [item.id, false] as const;
+                        }
+                    }));
+                    setBindingStatus(Object.fromEntries(pairs));
+                } else {
+                    setBindingStatus({});
+                }
             }
         } catch {
             message.error('获取指标列表失败');
@@ -193,6 +211,11 @@ const MetricsDefinition: React.FC = () => {
             .finally(() => setHistoryLoading(false));
     };
 
+    const openDetailDrawer = (record: MetricListItem) => {
+        setDetailMetricId(record.id);
+        setDetailDrawerOpen(true);
+    };
+
     const handleRollback = async (version: number) => {
         if (!currentHistoryMetric) return;
         try {
@@ -243,12 +266,22 @@ const MetricsDefinition: React.FC = () => {
         },
         { title: '负责人', dataIndex: 'owner', key: 'owner', width: 120 },
         {
+            title: '绑定状态',
+            key: 'bindingStatus',
+            width: 100,
+            render: (_: unknown, record: MetricListItem) => {
+                if (record.metricType !== MetricType.ATOMIC) return <Tag>不适用</Tag>;
+                return bindingStatus[record.id] ? <Tag color="green">已绑定</Tag> : <Tag color="orange">未绑定</Tag>;
+            },
+        },
+        {
             title: '操作',
             key: 'action',
-            width: 240,
+            width: 300,
             fixed: 'right',
             render: (_: unknown, record: MetricListItem) => (
                 <Space size="small">
+                    <Button type="link" size="small" onClick={() => openDetailDrawer(record)}>详情</Button>
                     <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)}>编辑</Button>
                     <Button type="link" size="small" icon={<HistoryOutlined />} onClick={() => openVersionHistory(record)}>版本历史</Button>
                     {record.status !== MetricStatus.PUBLISHED && (
@@ -340,6 +373,13 @@ const MetricsDefinition: React.FC = () => {
                 initialValues={modalInitialValues}
                 onClose={handleModalClose}
                 onSuccess={handleModalSuccess}
+            />
+
+            <MetricDetailDrawer
+                open={detailDrawerOpen}
+                metricId={detailMetricId}
+                onClose={() => { setDetailDrawerOpen(false); setDetailMetricId(null); }}
+                onChanged={() => fetchList(pageNum)}
             />
 
             <Drawer
