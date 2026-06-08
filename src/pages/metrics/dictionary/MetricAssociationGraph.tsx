@@ -57,7 +57,7 @@ const EDGE_COLOR: Record<string, string> = {
 const RELATION_LABEL: Record<string, string> = {
     SAME_FACT: '同事实表',
     JOIN: 'JOIN',
-    BUILTIN_TIME: '内置时间维度',
+    BUILTIN_TIME: '时间字段维度',
     SOURCE_TABLE: '事实表本地维度',
     LOCAL_EXPRESSION: '事实表本地表达式',
     DIMENSION_ASSOCIATED_METRIC: '维度可关联指标',
@@ -204,7 +204,7 @@ const MetricAssociationGraph: React.FC<MetricAssociationGraphProps> = ({ metricC
                     code: 'TIME_DIMENSIONS',
                     name: '时间维度',
                     nodeType: 'DIMENSION',
-                    tableRef: `${timeDimensionEdges.length} 个内置时间粒度`,
+                    tableRef: `${timeDimensionEdges.length} 个时间粒度`,
                 },
                 edge: {
                     source: centerId,
