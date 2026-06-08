@@ -20,11 +20,18 @@ export interface DimensionBiListItem {
   dimCode: string;
   dimName: string;
   dimType: string;
+  dimensionKind?: string;
   dataType: string;
   tableName?: string;
+  sourceTable?: string;
   columnName: string;
   displayColumn?: string;
   categoryName?: string;
+  hierarchyCode?: string;
+  hierarchyName?: string;
+  parentDimCode?: string;
+  hierarchyLevel?: number;
+  sortOrder?: number;
 }
 
 export interface MetricAssociationSearchRequest {

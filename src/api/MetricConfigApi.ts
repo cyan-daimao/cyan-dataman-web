@@ -70,11 +70,25 @@ export enum DataType {
     DATETIME = 'DATETIME',
 }
 
+export enum DimensionKind {
+    NORMAL = 'NORMAL',
+    DEGENERATE = 'DEGENERATE',
+    HIERARCHY = 'HIERARCHY',
+    DERIVED = 'DERIVED',
+}
+
+export enum DimensionSourceType {
+    COLUMN = 'COLUMN',
+    JSON_PATH = 'JSON_PATH',
+    EXPRESSION = 'EXPRESSION',
+}
+
 export interface DimensionDTO {
     id: string;
     dimCode: string;
     dimName: string;
     dimType: DimType;
+    dimensionKind?: DimensionKind;
     dataType: DataType;
     dimValues?: string[];
     categoryId?: string;
@@ -83,6 +97,14 @@ export interface DimensionDTO {
     tableName?: string;
     columnName?: string;
     displayColumn?: string;
+    sourceType?: DimensionSourceType;
+    sourceExpr?: string;
+    sourceTable?: string;
+    hierarchyCode?: string;
+    hierarchyName?: string;
+    parentDimCode?: string;
+    hierarchyLevel?: number;
+    sortOrder?: number;
     description?: string;
 }
 
@@ -90,6 +112,7 @@ export interface DimensionCmd {
     dimCode?: string;
     dimName: string;
     dimType: DimType;
+    dimensionKind?: DimensionKind;
     dataType: DataType;
     dimValues?: string[];
     categoryId?: string;
@@ -97,6 +120,14 @@ export interface DimensionCmd {
     tableName?: string;
     columnName?: string;
     displayColumn?: string;
+    sourceType?: DimensionSourceType;
+    sourceExpr?: string;
+    sourceTable?: string;
+    hierarchyCode?: string;
+    hierarchyName?: string;
+    parentDimCode?: string;
+    hierarchyLevel?: number;
+    sortOrder?: number;
     description?: string;
 }
 
