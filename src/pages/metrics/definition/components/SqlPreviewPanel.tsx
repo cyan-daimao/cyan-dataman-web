@@ -8,9 +8,10 @@ const { Text } = Typography;
 
 interface SqlPreviewPanelProps {
   metricType: MetricType;
+  metricId?: string | null;
 }
 
-const SqlPreviewPanel: React.FC<SqlPreviewPanelProps> = ({ metricType }) => {
+const SqlPreviewPanel: React.FC<SqlPreviewPanelProps> = ({ metricType, metricId }) => {
   const form = Form.useFormInstance();
   const [sql, setSql] = useState<string>('');
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -25,6 +26,7 @@ const SqlPreviewPanel: React.FC<SqlPreviewPanelProps> = ({ metricType }) => {
     const values = form.getFieldsValue();
     if (metricType === MetricType.ATOMIC) {
       return {
+        metricId,
         statFunc: values.statFunc,
         dsName: values.dsSelector?.dsName,
         dbName: values.dsSelector?.dbName,
@@ -35,6 +37,7 @@ const SqlPreviewPanel: React.FC<SqlPreviewPanelProps> = ({ metricType }) => {
     }
     if (metricType === MetricType.DERIVED) {
       return {
+        metricId,
         atomicMetricId: values.atomicMetricId,
         timePeriodId: values.timePeriodId,
         modifierIds: values.modifierIds || [],
@@ -44,6 +47,7 @@ const SqlPreviewPanel: React.FC<SqlPreviewPanelProps> = ({ metricType }) => {
     }
     if (metricType === MetricType.COMPOSITE) {
       return {
+        metricId,
         formula: values.formula,
         metricRefs: values.metricRefs || [],
       };

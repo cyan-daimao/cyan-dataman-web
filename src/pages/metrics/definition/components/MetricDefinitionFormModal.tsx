@@ -346,7 +346,7 @@ const MetricDefinitionFormModal: React.FC<MetricDefinitionFormModalProps> = ({
           <Col span={10}>
             <div style={{ position: 'sticky', top: 0 }}>
               {metricType && (
-                <SqlPreviewPanel metricType={metricType} />
+                <SqlPreviewPanel metricType={metricType} metricId={editingId} />
               )}
             </div>
           </Col>

@@ -134,6 +134,7 @@ const MetricsDictionary: React.FC = () => {
     const buildDefinitionBody = (d: MetricDetail): Record<string, unknown> => {
         if (d.metricType === MetricType.ATOMIC && d.atomic) {
             return {
+                metricId: d.id,
                 statFunc: d.atomic.statFunc,
                 dsName: d.atomic.dsName,
                 dbName: d.atomic.dbName,
@@ -144,6 +145,7 @@ const MetricsDictionary: React.FC = () => {
         }
         if (d.metricType === MetricType.DERIVED && d.derived) {
             return {
+                metricId: d.id,
                 atomicMetricId: d.derived.atomicMetricId,
                 timePeriodId: d.derived.timePeriodId,
                 modifierIds: d.derived.modifierIds || [],
@@ -153,6 +155,7 @@ const MetricsDictionary: React.FC = () => {
         }
         if (d.metricType === MetricType.COMPOSITE && d.composite) {
             return {
+                metricId: d.id,
                 formula: d.composite.formula,
                 metricRefs: d.composite.metricRefs || [],
             };
