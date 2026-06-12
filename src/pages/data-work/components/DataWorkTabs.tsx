@@ -35,7 +35,7 @@ const createNodeMenuItems = [
     {
         key: 'FLINK_SQL',
         icon: <ThunderboltOutlined />,
-        label: 'FlinkSQL',
+        label: 'FlinkSQL 实时任务',
     },
     {
         key: 'SPARK_BATCH',
@@ -45,7 +45,7 @@ const createNodeMenuItems = [
     {
         key: 'FLINK_BATCH',
         icon: <ThunderboltOutlined />,
-        label: 'Flink批任务',
+        label: 'FlinkSQL 批任务',
     },
     {
         key: 'SHELL',

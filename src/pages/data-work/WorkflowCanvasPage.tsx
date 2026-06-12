@@ -40,7 +40,7 @@ const DEFAULT_CRON_EXPRESSION = '0 */10 * * * ?';
 const NODE_TEMPLATES: Array<{ nodeType: NodeType; engineType: EngineType; name: string; content: string; color: string }> = [
     { nodeType: 'SHELL', engineType: 'SHELL', name: 'Shell', content: 'echo hello dataworks', color: 'blue' },
     { nodeType: 'PYTHON', engineType: 'PYTHON', name: 'Python', content: 'print("hello dataworks")', color: 'green' },
-    { nodeType: 'FLINK_SQL', engineType: 'FLINK', name: 'Flink SQL', content: 'SELECT 1;', color: 'purple' },
+    { nodeType: 'FLINK_BATCH', engineType: 'FLINK', name: 'FlinkSQL 批任务', content: 'SELECT 1;', color: 'magenta' },
     { nodeType: 'SPARK_SQL', engineType: 'SPARK', name: 'Spark SQL', content: 'SELECT 1;', color: 'orange' },
 ];
 

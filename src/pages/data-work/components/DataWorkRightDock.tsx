@@ -74,9 +74,15 @@ const DataWorkRightDock: React.FC<DataWorkRightDockProps> = ({
     onActivePanelChange,
     onResizeStart,
 }) => {
+    const isRealtimeFlinkSql = task.nodeType === 'FLINK_SQL';
+    const visibleActivePanel = isRealtimeFlinkSql && (activePanel === 'schedule' || activePanel === 'dependency')
+        ? 'property'
+        : activePanel;
+    const visiblePanelButtons = panelButtons.filter(btn => !isRealtimeFlinkSql || (btn.key !== 'schedule' && btn.key !== 'dependency'));
+
     return (
         <div style={{ width: 44, flex: '0 0 44px', height: '100%', position: 'relative', overflow: 'visible' }}>
-            {activePanel && (
+            {visibleActivePanel && (
                 <div style={{
                     position: 'absolute',
                     right: 44,
@@ -114,7 +120,7 @@ const DataWorkRightDock: React.FC<DataWorkRightDockProps> = ({
                         saving={saving}
                         executing={executing}
                         deleting={deleting}
-                        activePanel={activePanel}
+                        activePanel={visibleActivePanel}
                         panelWidth={panelWidth}
                         onActivePanelChange={onActivePanelChange}
                     />
@@ -132,10 +138,10 @@ const DataWorkRightDock: React.FC<DataWorkRightDockProps> = ({
                 padding: '8px 0',
                 gap: 8,
             }}>
-                {panelButtons.map(btn => (
+                {visiblePanelButtons.map(btn => (
                     <Tooltip key={btn.key} title={btn.title} placement="left">
                         <Button
-                            type={activePanel === btn.key ? 'primary' : 'text'}
+                            type={visibleActivePanel === btn.key ? 'primary' : 'text'}
                             icon={btn.icon}
                             size="small"
                             style={{ width: 32, height: 32 }}
@@ -145,7 +151,7 @@ const DataWorkRightDock: React.FC<DataWorkRightDockProps> = ({
                 ))}
             </div>
 
-            {activePanel && (
+            {visibleActivePanel && (
                 <div
                     onMouseDown={onResizeStart}
                     style={{

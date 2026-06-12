@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+    Alert,
     Button,
     Card,
     Divider,
@@ -84,10 +85,11 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     onActivePanelChange,
 }) => {
     const isNew = !jobId;
+    const isRealtimeFlinkSql = task.nodeType === 'FLINK_SQL';
     const getNodeTypeLabel = () => {
-        if (task.nodeType === 'FLINK_SQL') return 'FlinkSQL';
+        if (task.nodeType === 'FLINK_SQL') return 'FlinkSQL 实时任务';
         if (task.nodeType === 'SPARK_BATCH') return 'Spark批任务';
-        if (task.nodeType === 'FLINK_BATCH') return 'Flink批任务';
+        if (task.nodeType === 'FLINK_BATCH') return 'FlinkSQL 批任务';
         if (task.nodeType === 'SHELL') return 'Shell';
         if (task.nodeType === 'PYTHON') return 'Python';
         return task.engineType === 'FLINK' ? 'FlinkSQL' : 'SparkSQL';
@@ -217,25 +219,33 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
 
                 <Divider style={{ margin: '8px 0' }} />
 
-                <Card size="small" title={<span><ThunderboltOutlined style={{ marginRight: 6 }} />调度配置</span>} variant="borderless" style={{ marginBottom: 12 }} styles={{ body: { padding: '12px 0' } }}>
-                    <Form layout="vertical" size="small">
-                        <Form.Item label="Cron 表达式" extra={<span style={{ fontSize: 11, color: '#999' }}>例如: 0 0 2 * * ?（每天凌晨2点）</span>}>
-                            <Input
-                                placeholder="0 0 2 * * ?"
-                                value={schedule.cronExpression || ''}
-                                onChange={(e) => onScheduleChange({ ...schedule, cronExpression: e.target.value })}
-                            />
-                        </Form.Item>
-                        <Form.Item label="启用调度">
-                            <Switch
-                                checked={schedule.enabled || false}
-                                onChange={(checked) => onScheduleChange({ ...schedule, enabled: checked })}
-                                checkedChildren="启用"
-                                unCheckedChildren="停用"
-                            />
-                        </Form.Item>
-                    </Form>
-                </Card>
+                {isRealtimeFlinkSql ? (
+                    <Alert
+                        type="info"
+                        showIcon
+                        message="实时任务发布后由 Flink Operator 常驻运行"
+                    />
+                ) : (
+                    <Card size="small" title={<span><ThunderboltOutlined style={{ marginRight: 6 }} />调度配置</span>} variant="borderless" style={{ marginBottom: 12 }} styles={{ body: { padding: '12px 0' } }}>
+                        <Form layout="vertical" size="small">
+                            <Form.Item label="Cron 表达式" extra={<span style={{ fontSize: 11, color: '#999' }}>例如: 0 0 2 * * ?（每天凌晨2点）</span>}>
+                                <Input
+                                    placeholder="0 0 2 * * ?"
+                                    value={schedule.cronExpression || ''}
+                                    onChange={(e) => onScheduleChange({ ...schedule, cronExpression: e.target.value })}
+                                />
+                            </Form.Item>
+                            <Form.Item label="启用调度">
+                                <Switch
+                                    checked={schedule.enabled || false}
+                                    onChange={(checked) => onScheduleChange({ ...schedule, enabled: checked })}
+                                    checkedChildren="启用"
+                                    unCheckedChildren="停用"
+                                />
+                            </Form.Item>
+                        </Form>
+                    </Card>
+                )}
             </div>
             <div style={{ padding: '12px 16px', borderTop: '1px solid #f0f0f0', background: '#fafafa', flexShrink: 0 }}>
                 <Space direction="vertical" style={{ width: '100%' }}>
@@ -270,7 +280,10 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                 调度配置
             </div>
             <div style={{ flex: 1, overflow: 'auto', padding: '12px 16px' }}>
-                <Form layout="vertical" size="small">
+                {isRealtimeFlinkSql ? (
+                    <Alert type="info" showIcon message="FlinkSQL实时任务不使用Airflow调度" />
+                ) : (
+                    <Form layout="vertical" size="small">
                     <Form.Item label="Cron 表达式">
                         <Input
                             placeholder="0 0 2 * * ?"
@@ -292,7 +305,8 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                     <Form.Item label="失败重试次数">
                         <Input type="number" placeholder="3" defaultValue={3} />
                     </Form.Item>
-                </Form>
+                    </Form>
+                )}
             </div>
         </div>
     );
@@ -303,7 +317,10 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                 依赖配置
             </div>
             <div style={{ flex: 1, overflow: 'auto', padding: '12px 16px' }}>
-                <Form layout="vertical" size="small">
+                {isRealtimeFlinkSql ? (
+                    <Alert type="info" showIcon message="FlinkSQL实时任务不配置Airflow上游依赖" />
+                ) : (
+                    <Form layout="vertical" size="small">
                     <Form.Item
                         label={<span><ApartmentOutlined style={{ marginRight: 6 }} />上游任务</span>}
                     >
@@ -324,10 +341,11 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                                 }))}
                         />
                     </Form.Item>
-                </Form>
+                    </Form>
+                )}
             </div>
             <div style={{ padding: '12px 16px', borderTop: '1px solid #f0f0f0', background: '#fafafa', flexShrink: 0 }}>
-                <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={onSave} block>
+                <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={onSave} disabled={isRealtimeFlinkSql} block>
                     保存依赖配置
                 </Button>
             </div>

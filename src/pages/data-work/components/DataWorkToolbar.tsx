@@ -28,6 +28,19 @@ const statusMeta: Record<JobDTO['status'], { color: string; text: string }> = {
     OFFLINE: { color: 'default', text: '已下线' },
 };
 
+const getNodeTypeLabel = (task: JobDTO) => {
+    if (task.nodeType === 'FLINK_SQL') return 'FlinkSQL 实时任务';
+    if (task.nodeType === 'FLINK_BATCH') return 'FlinkSQL 批任务';
+    if (task.nodeType === 'SPARK_BATCH') return 'Spark批任务';
+    return task.engineType === 'SPARK' ? 'SparkSQL' : 'FlinkSQL';
+};
+
+const getNodeTypeColor = (task: JobDTO) => {
+    if (task.nodeType === 'FLINK_BATCH') return 'magenta';
+    if (task.nodeType === 'SPARK_BATCH') return 'geekblue';
+    return task.engineType === 'SPARK' ? 'blue' : 'purple';
+};
+
 /**
  * 数据加工工作台顶部操作栏。
  */
@@ -67,8 +80,8 @@ const DataWorkToolbar: React.FC<DataWorkToolbarProps> = ({
                 }}>
                     {task.name || '未命名任务'}
                 </span>
-                <Tag color={task.engineType === 'SPARK' ? 'blue' : 'purple'} style={{ marginInlineEnd: 0 }}>
-                    {task.engineType === 'SPARK' ? 'SparkSQL' : 'FlinkSQL'}
+                <Tag color={getNodeTypeColor(task)} style={{ marginInlineEnd: 0 }}>
+                    {getNodeTypeLabel(task)}
                 </Tag>
                 <Tag color={currentStatus.color} style={{ marginInlineEnd: 0 }}>
                     {currentStatus.text}

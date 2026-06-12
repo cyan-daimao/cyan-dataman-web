@@ -81,18 +81,18 @@ const getEngineTypeByNodeType = (nodeType: JobDTO['nodeType']): JobDTO['engineTy
 };
 
 const getDefaultTaskNameByNodeType = (nodeType: JobDTO['nodeType']) => {
-    if (nodeType === 'FLINK_SQL') return '未命名FlinkSQL任务';
+    if (nodeType === 'FLINK_SQL') return '未命名FlinkSQL实时任务';
     if (nodeType === 'SPARK_BATCH') return '未命名Spark批任务';
-    if (nodeType === 'FLINK_BATCH') return '未命名Flink批任务';
+    if (nodeType === 'FLINK_BATCH') return '未命名FlinkSQL批任务';
     if (nodeType === 'SHELL') return '未命名Shell任务';
     if (nodeType === 'PYTHON') return '未命名Python任务';
     return '未命名SparkSQL任务';
 };
 
 const getNodeTypeLabel = (nodeType: JobDTO['nodeType'], engineType: JobDTO['engineType']) => {
-    if (nodeType === 'FLINK_SQL') return 'FlinkSQL';
+    if (nodeType === 'FLINK_SQL') return 'FlinkSQL 实时任务';
     if (nodeType === 'SPARK_BATCH') return 'Spark批任务';
-    if (nodeType === 'FLINK_BATCH') return 'Flink批任务';
+    if (nodeType === 'FLINK_BATCH') return 'FlinkSQL 批任务';
     if (nodeType === 'SHELL') return 'Shell';
     if (nodeType === 'PYTHON') return 'Python';
     if (nodeType === 'VIRTUAL') return '虚拟节点';
@@ -106,6 +106,16 @@ const getNodeTypeColor = (nodeType: JobDTO['nodeType'], engineType: JobDTO['engi
     if (nodeType === 'FLINK_BATCH') return 'magenta';
     return engineType === 'SPARK' ? 'blue' : 'purple';
 };
+
+const isRealtimeFlinkSql = (task: Pick<JobDTO, 'nodeType'>) => task.nodeType === 'FLINK_SQL';
+
+const isFlinkBatchSql = (task: Pick<JobDTO, 'nodeType'>) => task.nodeType === 'FLINK_BATCH';
+
+const isSqlNodeType = (nodeType?: JobDTO['nodeType']) => (
+    nodeType === 'SPARK_SQL'
+    || nodeType === 'FLINK_SQL'
+    || nodeType === 'FLINK_BATCH'
+);
 
 const getEditorLanguage = (nodeType: JobDTO['nodeType']): 'sql' | 'shell' | 'python' => {
     if (nodeType === 'SHELL') return 'shell';
@@ -555,7 +565,7 @@ const DataWorkWorkspace: React.FC = () => {
         setSidebarRefreshKey(prev => prev + 1);
 
         // 保存调度配置
-        if (savedTask.id && tab.schedule.cronExpression) {
+        if (savedTask.id && !isRealtimeFlinkSql(savedTask) && tab.schedule.cronExpression) {
             await saveJobSchedule(savedTask.id, {
                 cronExpression: tab.schedule.cronExpression,
                 enabled: tab.schedule.enabled || false,
@@ -564,7 +574,7 @@ const DataWorkWorkspace: React.FC = () => {
         }
         if (savedTask.id) {
             await saveJobDependencies(savedTask.id, {
-                upstreamJobIds: tab.upstreamJobIds || [],
+                upstreamJobIds: isRealtimeFlinkSql(savedTask) ? [] : (tab.upstreamJobIds || []),
             });
         }
 
@@ -603,6 +613,10 @@ const DataWorkWorkspace: React.FC = () => {
         const tab = tabs.find(t => t.tabId === activeTabId);
         if (!tab?.task.id) {
             message.warning('请先保存任务');
+            return;
+        }
+        if (isRealtimeFlinkSql(tab.task)) {
+            message.warning('FlinkSQL实时任务不支持Airflow调度');
             return;
         }
         if (!tab.schedule.cronExpression?.trim()) {
@@ -668,8 +682,10 @@ const DataWorkWorkspace: React.FC = () => {
             const resp = await publishJob(publishJobId);
             const publishedTask = resp.data;
             let startMessage = '';
-            if (publishedTask.engineType === 'FLINK') {
-                startMessage = '，Application Mode任务已启动';
+            if (isRealtimeFlinkSql(publishedTask)) {
+                startMessage = '，Flink Operator 应用已启动';
+            } else if (isFlinkBatchSql(publishedTask)) {
+                startMessage = '，Airflow DAG将在调度器刷新后按调度执行';
             } else if (isScriptTask(publishedTask)) {
                 startMessage = '，Airflow DAG将在调度器刷新后可见并默认启用';
             }
@@ -681,10 +697,10 @@ const DataWorkWorkspace: React.FC = () => {
                     ...t.schedule,
                     enabled: true,
                 } : t.schedule,
-                logs: publishedTask.engineType === 'FLINK'
+                logs: isRealtimeFlinkSql(publishedTask)
                     ? [
                         ...t.logs,
-                        `[${new Date().toLocaleString()}] INFO 任务已发布，开始启动Application Mode正式任务`,
+                        `[${new Date().toLocaleString()}] INFO 任务已发布，开始启动Flink Operator实时应用`,
                     ]
                     : t.logs,
                 isModified: false,
@@ -702,7 +718,7 @@ const DataWorkWorkspace: React.FC = () => {
         const tab = tabs.find(t => t.tabId === activeTabId);
         if (!tab) return;
 
-        const isSqlNode = !!tab.task.nodeType?.endsWith('_SQL');
+        const isSqlNode = isSqlNodeType(tab.task.nodeType);
         const executionContent = isSqlNode ? (sqlToExecute || tab.content) : tab.content;
 
         if (!executionContent.trim()) {
@@ -870,7 +886,7 @@ const DataWorkWorkspace: React.FC = () => {
             message.warning('请输入SQL语句');
             return;
         }
-        if (!tab.task.nodeType?.endsWith('_SQL')) {
+        if (!isSqlNodeType(tab.task.nodeType)) {
             message.warning('当前节点类型不支持执行计划');
             return;
         }
@@ -944,7 +960,7 @@ const DataWorkWorkspace: React.FC = () => {
     const handleFormat = useCallback(() => {
         const tab = tabs.find(t => t.tabId === activeTabId);
         if (!tab || !tab.content) return;
-        if (!tab.task.nodeType?.endsWith('_SQL')) {
+        if (!isSqlNodeType(tab.task.nodeType)) {
             message.warning('当前节点类型不支持SQL格式化');
             return;
         }
@@ -1026,9 +1042,9 @@ const DataWorkWorkspace: React.FC = () => {
 
     const newDropdownItems = [
         { key: 'SPARK_SQL', icon: <CodeOutlined />, label: 'SparkSQL' },
-        { key: 'FLINK_SQL', icon: <ThunderboltOutlined />, label: 'FlinkSQL' },
+        { key: 'FLINK_SQL', icon: <ThunderboltOutlined />, label: 'FlinkSQL 实时任务' },
         { key: 'SPARK_BATCH', icon: <CodeOutlined />, label: 'Spark批任务' },
-        { key: 'FLINK_BATCH', icon: <ThunderboltOutlined />, label: 'Flink批任务' },
+        { key: 'FLINK_BATCH', icon: <ThunderboltOutlined />, label: 'FlinkSQL 批任务' },
         { key: 'SHELL', icon: <CodeOutlined />, label: 'Shell' },
         { key: 'PYTHON', icon: <CodeOutlined />, label: 'Python' },
         { key: 'WORKFLOW', icon: <ProjectOutlined />, label: '工作流' },
@@ -1041,7 +1057,7 @@ const DataWorkWorkspace: React.FC = () => {
     };
 
     const currentStatus = statusMeta[activeTab.task.status] || statusMeta.DRAFT;
-    const activeIsSqlNode = !!activeTab.task.nodeType?.endsWith('_SQL');
+    const activeIsSqlNode = isSqlNodeType(activeTab.task.nodeType);
 
     const toolbarButtons: ToolbarButton[] = [
         {
@@ -1051,6 +1067,7 @@ const DataWorkWorkspace: React.FC = () => {
             type: 'primary',
             loading: executing,
             onClick: () => handleExecute(activeIsSqlNode ? sqlEditorRef.current?.getExecuteSQL() : undefined),
+            disabled: isFlinkBatchSql(activeTab.task),
             tooltip: '临时运行当前任务内容',
         },
         {
@@ -1093,7 +1110,7 @@ const DataWorkWorkspace: React.FC = () => {
             label: activeTab.schedule.enabled ? '暂停调度' : '启用调度',
             icon: activeTab.schedule.enabled ? <PauseCircleOutlined /> : <ThunderboltOutlined />,
             loading: scheduleSyncing,
-            disabled: !activeTab.task.id || !activeTab.schedule.cronExpression,
+            disabled: !activeTab.task.id || !activeTab.schedule.cronExpression || isRealtimeFlinkSql(activeTab.task),
             onClick: handleToggleSchedule,
         },
         {
@@ -1206,7 +1223,7 @@ const DataWorkWorkspace: React.FC = () => {
                                             availableTables={availableTables}
                                             language={getEditorLanguage(activeTab.task.nodeType)}
                                             showRun={false}
-                                            showFormat={activeTab.task.nodeType?.endsWith('_SQL')}
+                                            showFormat={isSqlNodeType(activeTab.task.nodeType)}
                                         />
                                     </div>
                                 </div>
