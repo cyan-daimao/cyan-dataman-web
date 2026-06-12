@@ -106,14 +106,42 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
             taskManagerMemoryGb: 2,
             taskManagerCpu: 1,
             parallelism: 4,
+            jobManagerMemoryGb: 1,
+            jobManagerCpu: 0.5,
+            flinkVersion: 'v2_0',
+            upgradeMode: 'last-state',
+            state: 'running',
+            checkpointInterval: '60s',
+            checkpointTimeout: '600s',
+            checkpointMaxConcurrent: 1,
+            checkpointMinPause: '500ms',
+            checkpointMode: 'EXACTLY_ONCE',
+            stateBackendType: 'rocksdb',
+            flinkConfiguration: '' as string,
         };
         if (!task.configJson) return defaults;
         try {
             const config = JSON.parse(task.configJson);
+            const flink = config?.flink || {};
+            const extra = flink.flinkConfiguration && typeof flink.flinkConfiguration === 'object'
+                ? flink.flinkConfiguration
+                : {};
             return {
-                taskManagerMemoryGb: Number(config?.flink?.taskManagerMemoryGb) || defaults.taskManagerMemoryGb,
-                taskManagerCpu: Number(config?.flink?.taskManagerCpu) || defaults.taskManagerCpu,
-                parallelism: Number(config?.flink?.parallelism) || defaults.parallelism,
+                taskManagerMemoryGb: Number(flink.taskManagerMemoryGb) || defaults.taskManagerMemoryGb,
+                taskManagerCpu: Number(flink.taskManagerCpu) || defaults.taskManagerCpu,
+                parallelism: Number(flink.parallelism) || defaults.parallelism,
+                jobManagerMemoryGb: Number(flink.jobManagerMemoryGb) || defaults.jobManagerMemoryGb,
+                jobManagerCpu: Number(flink.jobManagerCpu) || defaults.jobManagerCpu,
+                flinkVersion: String(flink.flinkVersion || defaults.flinkVersion),
+                upgradeMode: String(flink.upgradeMode || defaults.upgradeMode),
+                state: String(flink.state || defaults.state),
+                checkpointInterval: String(flink.checkpointInterval || defaults.checkpointInterval),
+                checkpointTimeout: String(flink.checkpointTimeout || defaults.checkpointTimeout),
+                checkpointMaxConcurrent: Number(flink.checkpointMaxConcurrent) || defaults.checkpointMaxConcurrent,
+                checkpointMinPause: String(flink.checkpointMinPause || defaults.checkpointMinPause),
+                checkpointMode: String(flink.checkpointMode || defaults.checkpointMode),
+                stateBackendType: String(flink.stateBackendType || defaults.stateBackendType),
+                flinkConfiguration: Object.keys(extra).length > 0 ? JSON.stringify(extra, null, 2) : '',
             };
         } catch {
             return defaults;
@@ -126,11 +154,45 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
         } catch {
             current = {};
         }
-        const nextFlink = {
+        const merged = {
             ...parseFlinkConfig(),
             ...current.flink,
             ...patch,
         };
+        // 对 flinkConfiguration（自由 KV）字段做容错解析：JSON 字符串 → object，解析失败保留原样字符串以便用户修复
+        let extraConfiguration: Record<string, string> | undefined;
+        const rawExtra = merged.flinkConfiguration;
+        if (rawExtra && typeof rawExtra === 'string' && rawExtra.trim()) {
+            try {
+                const parsed = JSON.parse(rawExtra);
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                    extraConfiguration = Object.fromEntries(
+                        Object.entries(parsed).map(([k, v]) => [k, String(v)]),
+                    );
+                }
+            } catch {
+                // 解析失败：保留原始字符串到后端去（后端会忽略非对象），同时不破坏其它字段
+            }
+        }
+        const nextFlink: Record<string, any> = {
+            taskManagerMemoryGb: merged.taskManagerMemoryGb,
+            taskManagerCpu: merged.taskManagerCpu,
+            parallelism: merged.parallelism,
+            jobManagerMemoryGb: merged.jobManagerMemoryGb,
+            jobManagerCpu: merged.jobManagerCpu,
+            flinkVersion: merged.flinkVersion,
+            upgradeMode: merged.upgradeMode,
+            state: merged.state,
+            checkpointInterval: merged.checkpointInterval,
+            checkpointTimeout: merged.checkpointTimeout,
+            checkpointMaxConcurrent: merged.checkpointMaxConcurrent,
+            checkpointMinPause: merged.checkpointMinPause,
+            checkpointMode: merged.checkpointMode,
+            stateBackendType: merged.stateBackendType,
+        };
+        if (extraConfiguration && Object.keys(extraConfiguration).length > 0) {
+            nextFlink.flinkConfiguration = extraConfiguration;
+        }
         onTaskChange({
             configJson: JSON.stringify({
                 ...current,
@@ -381,6 +443,25 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                     </Form.Item>
                     {(task.nodeType === 'FLINK_SQL' || task.nodeType === 'FLINK_BATCH') && (
                         <>
+                            <Form.Item label="JobManager 内存（GB）">
+                                <InputNumber
+                                    min={1}
+                                    precision={0}
+                                    value={flinkConfig.jobManagerMemoryGb}
+                                    style={{ width: '100%' }}
+                                    onChange={(value) => updateFlinkConfig({ jobManagerMemoryGb: value || 1 })}
+                                />
+                            </Form.Item>
+                            <Form.Item label="JobManager CPU 核数">
+                                <InputNumber
+                                    min={0.1}
+                                    step={0.1}
+                                    precision={1}
+                                    value={flinkConfig.jobManagerCpu}
+                                    style={{ width: '100%' }}
+                                    onChange={(value) => updateFlinkConfig({ jobManagerCpu: value || 0.5 })}
+                                />
+                            </Form.Item>
                             <Form.Item label="TaskManager 内存（GB）">
                                 <InputNumber
                                     min={1}
@@ -409,6 +490,104 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                                     onChange={(value) => updateFlinkConfig({ parallelism: value || 1 })}
                                 />
                             </Form.Item>
+                            {task.nodeType === 'FLINK_SQL' && (
+                                <>
+                                    <Form.Item label="Flink 版本">
+                                        <Select
+                                            value={flinkConfig.flinkVersion}
+                                            onChange={(value) => updateFlinkConfig({ flinkVersion: value })}
+                                            options={[
+                                                { value: 'v2_0', label: 'v2_0' },
+                                                { value: 'v1_20', label: 'v1_20' },
+                                                { value: 'v1_19', label: 'v1_19' },
+                                                { value: 'v1_18', label: 'v1_18' },
+                                            ]}
+                                        />
+                                    </Form.Item>
+                                    <Form.Item label="升级模式">
+                                        <Select
+                                            value={flinkConfig.upgradeMode}
+                                            onChange={(value) => updateFlinkConfig({ upgradeMode: value })}
+                                            options={[
+                                                { value: 'last-state', label: 'last-state（默认）' },
+                                                { value: 'savepoint', label: 'savepoint' },
+                                                { value: 'stateless', label: 'stateless' },
+                                            ]}
+                                        />
+                                    </Form.Item>
+                                    <Form.Item label="期望状态">
+                                        <Select
+                                            value={flinkConfig.state}
+                                            onChange={(value) => updateFlinkConfig({ state: value })}
+                                            options={[
+                                                { value: 'running', label: 'running' },
+                                                { value: 'suspended', label: 'suspended' },
+                                            ]}
+                                        />
+                                    </Form.Item>
+                                    <Form.Item label="状态后端">
+                                        <Select
+                                            value={flinkConfig.stateBackendType}
+                                            onChange={(value) => updateFlinkConfig({ stateBackendType: value })}
+                                            options={[
+                                                { value: 'rocksdb', label: 'rocksdb' },
+                                                { value: 'hashmap', label: 'hashmap' },
+                                            ]}
+                                        />
+                                    </Form.Item>
+                                    <Form.Item label="Checkpoint 间隔">
+                                        <Input
+                                            value={flinkConfig.checkpointInterval}
+                                            onChange={(e) => updateFlinkConfig({ checkpointInterval: e.target.value })}
+                                            placeholder="60s"
+                                        />
+                                    </Form.Item>
+                                    <Form.Item label="Checkpoint 超时">
+                                        <Input
+                                            value={flinkConfig.checkpointTimeout}
+                                            onChange={(e) => updateFlinkConfig({ checkpointTimeout: e.target.value })}
+                                            placeholder="600s"
+                                        />
+                                    </Form.Item>
+                                    <Form.Item label="Checkpoint 最大并发">
+                                        <InputNumber
+                                            min={1}
+                                            precision={0}
+                                            value={flinkConfig.checkpointMaxConcurrent}
+                                            style={{ width: '100%' }}
+                                            onChange={(value) => updateFlinkConfig({ checkpointMaxConcurrent: value || 1 })}
+                                        />
+                                    </Form.Item>
+                                    <Form.Item label="Checkpoint 最小间隔">
+                                        <Input
+                                            value={flinkConfig.checkpointMinPause}
+                                            onChange={(e) => updateFlinkConfig({ checkpointMinPause: e.target.value })}
+                                            placeholder="500ms"
+                                        />
+                                    </Form.Item>
+                                    <Form.Item label="Checkpoint 模式">
+                                        <Select
+                                            value={flinkConfig.checkpointMode}
+                                            onChange={(value) => updateFlinkConfig({ checkpointMode: value })}
+                                            options={[
+                                                { value: 'EXACTLY_ONCE', label: 'EXACTLY_ONCE' },
+                                                { value: 'AT_LEAST_ONCE', label: 'AT_LEAST_ONCE' },
+                                            ]}
+                                        />
+                                    </Form.Item>
+                                    <Form.Item
+                                        label="自定义 flinkConfiguration"
+                                        extra={<span style={{ fontSize: 11, color: '#999' }}>JSON 对象，键值会与默认配置合并</span>}
+                                    >
+                                        <Input.TextArea
+                                            value={flinkConfig.flinkConfiguration}
+                                            rows={4}
+                                            placeholder={'{\n  "table.exec.source.idle-timeout": "30s"\n}'}
+                                            onChange={(e) => updateFlinkConfig({ flinkConfiguration: e.target.value })}
+                                        />
+                                    </Form.Item>
+                                </>
+                            )}
                         </>
                     )}
                     {(task.nodeType === 'SHELL' || task.nodeType === 'PYTHON') && (
