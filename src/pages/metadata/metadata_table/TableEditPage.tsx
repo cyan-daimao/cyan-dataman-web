@@ -6,6 +6,7 @@ import {
     Col,
     Form,
     Input,
+    InputNumber,
     message,
     Popconfirm,
     Row,
@@ -21,6 +22,7 @@ import {
     createMetadataTable,
     getMetadataTableById,
     MetadataTableDTO,
+    PartitionType,
     updateMetadataTable
 } from "@/api/MetadataTableAPI.ts";
 import {EmployeeDTO as EmployeeAPIDTO, listEmployees} from "../../../api/EmployeeApi";
@@ -35,6 +37,14 @@ export interface TableColumnField {
     comment: string; // 字段注释
     nullable: boolean; // 是否可为空
     secretLevel: string; // 字段密级
+}
+
+export interface TablePartitionField {
+    id: string; // 唯一标识，用于 Table 操作
+    columnName: string; // 分区字段
+    partitionType: PartitionType; // 分区类型
+    param?: number; // BUCKET/TRUNCATE 参数
+    sortOrder?: number; // 分区顺序
 }
 
 const {Title, Text} = Typography;
@@ -80,6 +90,19 @@ const ONLINE_STATUS_OPTIONS = [
     {value: "OFFLINE", label: "已下线"},
 ];
 
+// 分区类型选项
+const PARTITION_TYPE_OPTIONS: { value: PartitionType; label: string; needParam?: boolean }[] = [
+    {value: "IDENTITY", label: "原始字段"},
+    {value: "DAY", label: "按天"},
+    {value: "HOUR", label: "按小时"},
+    {value: "MONTH", label: "按月"},
+    {value: "YEAR", label: "按年"},
+    {value: "BUCKET", label: "分桶", needParam: true},
+    {value: "TRUNCATE", label: "截断", needParam: true},
+];
+
+const DATE_PARTITION_TYPES: PartitionType[] = ["DAY", "HOUR", "MONTH", "YEAR"];
+
 // 页面模式类型
 type PageMode = 'create' | 'edit' | 'import' | 'copy';
 
@@ -115,6 +138,8 @@ const TableEditPage: React.FC = () => {
 
     // 字段列表状态
     const [fields, setFields] = useState<TableColumnField[]>([]);
+    // 分区列表状态
+    const [partitions, setPartitions] = useState<TablePartitionField[]>([]);
     // 主题树数据
     const [subjectTreeData, setSubjectTreeData] = useState<SubjectDTO[]>([]);
     // 员工列表数据
@@ -328,6 +353,19 @@ const TableEditPage: React.FC = () => {
                     })),
                 );
             }
+            if (initialData.table?.partitions) {
+                setPartitions(
+                    initialData.table.partitions.map((partition, index) => ({
+                        id: `partition_${index}_${Date.now()}`,
+                        columnName: partition.columnName,
+                        partitionType: partition.partitionType,
+                        param: partition.param,
+                        sortOrder: partition.sortOrder ?? index,
+                    })),
+                );
+            } else {
+                setPartitions([]);
+            }
         }
     }, [pageLoading, initialData, subjectTreeData, mode]);
 
@@ -355,16 +393,94 @@ const TableEditPage: React.FC = () => {
 
     // 删除字段
     const deleteField = (id: string) => {
+        const target = fields.find((field) => field.id === id);
         setFields(fields.filter((field) => field.id !== id));
+        if (target?.name) {
+            setPartitions(partitions.filter((partition) => partition.columnName !== target.name));
+        }
     };
 
     // 编辑字段属性
     const updateField = (id: string, key: keyof TableColumnField, value: any) => {
+        const oldField = fields.find((field) => field.id === id);
         setFields(
             fields.map((field) =>
                 field.id === id ? {...field, [key]: value} : field,
             ),
         );
+        if (key === "name" && oldField?.name) {
+            setPartitions(partitions.map((partition) =>
+                partition.columnName === oldField.name ? {...partition, columnName: value} : partition
+            ));
+        }
+    };
+
+    // 新增分区
+    const addPartition = () => {
+        const firstField = fields[0]?.name || "";
+        const newPartition: TablePartitionField = {
+            id: `partition_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+            columnName: firstField,
+            partitionType: "IDENTITY",
+            sortOrder: partitions.length,
+        };
+        setPartitions([...partitions, newPartition]);
+    };
+
+    // 删除分区
+    const deletePartition = (id: string) => {
+        setPartitions(partitions.filter((partition) => partition.id !== id));
+    };
+
+    // 编辑分区属性
+    const updatePartition = (id: string, key: keyof TablePartitionField, value: any) => {
+        setPartitions(partitions.map((partition) => {
+            if (partition.id !== id) {
+                return partition;
+            }
+            const next = {...partition, [key]: value};
+            if (key === "partitionType" && !["BUCKET", "TRUNCATE"].includes(value)) {
+                next.param = undefined;
+            }
+            return next;
+        }));
+    };
+
+    // 获取分区类型选项
+    const getPartitionTypeOptions = (columnName: string) => {
+        const field = fields.find((item) => item.name === columnName);
+        const isDateField = ["DATE", "TIMESTAMP", "TIMESTAMP_TZ", "TIME"].includes(field?.type || "");
+        if (isDateField) {
+            return PARTITION_TYPE_OPTIONS;
+        }
+        return PARTITION_TYPE_OPTIONS.filter((option) => !DATE_PARTITION_TYPES.includes(option.value));
+    };
+
+    // 校验分区配置
+    const validatePartitions = () => {
+        const fieldNames = new Set(fields.map((field) => field.name).filter(Boolean));
+        const partitionKeys = new Set<string>();
+        for (const partition of partitions) {
+            if (!partition.columnName) {
+                message.warning("存在未选择字段的分区，请完善！");
+                return false;
+            }
+            if (!fieldNames.has(partition.columnName)) {
+                message.warning(`分区字段【${partition.columnName}】不存在，请修改！`);
+                return false;
+            }
+            const key = `${partition.partitionType}:${partition.columnName}`;
+            if (partitionKeys.has(key)) {
+                message.warning(`分区配置【${partition.partitionType}(${partition.columnName})】重复，请修改！`);
+                return false;
+            }
+            partitionKeys.add(key);
+            if (["BUCKET", "TRUNCATE"].includes(partition.partitionType) && (!partition.param || partition.param <= 0)) {
+                message.warning(`${partition.partitionType} 分区参数必须为正整数！`);
+                return false;
+            }
+        }
+        return true;
     };
 
     // 表单提交
@@ -396,6 +512,11 @@ const TableEditPage: React.FC = () => {
                 nameSet.add(field.name);
             }
 
+            if (mode !== 'edit' && !validatePartitions()) {
+                setLoading(false);
+                return;
+            }
+
             // 构建 TableValObj
             const tableValObj = {
                 catalog: formValues.catalog || "iceberg",
@@ -412,6 +533,12 @@ const TableEditPage: React.FC = () => {
                     defaultValue: undefined,
                 })),
                 indexes: [],
+                partitions: mode === 'edit' ? undefined : partitions.map((partition, index) => ({
+                    columnName: partition.columnName,
+                    partitionType: partition.partitionType,
+                    param: ["BUCKET", "TRUNCATE"].includes(partition.partitionType) ? partition.param : undefined,
+                    sortOrder: index,
+                })),
             };
 
             // 构建 MetadataTableCmd
@@ -536,6 +663,101 @@ const TableEditPage: React.FC = () => {
                 <Popconfirm
                     title="确定删除该字段吗？"
                     onConfirm={() => deleteField(record.id)}
+                    okText="是"
+                    cancelText="否"
+                >
+                    <Text type="danger" style={{cursor: 'pointer'}}>删除</Text>
+                </Popconfirm>
+            ),
+        },
+    ];
+
+    // 分区列表列配置
+    const partitionColumns: TableProps<TablePartitionField>["columns"] = [
+        {
+            title: "分区字段",
+            dataIndex: "columnName",
+            key: "columnName",
+            width: 220,
+            render: (text, record) => mode === 'edit' ? (
+                <Text>{text || '-'}</Text>
+            ) : (
+                <Select
+                    value={text || undefined}
+                    placeholder="请选择字段"
+                    style={{width: 200}}
+                    onChange={(value) => updatePartition(record.id, "columnName", value)}
+                    options={fields.map((field) => ({
+                        label: `${field.name || '未命名字段'} (${field.type})`,
+                        value: field.name,
+                        disabled: !field.name,
+                    }))}
+                />
+            ),
+        },
+        {
+            title: "分区类型",
+            dataIndex: "partitionType",
+            key: "partitionType",
+            width: 180,
+            render: (text, record) => mode === 'edit' ? (
+                <Text>{PARTITION_TYPE_OPTIONS.find((option) => option.value === text)?.label || text}</Text>
+            ) : (
+                <Select
+                    value={text}
+                    style={{width: 150}}
+                    onChange={(value) => updatePartition(record.id, "partitionType", value)}
+                    options={getPartitionTypeOptions(record.columnName)}
+                />
+            ),
+        },
+        {
+            title: "参数",
+            dataIndex: "param",
+            key: "param",
+            width: 160,
+            render: (text, record) => {
+                const needParam = ["BUCKET", "TRUNCATE"].includes(record.partitionType);
+                if (mode === 'edit') {
+                    return <Text>{needParam ? text || '-' : '-'}</Text>;
+                }
+                return (
+                    <InputNumber
+                        min={1}
+                        precision={0}
+                        disabled={!needParam}
+                        value={needParam ? text : undefined}
+                        placeholder={needParam ? (record.partitionType === "BUCKET" ? "桶数" : "截断长度") : "无需参数"}
+                        style={{width: 130}}
+                        onChange={(value) => updatePartition(record.id, "param", value || undefined)}
+                    />
+                );
+            },
+        },
+        {
+            title: "说明",
+            key: "description",
+            render: (_, record) => {
+                if (record.partitionType === "BUCKET") {
+                    return <Text type="secondary">按字段哈希分桶，参数为桶数</Text>;
+                }
+                if (record.partitionType === "TRUNCATE") {
+                    return <Text type="secondary">按字段值截断，参数为截断长度</Text>;
+                }
+                if (DATE_PARTITION_TYPES.includes(record.partitionType)) {
+                    return <Text type="secondary">适用于日期/时间字段</Text>;
+                }
+                return <Text type="secondary">按字段原值分区</Text>;
+            },
+        },
+        {
+            title: "操作",
+            key: "action",
+            width: 80,
+            render: (_, record) => mode === 'edit' ? null : (
+                <Popconfirm
+                    title="确定删除该分区吗？"
+                    onConfirm={() => deletePartition(record.id)}
                     okText="是"
                     cancelText="否"
                 >
@@ -736,6 +958,39 @@ const TableEditPage: React.FC = () => {
                     ) : (
                         <div style={{textAlign: "center", padding: 40, color: "#999"}}>
                             暂无字段，请点击「新增字段」添加
+                        </div>
+                    )}
+                </Card>
+
+                {/* 分区配置 */}
+                <Card
+                    title={
+                        <Space>
+                            <span>分区配置</span>
+                            {mode !== 'edit' && (
+                                <Button type="dashed" size="small" onClick={addPartition} disabled={fields.length === 0}>
+                                    + 新增分区
+                                </Button>
+                            )}
+                        </Space>
+                    }
+                    size="small"
+                    style={{marginTop: 16}}
+                    extra={mode === 'edit' ? <Text type="secondary">已有表分区仅展示，本次不支持修改</Text> : <Text type="secondary">可选，不配置则创建非分区表</Text>}
+                >
+                    {partitions.length > 0 ? (
+                        <Table
+                            dataSource={partitions}
+                            columns={partitionColumns}
+                            rowKey="id"
+                            size="small"
+                            pagination={false}
+                            scroll={{x: 'max-content'}}
+                            bordered
+                        />
+                    ) : (
+                        <div style={{textAlign: "center", padding: 32, color: "#999"}}>
+                            未设置分区
                         </div>
                     )}
                 </Card>

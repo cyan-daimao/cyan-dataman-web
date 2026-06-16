@@ -21,6 +21,17 @@ export interface IndexVO {
     fieldNames: string[];
 }
 
+// 分区类型
+export type PartitionType = 'IDENTITY' | 'DAY' | 'HOUR' | 'MONTH' | 'YEAR' | 'BUCKET' | 'TRUNCATE';
+
+// 分区值对象
+export interface PartitionVO {
+    columnName: string;
+    partitionType: PartitionType;
+    param?: number;
+    sortOrder?: number;
+}
+
 // 表结构值对象
 export interface TableVO {
     catalog: string;
@@ -29,6 +40,7 @@ export interface TableVO {
     comment: string;
     columns: ColumnVO[];
     indexes?: IndexVO[];
+    partitions?: PartitionVO[];
 }
 
 // 元数据表 DTO

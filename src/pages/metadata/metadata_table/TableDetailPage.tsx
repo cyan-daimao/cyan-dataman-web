@@ -15,7 +15,7 @@ import {
     DatabaseOutlined,
     EyeOutlined,
     FileTextOutlined,
-    LinkOutlined,
+    LinkOutlined, PartitionOutlined,
     SafetyOutlined,
     TableOutlined
 } from "@ant-design/icons";
@@ -31,6 +31,7 @@ import ScheduleInfo from "./detail/AsyncJob.tsx";
 import DataPreview from "./detail/DataPreview";
 import Snapshot from "./detail/Snapshot";
 import TableRelations from "./detail/TableRelations";
+import PartitionInfo from "./detail/PartitionInfo";
 
 const {Title} = Typography;
 
@@ -105,6 +106,16 @@ const TableDetailPage: React.FC = () => {
                 </span>
             ),
             children: <FieldInfo columns={tableData?.table?.columns}/>,
+        },
+        {
+            key: 'partitions',
+            label: (
+                <span>
+                    <PartitionOutlined/>
+                    分区信息
+                </span>
+            ),
+            children: <PartitionInfo partitions={tableData?.table?.partitions}/>,
         },
         {
             key: 'preview',
